@@ -80,7 +80,7 @@ open_time_position = 0
 open_price_position = 0
 close_time_order = 0
 close_time_position = 0
-balance = 1
+equity = 1
 start_balance = 1
 money_day = 0
 percent_day = 0
@@ -107,95 +107,50 @@ for gg in rows1:
     activations.append([gg[7], gg[9]])
 rows1 = rows2
 
-
-# блоки функции
-def block_1(indicator, direction, change, last_ind):
+# проверка условий блока
+def check_block_condition(indicator, direction, change, last_ind, db_position):
     if direction == 'long':
-        ind_oper_1 = rows1[0][0]['indicator_1']['value'].split(' ')[0]
-        ind_value_1 = float(rows1[0][0]['indicator_1']['value'].split(' ')[1])
-        side_1 = rows1[0][0]['position_action']['direction']
+        ind_oper = db_position[0]['indicator_1']['value'].split(' ')[0]
+        ind_value = float(db_position[0]['indicator_1']['value'].split(' ')[1])
+        #side_1 = rows1[0][0]['position_action']['direction']
     else:
-        ind_oper_1 = rows1[0][1]['indicator_1']['value'].split(' ')[0]
-        ind_value_1 = float(rows1[0][1]['indicator_1']['value'].split(' ')[1])
-        side_1 = rows1[0][1]['position_action']['direction']
+        ind_oper = db_position[1]['indicator_1']['value'].split(' ')[0]
+        ind_value = float(db_position[1]['indicator_1']['value'].split(' ')[1])
+        #side_1 = rows1[0][0]['position_action']['direction']
     if change == 'more_than_previous':
         if indicator > last_ind:
-            if ind_oper_1 == '>=':
-                if indicator >= ind_value_1:
+            if ind_oper == '>=':
+                if indicator >= ind_value:
                     return True
-            if ind_oper_1 == '<=':
-                if indicator <= ind_value_1:
+            if ind_oper == '<=':
+                if indicator <= ind_value:
                     return True
-            if ind_oper_1 == '<':
-                if indicator < ind_value_1:
+            if ind_oper == '<':
+                if indicator < ind_value:
                     return True
-            if ind_oper_1 == '>':
-                if indicator > ind_value_1:
+            if ind_oper == '>':
+                if indicator > ind_value:
                     return True
-            if ind_oper_1 == '=':
-                if indicator == ind_value_1:
+            if ind_oper == '=':
+                if indicator == ind_value:
                     return True
     else:
         if indicator < last_ind:
-            if ind_oper_1 == '>=':
-                if indicator >= ind_value_1:
+            if ind_oper == '>=':
+                if indicator >= ind_value:
                     return True
-            if ind_oper_1 == '<=':
-                if indicator <= ind_value_1:
+            if ind_oper == '<=':
+                if indicator <= ind_value:
                     return True
-            if ind_oper_1 == '<':
-                if indicator < ind_value_1:
+            if ind_oper == '<':
+                if indicator < ind_value:
                     return True
-            if ind_oper_1 == '>':
-                if indicator > ind_value_1:
+            if ind_oper == '>':
+                if indicator > ind_value:
                     return True
-            if ind_oper_1 == '=':
-                if indicator == ind_value_1:
+            if ind_oper == '=':
+                if indicator == ind_value:
                     return True
-    return False
-
-def block_2(indicator, direction, change, last_ind):
-    if direction == 'long':
-        ind_oper_2 = rows1[1][0]['indicator_1']['value'].split(' ')[0]
-        ind_value_2 = float(rows1[1][0]['indicator_1']['value'].split(' ')[1])
-    else:
-        ind_oper_2 = rows1[1][1]['indicator_1']['value'].split(' ')[0]
-        ind_value_2 = float(rows1[1][1]['indicator_1']['value'].split(' ')[1])
-    if change == 'more_than_previous':
-        if indicator > last_ind:
-            if ind_oper_2 == '<=':
-                if indicator <= ind_value_2:
-                    return True
-            if ind_oper_2 == '>=':
-                if indicator >= ind_value_2:
-                    return True
-            if ind_oper_2 == '=':
-                if indicator == ind_value_2:
-                    return True
-            if ind_oper_2 == '<':
-                if indicator < ind_value_2:
-                    return True
-            if ind_oper_2 == '>':
-                if indicator > ind_value_2:
-                    return True
-    else:
-        if indicator < last_ind:
-            if ind_oper_2 == '<=':
-                if indicator <= ind_value_2:
-                    return True
-            if ind_oper_2 == '>=':
-                if indicator >= ind_value_2:
-                    return True
-            if ind_oper_2 == '=':
-                if indicator == ind_value_2:
-                    return True
-            if ind_oper_2 == '<':
-                if indicator < ind_value_2:
-                    return True
-            if ind_oper_2 == '>':
-                if indicator > ind_value_2:
-                    return True
-
     return False
 
 for cc in back_price_1:
@@ -227,7 +182,7 @@ for cc in back_price_1:
             direction = 'long'
             change = rows1[0][0]['indicator_1']['change']
             order_type = rows1[0][0]['position_action']['order_type']
-            if block_1(indicator1, direction, change, last_ind):
+            if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
                 print('Открытие ордера')
                 open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                 stat = 'open_1_1'
@@ -243,7 +198,7 @@ for cc in back_price_1:
             direction = 'short'
             change = rows1[0][1]['indicator_1']['change']
             order_type = rows1[0][1]['position_action']['order_type']
-            if block_1(indicator1, direction, change, last_ind):
+            if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
                 print('Открытие ордера')
                 open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                 stat = 'open_1_1'
@@ -389,7 +344,7 @@ for cc in back_price_1:
                         continue
                     change = rows1[1][1]['indicator_1']['change']
                 # print(cc['time'])
-                if block_2(indicator2, direction, change, last_ind):
+                if check_block_condition(indicator2, direction, change, last_ind, rows1[1]):
                     print('Закрытие')
                     block_num = 1
                     stat = 'close_1'
@@ -434,8 +389,8 @@ for cc in back_price_1:
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
             money_day = money_day + money_deal
-            percent_deal = (money_deal / balance) * 100
-            balance = balance + money_deal
+            percent_deal = (money_deal / equity) * 100
+            equity = equity + money_deal
             percent_day = (money_day / start_balance) * 100
             min_percent_list.append(percent_day)
             min_balance_percent = min(min_percent_list)
@@ -446,13 +401,13 @@ for cc in back_price_1:
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
                 id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position, order_type_2,
                 close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal, percent_deal,
-                balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
+                equity, money_day, percent_day, min_balance_percent, 0, 0, block_id)
             try:
                 cursor.execute(insert_stmt, data)
                 cnx.commit()
@@ -512,8 +467,8 @@ for cc in back_price_1:
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
             money_day = money_day + money_deal
-            percent_deal = (money_deal / balance) * 100
-            balance = balance + money_deal
+            percent_deal = (money_deal / equity) * 100
+            equity = equity + money_deal
             percent_day = (money_day / start_balance) * 100
             min_percent_list.append(percent_day)
             min_balance_percent = min(min_percent_list)
@@ -524,13 +479,13 @@ for cc in back_price_1:
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
                 id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position, order_type_2,
                 close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal, percent_deal,
-                balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
+                equity, money_day, percent_day, min_balance_percent, 0, 0, block_id)
             cursor.execute(insert_stmt, data)
             cnx.commit()
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
