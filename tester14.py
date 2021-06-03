@@ -1,6 +1,6 @@
 import mysql.connector
 import json
-import datetime
+from datetime import datetime, timedelta
 import os
 import sys
 import ast
@@ -40,6 +40,7 @@ for row in rows:
     dict1 = {}
     for ss in keys:
         dict1[ss] = row[keys.index(ss)]
+    #print(row[1])
     back_price_1.append(dict1)
 print(len(back_price_1))
 table2 = data['table_result']
@@ -62,7 +63,7 @@ for row in rows1:
     uslovie = row[7]
     algo.append(uslovie)
 
-
+old_date = 0
 stat = '0'
 price = ''
 lot = ''
@@ -78,6 +79,7 @@ proboi = 0
 proboi_line_proc = 0
 proboi_status = 0
 exit_price_price = False
+all_sum = 0
 order = []
 fee = 0
 old_proboi = 0
@@ -96,6 +98,7 @@ money_day = 0
 percent_day = 0
 min_percent_list = []
 min_balance_percent = 0
+#min_equity_percent = 0
 proboi_stup = 0
 new_breakdown_sum = 1
 proboi_end = 0
@@ -121,6 +124,9 @@ order_type_1 = 0
 order_type_2 = 0
 cancel_status = ''
 open_price_order = 0
+len_strings_value = 20
+no_price_timeout = 30
+time_price_timeout = 0
 for gg in rows1:
     #try:
     rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
@@ -182,9 +188,6 @@ def block_2(indicator, direction, change, last_ind):
     else:
         ind_oper_2 = rows1[1][1]['indicator_1']['value'].split(' ')[0]
         ind_value_2 = float(rows1[1][1]['indicator_1']['value'].split(' ')[1])
-    #print(change)
-    #print(str(indicator) + ' ' + str(ind_oper_2) + ' ' + str(ind_value_2))
-    #print('previous ' + str(last_ind))
     if change == 'more_than_previous':
         if indicator > last_ind:
             if ind_oper_2 == '<=':
@@ -647,21 +650,68 @@ for cc in back_price_1:
 
     # настройка первого дня
     if back_price_1.index(cc) == 0:
+        time_price_timeout = cc['time'] + timedelta(minutes=no_price_timeout)
+        old_date = cc['time']
         id_day = 1
         day = str(cc['time']).split(' ')[0].split('-')[2]
         ids = 1
     else:
         ids = ids + 1
     # настройка дня
-
     if str(cc['time']).split(' ')[0].split('-')[2] > day:
-        day = str(cc['time']).split(' ')[0].split('-')[2]
+        time_price_timeout = cc['time'] + timedelta(minutes=no_price_timeout)
         money_result = money_result + money_day
         money_day = 0
         percent_day = 0
         min_percent_list.clear()
         min_balance_percent = 0
+        id_day = id_day + 1
+        balance = start_balance
+        day = str(cc['time']).split(' ')[0].split('-')[2]
+    # проверка no price timeout
+    if cc['time'] <= time_price_timeout:
+        continue
+    # тех_работы
+    if cc['time'] > old_date:
+        delta = cc['time'] - old_date
+        #print(cc['time'])
+        #print('DELTA ' + str(delta))
+        #print(delta)
+        if ',' in str(delta):
+            days = str(delta).split(', ')[0].split(' ')[0]
+            hours = str(delta).split(', ')[1].split(':')[0]
+            minutes = str(delta).split(', ')[1].split(':')[1]
+            len_strings = int(minutes) + int(hours)*60 + int(days)*24*60
+        else:
+            hours = str(delta).split(':')[0]
+            minutes = str(delta).split(':')[1]
+            len_strings = int(minutes) + int(hours) * 60
+        #print("LENSTR " + str(len_strings))
+        if len_strings >= len_strings_value:
+            stat = 'close_by_empty'
+        old_date = cc['time']
 
+
+    # закрытие сделок
+    if stat == 'close_by_empty':
+        order = []
+        close_candle = 0
+        open_time_order = 0
+        open_time_position = 0
+        open_price_order = 0
+        open_price_position = 0
+        close_time_order = 0
+        close_time_position = 0
+        points_deal = 0
+        res = ''
+        fee = 0
+        money_deal = 0
+        stat = '0'
+        block_id = ''
+        ids = ids + 1
+        stat = '0'
+        block_num = 0
+        continue
     # первый блок активация
     if stat == '0':
         if '0' in activations[0][0].split(','):
@@ -721,7 +771,7 @@ for cc in back_price_1:
                 order.append(order_type)
                 order.append(cc['time'])
                 stat = 'open_2_2'
-                block_id = '1'
+                block_id = '1_' + str(direction)
                 print('Открытие позиции 1')
                 continue
             if order_type == 'market':
@@ -747,7 +797,7 @@ for cc in back_price_1:
                 order.append(order_type)
                 order.append(cc['time'])
                 stat = 'open_2_2'
-                block_id = '1'
+                block_id = '1_' + str(direction)
                 print('Открытие позиции 1')
                 continue
         if direction == 'short':
@@ -776,7 +826,7 @@ for cc in back_price_1:
                 order.append(order_type)
                 order.append(cc['time'])
                 stat = 'open_2_2'
-                block_id = '1'
+                block_id = '1_' + str(direction)
                 print('Открытие позиции 1')
                 continue
             if order_type == 'market':
@@ -804,8 +854,8 @@ for cc in back_price_1:
                 order.append(order_type)
                 order.append(cc['time'])
                 stat = 'open_2_2'
-                block_id = '1'
-                print('Открытие позиции 14')
+                block_id = '1_' + str(direction)
+                print('Открытие позиции 1')
                 continue
         # отмена на открытие
         for block in cancel_status:
@@ -1195,7 +1245,7 @@ for cc in back_price_1:
                     block_num = 1
                     stat = 'close_1'
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
-                    block_id = block_id + ',2'
+                    block_id = block_id + ',2_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1214,7 +1264,7 @@ for cc in back_price_1:
                     block_num = 2
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',3'
+                    block_id = block_id + ',3_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1233,7 +1283,7 @@ for cc in back_price_1:
                     block_num = 3
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',4'
+                    block_id = block_id + ',4_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1299,7 +1349,7 @@ for cc in back_price_1:
                         print('Продолжение тренда открытие')
                         stat = 'close_open_1'
                         block_num = 4
-                        block_id = block_id + ',5'
+                        block_id = block_id + ',5_' + str(direction)
                         close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                         vh_vih_stat = 0
 
@@ -1307,6 +1357,7 @@ for cc in back_price_1:
                         proboi_stup = 0
                         old_proboi = 0
                         exit_price_price = False
+                        break
             # продолжение тренда закрытие
             if block == '6_long' or block == '6_short':
                 if vh_vih_stat == 0:
@@ -1355,7 +1406,7 @@ for cc in back_price_1:
                         print('Продолжение тренда закрытие 2')
                         stat = 'close_2'
                         block_num = 5
-                        block_id = block_id + ',5'
+                        block_id = block_id + ',6_' + str(direction)
                         close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                         vh_vih_stat = 0
 
@@ -1363,6 +1414,7 @@ for cc in back_price_1:
                         proboi_stup = 0
                         old_proboi = 0
                         exit_price_price = False
+                        break
             # продолжение тренда безубыток
             if block == '7_long' or block == '7_short':
                 if direction == 'long':
@@ -1375,7 +1427,7 @@ for cc in back_price_1:
                     block_num = 6
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
                     stat = 'close_1'
-                    block_id = block_id + ',7'
+                    block_id = block_id + ',7_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1407,7 +1459,7 @@ for cc in back_price_1:
                     block_num = 7
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
                     stat = 'close_2'
-                    block_id = block_id + ',8'
+                    block_id = block_id + ',8_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1441,7 +1493,7 @@ for cc in back_price_1:
                     stat = 'close_open_2'
                     close_candle = block_6_1(cc, proboi, direction, 9, side)
                     close_time_order = cc['time']
-                    block_id = block_id + ',10'
+                    block_id = block_id + ',10_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1496,7 +1548,7 @@ for cc in back_price_1:
 
                     proboi_status = 0
                     close_time_order = cc['time']
-                    block_id = block_id + ',9'
+                    block_id = block_id + ',9_' + str(direction)
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1561,7 +1613,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1577,7 +1629,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1593,7 +1645,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1610,7 +1662,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1626,7 +1678,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1642,7 +1694,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12'
+                                block_id = block_id + ',12_' + str(direction)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1664,7 +1716,7 @@ for cc in back_price_1:
                     block_num = 12
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',13'
+                    block_id = block_id + ',13_' + str(direction)
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1682,13 +1734,15 @@ for cc in back_price_1:
                     block_num = 13
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',14'
+                    block_id = block_id + ',14_' + str(direction)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
                     exit_price_price = False
                     break
+            #if block == '15_short' or block == '15_long':
+
     if stat == 'close_2':
         if direction == 'long':
             close_candle = float(cc['close'])
@@ -1720,6 +1774,7 @@ for cc in back_price_1:
                     squeeze = squeeze + squeeze
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
+            all_sum = all_sum + money_deal
             money_day = money_day + money_deal
             percent_deal = (money_deal / balance) * 100
             balance = balance + money_deal
@@ -1732,10 +1787,10 @@ for cc in back_price_1:
                 close_time_position = close_time_order
 
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
-                2]:
+                2] and id_day!=1:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
@@ -1746,7 +1801,7 @@ for cc in back_price_1:
             cursor.execute(insert_stmt, data)
             cnx.commit()
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
-                2]:
+                2] and id_day!=1:
                 id_day = id_day + 1
             order = []
             close_candle = 0
@@ -1795,6 +1850,8 @@ for cc in back_price_1:
                     squeeze = squeeze + squeeze
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
+
+            all_sum = all_sum + money_deal
             money_day = money_day + money_deal
             percent_deal = (money_deal / balance) * 100
             balance = balance + money_deal
@@ -1807,10 +1864,10 @@ for cc in back_price_1:
                 close_time_position = close_time_order
             # print(close_time_position)
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
-                2]:
+                2] and id_day!=1:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
@@ -1821,7 +1878,7 @@ for cc in back_price_1:
             cursor.execute(insert_stmt, data)
             cnx.commit()
             if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
-                2]:
+                2] and id_day!=1:
                 id_day = id_day + 1
             order = []
             close_candle = 0
@@ -1872,6 +1929,7 @@ for cc in back_price_1:
                     squeeze = squeeze + squeeze
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
+            all_sum = all_sum + money_deal
             money_day = money_day + money_deal
             percent_deal = (money_deal / balance) * 100
             balance = balance + money_deal
@@ -1882,10 +1940,10 @@ for cc in back_price_1:
                 close_time_position = back_price_1[back_price_1.index(cc)+1]['time']
             else:
                 close_time_position = close_time_order
-            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
@@ -1898,7 +1956,7 @@ for cc in back_price_1:
             except Exception as e:
                 print(e)
 
-            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
                 id_day = id_day + 1
             order = []
             close_candle = 0
@@ -1982,6 +2040,7 @@ for cc in back_price_1:
                     squeeze = squeeze + squeeze
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
+            all_sum = all_sum + money_deal
             money_day = money_day + money_deal
             percent_deal = (money_deal / balance) * 100
             balance = balance + money_deal
@@ -1993,10 +2052,10 @@ for cc in back_price_1:
             else:
                 close_time_position = close_time_order
             #print(close_time_position)
-            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
                 id_day = id_day - 1
             insert_stmt = (
-                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
                 "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
             )
             data = (
@@ -2005,7 +2064,7 @@ for cc in back_price_1:
                 balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
             cursor.execute(insert_stmt, data)
             cnx.commit()
-            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
                 id_day = id_day + 1
             order = []
             close_candle = 0
@@ -2022,7 +2081,6 @@ for cc in back_price_1:
             stat = '0'
             block_id = ''
             ids = ids + 1
-            stat = '0'
             block_num = 0
             continue
             if '0' in activations[0][0].split(','):
@@ -2115,6 +2173,7 @@ for cc in back_price_1:
             money_deal = (points_deal / close_candle) * (lot / price) - fee
         except Exception as e:
             print(e)
+        all_sum = all_sum + money_deal
         money_day = money_day + money_deal
         percent_deal = (money_deal / balance) * 100
         balance = balance + money_deal
@@ -2122,17 +2181,17 @@ for cc in back_price_1:
         min_percent_list.append(percent_day)
         min_balance_percent = min(min_percent_list)
         close_time_position = back_price_1[back_price_1.index(cc)+1]['time']
-        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
             id_day = id_day - 1
         insert_stmt = (
-            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         )
         data = (id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position, order_type_2,close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal,percent_deal,balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
         cursor.execute(insert_stmt, data)
         cnx.commit()
 
-        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
             id_day = id_day + 1
         order = []
         close_candle = 0
@@ -2242,6 +2301,7 @@ for cc in back_price_1:
                 squeeze = squeeze + squeeze
         fee = 0
         money_deal = (points_deal / close_candle) * (lot / price) - fee
+        all_sum = all_sum + money_deal
         money_day = money_day + money_deal
         percent_deal = (money_deal / balance) * 100
         balance = balance + money_deal
@@ -2249,10 +2309,11 @@ for cc in back_price_1:
         min_percent_list.append(percent_day)
         min_balance_percent = min(min_percent_list)
         close_time_position = cc['time']
-        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
             id_day = id_day - 1
+        #print('IDDAY in base ' + str(id_day))
         insert_stmt = (
-            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, balance, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
+            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         )
         data = (
@@ -2262,8 +2323,9 @@ for cc in back_price_1:
             balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
         cursor.execute(insert_stmt, data)
         cnx.commit()
-        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2]:
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
             id_day = id_day + 1
+        #print('IDDAY after ' + str(id_day))
         order = []
         close_candle1 = close_candle
         close_candle = 0
@@ -2323,15 +2385,16 @@ for cc in back_price_1:
         continue
 
 
-
-profitability = (money_result/start_balance) - 1
+print(money_result)
+print(all_sum)
+profitability = all_sum*100#(all_sum/start_balance)*100# - 1
 all_orders = profit_sum + loss_sum
 profit_percent = profit_sum/(all_orders/100)
 loss_percent = loss_sum/(all_orders/100)
 insert_stmt = ("INSERT INTO back_positions_sum(profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)"
 "VALUES (%s, %s, %s, %s, %s, %s)")
 
-data = (profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)
+data = (profitability, all_sum, profit_percent, profit_sum, loss_percent, loss_sum)
 cursor.execute(insert_stmt, data)
 cnx.commit()
 cnx.close()
