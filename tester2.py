@@ -112,11 +112,11 @@ def check_block_condition(indicator, direction, change, last_ind, db_position):
     if direction == 'long':
         ind_oper = db_position[0]['indicator_1']['value'].split(' ')[0]
         ind_value = float(db_position[0]['indicator_1']['value'].split(' ')[1])
-        #side_1 = rows1[0][0]['position_action']['direction']
+        ##side_1 = rows1[0][0]['position_action']['direction']
     else:
         ind_oper = db_position[1]['indicator_1']['value'].split(' ')[0]
         ind_value = float(db_position[1]['indicator_1']['value'].split(' ')[1])
-        #side_1 = rows1[0][0]['position_action']['direction']
+        ##side_1 = rows1[0][0]['position_action']['direction']
     if change == 'more_than_previous':
         if indicator > last_ind:
             if ind_oper == '>=':
@@ -153,6 +153,53 @@ def check_block_condition(indicator, direction, change, last_ind, db_position):
                     return True
     return False
 
+# первый блок активации
+def is_initialize():
+    
+    # глобальные переменные
+    global stat
+    global indicator1
+    global direction
+    global open_time_order
+    global order_type
+    global change
+
+    if stat != '0':
+        return False      
+    if '0' in activations[0][0].split(','):
+        indicator1 = cc['indicator_1' + '_' + rows1[0][0]['indicator_1']['setting']]
+        try:
+            last_ind = back_price_1[back_price_1.index(cc) - 1][
+                'indicator_1' + '_' + rows1[0][0]['indicator_1']['setting']]
+        except:
+            return True
+        direction = 'long'
+        change = rows1[0][0]['indicator_1']['change']
+        order_type = rows1[0][0]['position_action']['order_type']
+        if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
+            print('Открытие ордера')
+            open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
+            stat = 'open_1_1'
+            ##cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
+            return True
+    if '0' in activations[0][1].split(','):
+        indicator1 = cc['indicator_1' + '_' + rows1[0][1]['indicator_1']['setting']]
+        try:
+            last_ind = back_price_1[back_price_1.index(cc) - 1][
+                'indicator_1' + '_' + rows1[0][1]['indicator_1']['setting']]
+        except:
+            return True
+        direction = 'short'
+        change = rows1[0][1]['indicator_1']['change']
+        order_type = rows1[0][1]['position_action']['order_type']
+        if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
+            print('Открытие ордера')
+            open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
+            stat = 'open_1_1'
+            ##cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
+            return True
+    return False
+
 for cc in back_price_1:
     # настройка первого дня
     if back_price_1.index(cc) == 0:
@@ -170,46 +217,15 @@ for cc in back_price_1:
         percent_day = 0
         min_percent_list.clear()
         min_balance_percent = 0
-        # первый блок активация
-    if stat == '0':
-        if '0' in activations[0][0].split(','):
-            indicator1 = cc['indicator_1' + '_' + rows1[0][0]['indicator_1']['setting']]
-            try:
-                last_ind = back_price_1[back_price_1.index(cc) - 1][
-                    'indicator_1' + '_' + rows1[0][0]['indicator_1']['setting']]
-            except:
-                continue
-            direction = 'long'
-            change = rows1[0][0]['indicator_1']['change']
-            order_type = rows1[0][0]['position_action']['order_type']
-            if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
-                print('Открытие ордера')
-                open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-                stat = 'open_1_1'
-                cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
-                continue
-        if '0' in activations[0][1].split(','):
-            indicator1 = cc['indicator_1' + '_' + rows1[0][1]['indicator_1']['setting']]
-            try:
-                last_ind = back_price_1[back_price_1.index(cc) - 1][
-                    'indicator_1' + '_' + rows1[0][1]['indicator_1']['setting']]
-            except:
-                continue
-            direction = 'short'
-            change = rows1[0][1]['indicator_1']['change']
-            order_type = rows1[0][1]['position_action']['order_type']
-            if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
-                print('Открытие ордера')
-                open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-                stat = 'open_1_1'
-                cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
-                continue
+    # первый блок активация
+    if is_initialize():
+        continue
     # процесс первого открытия
     if stat == 'open_1_1':
         if direction == 'long':
             if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
                 open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
-                side_1 = rows1[0][0]['position_action']['direction']
+                ##side_1 = rows1[0][0]['position_action']['direction']
                 price_old = back_price_1[back_price_1.index(cc) - 1]['close']
                 try:
                     price_indent = rows1[0][0]['position_action']['price_indent']
@@ -235,7 +251,7 @@ for cc in back_price_1:
                 continue
             if order_type == 'market':
                 open_time_position = open_time_order
-                side_1 = rows1[0][0]['position_action']['direction']
+                ##side_1 = rows1[0][0]['position_action']['direction']
                 price_old = back_price_1[back_price_1.index(cc) - 1]['close']
                 try:
                     price_indent = rows1[0][0]['position_action']['price_indent']
@@ -262,7 +278,7 @@ for cc in back_price_1:
         if direction == 'short':
             if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
                 open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
-                side_1 = rows1[0][1]['position_action']['direction']
+                ##side_1 = rows1[0][1]['position_action']['direction']
                 price_old = back_price_1[back_price_1.index(cc) - 1]['close']
                 try:
                     price_indent = rows1[0][1]['position_action']['price_indent']
@@ -290,7 +306,7 @@ for cc in back_price_1:
                 continue
             if order_type == 'market':
                 open_time_position = open_time_order
-                side_1 = rows1[0][1]['position_action']['direction']
+                ##side_1 = rows1[0][1]['position_action']['direction']
                 price_old = back_price_1[back_price_1.index(cc) - 1]['close']
                 try:
                     price_indent = rows1[0][1]['position_action']['price_indent']
@@ -326,7 +342,7 @@ for cc in back_price_1:
                 if direction == 'long':
                     indicator2 = cc['indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
                     order_type_2 = rows1[1][0]['position_action']['order_type']
-                    cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
+                    ##cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
                     try:
                         last_ind = back_price_1[back_price_1.index(cc) - 1][
                             'indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
@@ -336,7 +352,7 @@ for cc in back_price_1:
                 else:
                     indicator2 = cc['indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
                     order_type_2 = rows1[1][1]['position_action']['order_type']
-                    cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
+                    ##cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
                     try:
                         last_ind = back_price_1[back_price_1.index(cc) - 1][
                             'indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
