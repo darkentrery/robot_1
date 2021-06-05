@@ -179,7 +179,7 @@ def is_initialize():
         if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
             print('Открытие ордера')
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            stat = 'open_1_1'
+            stat = 'order_is_opened'
             ##cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
     if '0' in activations[0][1].split(','):
@@ -195,10 +195,186 @@ def is_initialize():
         if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
             print('Открытие ордера')
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            stat = 'open_1_1'
+            stat = 'order_is_opened'
             ##cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
     return False
+
+def open_position(block_number):
+    global direction
+    global order_type
+    global open_price_order
+    global stat
+    global order
+    global lot
+    global block_id
+    global price
+    global lev
+    global leverage
+    global open_time_position
+    if direction == 'long':
+        if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
+            open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
+            ##side_1 = rows1[0][0]['position_action']['direction']
+            price_old = back_price_1[back_price_1.index(cc) - 1]['close']
+            try:
+                price_indent = rows1[block_number][0]['position_action']['price_indent']
+                price = float(price_old) - (float(price_old) / 100) * float(price_indent)
+            except:
+                price = float(price_old) - (float(price_old) / 100)
+            if open_price_order == 0:
+                open_price_order = price
+            leverage = rows1[block_number][0]['position_action']['leverage']
+            lot = (float(start_balance) * float(price)) * float(leverage)
+            lot = int(round(lot, -1))
+            direction = rows1[block_number][0]['position_action']['direction']
+            order_type = rows1[block_number][0]['position_action']['order_type']
+            ##order_type_1 = order_type
+            order.append(direction)
+            order.append(price)
+            order.append(lot)
+            order.append(order_type)
+            order.append(cc['time'])
+            stat = 'position_is_opened'
+            block_id = '1'
+            print('Открытие позиции')
+            return True
+        if order_type == 'market':
+            open_time_position = open_time_order
+            ##side_1 = rows1[0][0]['position_action']['direction']
+            price_old = back_price_1[back_price_1.index(cc) - 1]['close']
+            try:
+                price_indent = rows1[block_number][0]['position_action']['price_indent']
+                price = float(price_old) - (float(price_old) / 100) * float(price_indent)
+            except:
+                price = float(price_old)
+            if open_price_order == 0:
+                open_price_order = price
+            leverage = rows1[block_number][0]['position_action']['leverage']
+            lot = (float(start_balance) * float(price)) * float(leverage)
+            lot = int(round(lot, -1))
+            direction = rows1[block_number][0]['position_action']['direction']
+            order_type = rows1[block_number][0]['position_action']['order_type']
+            ##order_type_1 = order_type
+            order.append(direction)
+            order.append(price)
+            order.append(lot)
+            order.append(order_type)
+            order.append(cc['time'])
+            stat = 'position_is_opened'
+            block_id = '1'
+            print('Открытие позиции')
+            return True
+    if direction == 'short':
+        if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
+            open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
+            ##side_1 = rows1[0][1]['position_action']['direction']
+            price_old = back_price_1[back_price_1.index(cc) - 1]['close']
+            try:
+                price_indent = rows1[block_number][1]['position_action']['price_indent']
+                price = float(price_old) + (float(price_old) / 100) * float(price_indent)
+            except:
+                price = float(price_old)
+            if open_price_order == 0:
+                open_price_order = price
+            try:
+                leverage = rows1[block_number][1]['position_action']['leverage']
+            except:
+                leverage = 1
+            lot = (float(start_balance) * float(price)) * float(leverage)
+            lot = int(round(lot, -1))
+            direction = rows1[block_number][1]['position_action']['direction']
+            order_type = rows1[block_number][1]['position_action']['order_type']
+            order.append(direction)
+            order.append(price)
+            order.append(lot)
+            order.append(order_type)
+            order.append(cc['time'])
+            stat = 'position_is_opened'
+            block_id = '1'
+            print('Открытие позиции')
+            return True
+        if order_type == 'market':
+            open_time_position = open_time_order
+            ##side_1 = rows1[0][1]['position_action']['direction']
+            price_old = back_price_1[back_price_1.index(cc) - 1]['close']
+            try:
+                price_indent = rows1[block_number][1]['position_action']['price_indent']
+                price = float(price_old) + (float(price_old) / 100) * float(price_indent)
+            except:
+                price = float(price_old) + (float(price_old) / 100)
+            if open_price_order == 0:
+                open_price_order = price
+            try:
+                leverage = rows1[block_number][1]['position_action']['leverage']
+            except:
+                leverage = 1
+            lot = (float(start_balance) * float(price)) * float(leverage)
+            lot = int(round(lot, -1))
+            direction = rows1[block_number][1]['position_action']['direction']
+            order_type = rows1[block_number][1]['position_action']['order_type']
+            order.append(direction)
+            order.append(price)
+            order.append(lot)
+            order.append(order_type)
+            order.append(cc['time'])
+            stat = 'position_is_opened'
+            block_id = '1'
+            print('Открытие позиции')
+            return True
+    return False
+
+def close_position(block_number):
+    global direction
+    global block_id
+    global block_num
+    global stat
+    global order_type_2
+    global close_time_order
+    if direction == 'long':
+        activation_blocks = activations[block_number][0].split(',')
+    else:
+        activation_blocks = activations[block_number][1].split(',')
+    for ac_block in activation_blocks:
+        ac_block_parameters = ac_block.split('_')
+        if (len(ac_block_parameters)) < 2:
+            continue
+        ac_block_num = int(ac_block_parameters[0])
+        ac_block_direction = ac_block_parameters[1]
+        if ac_block_direction == 'long' and direction == 'long':
+            indicator2 = cc['indicator_1' + '_' + rows1[ac_block_num-1][0]['indicator_1']['setting']]
+            order_type_2 = rows1[ac_block_num-1][0]['position_action']['order_type']
+            ##cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
+            try:
+                last_ind = back_price_1[back_price_1.index(cc) - 1][
+                    'indicator_1' + '_' + rows1[ac_block_num-1][0]['indicator_1']['setting']]
+            except:
+                continue
+            change = rows1[ac_block_num-1][0]['indicator_1']['change']
+        elif ac_block_direction == 'short' and direction == 'short':
+            indicator2 = cc['indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
+            order_type_2 = rows1[ac_block_num-1][1]['position_action']['order_type']
+            ##cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
+            try:
+                last_ind = back_price_1[back_price_1.index(cc) - 1][
+                    'indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
+            except:
+                continue
+            change = rows1[ac_block_num-1][1]['indicator_1']['change']
+        # print(cc['time'])
+        if check_block_condition(indicator2, direction, change, last_ind, rows1[1]):
+            print('Закрытие')
+            block_num = 1
+            stat = 'position_is_closed'
+            close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
+            block_id = block_id + ',2'
+
+            proboi_line_proc = 0
+            proboi_stup = 0
+            old_proboi = 0
+            exit_price_price = False
+            break
+
 
 for cc in back_price_1:
     # настройка первого дня
@@ -217,163 +393,15 @@ for cc in back_price_1:
         percent_day = 0
         min_percent_list.clear()
         min_balance_percent = 0
-    # первый блок активация
+    # открытие ордера
     if is_initialize():
         continue
-    # процесс первого открытия
-    if stat == 'open_1_1':
-        if direction == 'long':
-            if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
-                open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
-                ##side_1 = rows1[0][0]['position_action']['direction']
-                price_old = back_price_1[back_price_1.index(cc) - 1]['close']
-                try:
-                    price_indent = rows1[0][0]['position_action']['price_indent']
-                    price = float(price_old) - (float(price_old) / 100) * float(price_indent)
-                except:
-                    price = float(price_old) - (float(price_old) / 100)
-                if open_price_order == 0:
-                    open_price_order = price
-                leverage = rows1[0][0]['position_action']['leverage']
-                lot = (float(start_balance) * float(price)) * float(leverage)
-                lot = int(round(lot, -1))
-                direction = rows1[0][0]['position_action']['direction']
-                order_type = rows1[0][0]['position_action']['order_type']
-                order_type_1 = order_type
-                order.append(direction)
-                order.append(price)
-                order.append(lot)
-                order.append(order_type)
-                order.append(cc['time'])
-                stat = 'open_2_2'
-                block_id = '1'
-                print('Открытие позиции')
-                continue
-            if order_type == 'market':
-                open_time_position = open_time_order
-                ##side_1 = rows1[0][0]['position_action']['direction']
-                price_old = back_price_1[back_price_1.index(cc) - 1]['close']
-                try:
-                    price_indent = rows1[0][0]['position_action']['price_indent']
-                    price = float(price_old) - (float(price_old) / 100) * float(price_indent)
-                except:
-                    price = float(price_old)
-                if open_price_order == 0:
-                    open_price_order = price
-                leverage = rows1[0][0]['position_action']['leverage']
-                lot = (float(start_balance) * float(price)) * float(leverage)
-                lot = int(round(lot, -1))
-                direction = rows1[0][0]['position_action']['direction']
-                order_type = rows1[0][0]['position_action']['order_type']
-                order_type_1 = order_type
-                order.append(direction)
-                order.append(price)
-                order.append(lot)
-                order.append(order_type)
-                order.append(cc['time'])
-                stat = 'open_2_2'
-                block_id = '1'
-                print('Открытие позиции')
-                continue
-        if direction == 'short':
-            if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
-                open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
-                ##side_1 = rows1[0][1]['position_action']['direction']
-                price_old = back_price_1[back_price_1.index(cc) - 1]['close']
-                try:
-                    price_indent = rows1[0][1]['position_action']['price_indent']
-                    price = float(price_old) + (float(price_old) / 100) * float(price_indent)
-                except:
-                    price = float(price_old)
-                if open_price_order == 0:
-                    open_price_order = price
-                try:
-                    leverage = rows1[0][1]['position_action']['leverage']
-                except:
-                    leverage = 1
-                lot = (float(start_balance) * float(price)) * float(leverage)
-                lot = int(round(lot, -1))
-                direction = rows1[0][1]['position_action']['direction']
-                order_type = rows1[0][1]['position_action']['order_type']
-                order.append(direction)
-                order.append(price)
-                order.append(lot)
-                order.append(order_type)
-                order.append(cc['time'])
-                stat = 'open_2_2'
-                block_id = '1'
-                print('Открытие позиции')
-                continue
-            if order_type == 'market':
-                open_time_position = open_time_order
-                ##side_1 = rows1[0][1]['position_action']['direction']
-                price_old = back_price_1[back_price_1.index(cc) - 1]['close']
-                try:
-                    price_indent = rows1[0][1]['position_action']['price_indent']
-                    price = float(price_old) + (float(price_old) / 100) * float(price_indent)
-                except:
-                    price = float(price_old) + (float(price_old) / 100)
-                if open_price_order == 0:
-                    open_price_order = price
-                try:
-                    leverage = rows1[0][1]['position_action']['leverage']
-                except:
-                    leverage = 1
-                lot = (float(start_balance) * float(price)) * float(leverage)
-                lot = int(round(lot, -1))
-                direction = rows1[0][1]['position_action']['direction']
-                order_type = rows1[0][1]['position_action']['order_type']
-                order.append(direction)
-                order.append(price)
-                order.append(lot)
-                order.append(order_type)
-                order.append(cc['time'])
-                stat = 'open_2_2'
-                block_id = '1'
-                print('Открытие позиции')
-                continue
-    if stat == 'open_2_2':
-        if direction == 'long':
-            activation1 = activations[block_num][0].split(',')
-        else:
-            activation1 = activations[block_num][1].split(',')
-        for block in activation1:
-            if block == '2_long' or block == '2_short':
-                if direction == 'long':
-                    indicator2 = cc['indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
-                    order_type_2 = rows1[1][0]['position_action']['order_type']
-                    ##cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[1][0]['indicator_1']['change']
-                else:
-                    indicator2 = cc['indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
-                    order_type_2 = rows1[1][1]['position_action']['order_type']
-                    ##cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[1][1]['indicator_1']['change']
-                # print(cc['time'])
-                if check_block_condition(indicator2, direction, change, last_ind, rows1[1]):
-                    print('Закрытие')
-                    block_num = 1
-                    stat = 'close_1'
-                    close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-                    block_id = block_id + ',2'
-
-                    proboi_line_proc = 0
-                    proboi_stup = 0
-                    old_proboi = 0
-                    exit_price_price = False
-                    break
-
-    if stat == 'close_1':
+    # открытие позиции
+    if stat == 'order_is_opened' and open_position(block_num):
+        continue
+    if stat == 'position_is_opened':
+        close_position(block_num)
+    if stat == 'position_is_closed':
         if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'long' or direction == 'long' and order_type == 'market':
             close_candle = float(cc['close'])
             order_type_1 = order[3]
