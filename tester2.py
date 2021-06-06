@@ -189,8 +189,8 @@ def check_block_condition(indicator, direction, change, last_ind, db_position):
                     return True
     return False
 
-# первый блок активации
-def is_initialize():
+# открытие ордера
+def open_order():
 
     # глобальные переменные
     global stat
@@ -202,38 +202,34 @@ def is_initialize():
 
     if stat != '0':
         return False
-    if '0' in activations[0][0].split(','):
+    if '0' in activations[block_num][0].split(','):
         indicator1 = cc['indicator_1' + '_' +
-            rows1[0][0]['indicator_1']['setting']]
+            rows1[block_num][0]['indicator_1']['setting']]
         try:
             last_ind = back_price_1[back_price_1.index(cc) - 1][
-                'indicator_1' + '_' + rows1[0][0]['indicator_1']['setting']]
+                'indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
         except:
             return True
         direction = 'long'
-        change = rows1[0][0]['indicator_1']['change']
-        order_type = rows1[0][0]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
-            print('Открытие ордера')
+        change = rows1[block_num][0]['indicator_1']['change']
+        order_type = rows1[block_num][0]['position_action']['order_type']
+        if check_block_condition(indicator1, direction, change, last_ind, rows1[block_num]):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            stat = 'order_is_opened'
             # cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
-    if '0' in activations[0][1].split(','):
+    if '0' in activations[block_num][1].split(','):
         indicator1 = cc['indicator_1' + '_' +
-            rows1[0][1]['indicator_1']['setting']]
+            rows1[block_num][1]['indicator_1']['setting']]
         try:
             last_ind = back_price_1[back_price_1.index(cc) - 1][
-                'indicator_1' + '_' + rows1[0][1]['indicator_1']['setting']]
+                'indicator_1' + '_' + rows1[block_num][1]['indicator_1']['setting']]
         except:
             return True
         direction = 'short'
-        change = rows1[0][1]['indicator_1']['change']
-        order_type = rows1[0][1]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, change, last_ind, rows1[0]):
-            print('Открытие ордера')
+        change = rows1[block_num][1]['indicator_1']['change']
+        order_type = rows1[block_num][1]['position_action']['order_type']
+        if check_block_condition(indicator1, direction, change, last_ind, rows1[block_num]):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            stat = 'order_is_opened'
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
     return False
@@ -573,7 +569,9 @@ for cc in back_price_1:
         min_percent_list.clear()
         min_balance_percent = 0
 
-    if is_initialize():
+    if open_order():
+        print('Открытие ордера')
+        stat = 'order_is_opened'
         continue
     if stat == 'order_is_opened' and open_position(block_num):
         print('Открытие позиции')
