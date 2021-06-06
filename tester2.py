@@ -396,21 +396,21 @@ def change_block_num(block_number):
             next_order = rows1[ac_block_num-1][0]['position_action']['order']
         elif ac_block_direction == 'short' and direction == 'short':
             indicator2 = cc['indicator_1' + '_' +
-                rows1[1][1]['indicator_1']['setting']]
+                rows1[ac_block_num-1][1]['indicator_1']['setting']]
             order_type_2 = rows1[ac_block_num-1][1]['position_action']['order_type']
             # cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
             try:
                 last_ind = back_price_1[back_price_1.index(cc) - 1][
-                    'indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
+                    'indicator_1' + '_' + rows1[ac_block_num-1][1]['indicator_1']['setting']]
             except:
                 continue
             change = rows1[ac_block_num-1][1]['indicator_1']['change']
             next_order = rows1[ac_block_num-1][1]['position_action']['order']
-        if check_block_condition(indicator2, direction, change, last_ind, rows1[1]): 
-            block_num = 1
+        if check_block_condition(indicator2, direction, change, last_ind, rows1[ac_block_num-1]): 
+            block_num = ac_block_num-1
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            block_id = block_id + ',2'
+            block_id = block_id + ',' + str(ac_block_num)
 
             proboi_line_proc = 0
             proboi_stup = 0
