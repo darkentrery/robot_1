@@ -143,7 +143,6 @@ def reset_variables():
     stat = '0'
     block_num = 0
 
-
 # проверка условий блока
 def check_block_condition(indicator, direction, change, last_ind, db_position):
     if direction == 'long':
@@ -277,9 +276,8 @@ def open_position(block_number):
             order.append(lot)
             order.append(order_type)
             order.append(cc['time'])
-            stat = 'position_is_opened'
+            stat = 'position_' + rows1[block_number][0]['position_action']['order']
             block_id = '1'
-            print('Открытие позиции')
             return True
         if order_type == 'market':
             open_time_position = open_time_order
@@ -298,15 +296,13 @@ def open_position(block_number):
             lot = int(round(lot, -1))
             direction = rows1[block_number][0]['position_action']['direction']
             order_type = rows1[block_number][0]['position_action']['order_type']
-            # order_type_1 = order_type
             order.append(direction)
             order.append(price)
             order.append(lot)
             order.append(order_type)
             order.append(cc['time'])
-            stat = 'position_is_opened'
+            stat = 'position_' + rows1[block_number][0]['position_action']['order']
             block_id = '1'
-            print('Открытие позиции')
             return True
     if direction == 'short':
         if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
@@ -335,9 +331,8 @@ def open_position(block_number):
             order.append(lot)
             order.append(order_type)
             order.append(cc['time'])
-            stat = 'position_is_opened'
+            stat = 'position_' + rows1[block_number][1]['position_action']['order']
             block_id = '1'
-            print('Открытие позиции')
             return True
         if order_type == 'market':
             open_time_position = open_time_order
@@ -364,14 +359,13 @@ def open_position(block_number):
             order.append(lot)
             order.append(order_type)
             order.append(cc['time'])
-            stat = 'position_is_opened'
+            stat = 'position_' + rows1[block_number][1]['position_action']['order']
             block_id = '1'
-            print('Открытие позиции')
             return True
     return False
 
-# закрытие ордера
-def close_order(block_number):
+# попытка смены блока
+def change_block_num(block_number):
     global direction
     global block_id
     global block_num
@@ -391,8 +385,7 @@ def close_order(block_number):
         if ac_block_direction == 'long' and direction == 'long':
             indicator2 = cc['indicator_1' + '_' +
                 rows1[ac_block_num-1][0]['indicator_1']['setting']]
-            order_type_2 = rows1[ac_block_num -
-                1][0]['position_action']['order_type']
+            order_type_2 = rows1[ac_block_num-1][0]['position_action']['order_type']
             # cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
             try:
                 last_ind = back_price_1[back_price_1.index(cc) - 1][
@@ -400,11 +393,11 @@ def close_order(block_number):
             except:
                 continue
             change = rows1[ac_block_num-1][0]['indicator_1']['change']
+            next_order = rows1[ac_block_num-1][0]['position_action']['order']
         elif ac_block_direction == 'short' and direction == 'short':
             indicator2 = cc['indicator_1' + '_' +
                 rows1[1][1]['indicator_1']['setting']]
-            order_type_2 = rows1[ac_block_num -
-                1][1]['position_action']['order_type']
+            order_type_2 = rows1[ac_block_num-1][1]['position_action']['order_type']
             # cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
             try:
                 last_ind = back_price_1[back_price_1.index(cc) - 1][
@@ -412,11 +405,10 @@ def close_order(block_number):
             except:
                 continue
             change = rows1[ac_block_num-1][1]['indicator_1']['change']
-        # print(cc['time'])
-        if check_block_condition(indicator2, direction, change, last_ind, rows1[1]):
-            print('Закрытие')
+            next_order = rows1[ac_block_num-1][1]['position_action']['order']
+        if check_block_condition(indicator2, direction, change, last_ind, rows1[1]): 
             block_num = 1
-            stat = 'order_is_closed'
+            stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             block_id = block_id + ',2'
 
@@ -426,6 +418,7 @@ def close_order(block_number):
             exit_price_price = False
             break
 
+# закрытие позиции
 def close_position():
     
     global direction
@@ -560,8 +553,9 @@ def close_position():
         return True
     return False
 
-
+# обход по свечам
 for cc in back_price_1:
+    
     # настройка первого дня
     if back_price_1.index(cc) == 0:
         id_day = 1
@@ -578,15 +572,16 @@ for cc in back_price_1:
         percent_day = 0
         min_percent_list.clear()
         min_balance_percent = 0
-    # открытие ордера
+
     if is_initialize():
         continue
-    # открытие позиции
     if stat == 'order_is_opened' and open_position(block_num):
+        print('Открытие позиции')
         continue
-    if stat == 'position_is_opened':
-        close_order(block_num)
-    if stat == 'order_is_closed' and close_position():
+    if stat == 'position_open':
+        change_block_num(block_num)
+    if stat == 'position_close' and close_position():
+        print('Закрытие позиции')
         continue  
  
 # рассчет результата
