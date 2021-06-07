@@ -273,7 +273,7 @@ def open_position(block_number):
             order.append(order_type)
             order.append(cc['time'])
             stat = 'position_' + rows1[block_number][0]['position_action']['order']
-            block_id = '1'
+            block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
             open_time_position = open_time_order
@@ -298,7 +298,7 @@ def open_position(block_number):
             order.append(order_type)
             order.append(cc['time'])
             stat = 'position_' + rows1[block_number][0]['position_action']['order']
-            block_id = '1'
+            block_id = str(block_number + 1) + '_' + direction
             return True
     if direction == 'short':
         if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
@@ -328,7 +328,7 @@ def open_position(block_number):
             order.append(order_type)
             order.append(cc['time'])
             stat = 'position_' + rows1[block_number][1]['position_action']['order']
-            block_id = '1'
+            block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
             open_time_position = open_time_order
@@ -356,7 +356,7 @@ def open_position(block_number):
             order.append(order_type)
             order.append(cc['time'])
             stat = 'position_' + rows1[block_number][1]['position_action']['order']
-            block_id = '1'
+            block_id = str(block_number + 1) + '_' + direction
             return True
     return False
 
@@ -406,7 +406,7 @@ def change_block_num(block_number):
             block_num = ac_block_num-1
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            block_id = block_id + ',' + str(ac_block_num)
+            block_id = block_id + ',' + str(ac_block_num) + '_' + direction
 
             proboi_line_proc = 0
             proboi_stup = 0
