@@ -130,10 +130,10 @@ def reset_variables():
     close_candle = 0
     open_time_order = 0
     open_time_position = 0
-    open_price_order = 0
+    #open_price_order = 0
     open_price_position = 0
     close_time_order = 0
-    close_time_position = 0
+    #close_time_position = 0
     points_deal = 0
     res = ''
     fee = 0
@@ -247,6 +247,8 @@ def open_position(block_number):
     global lev
     global leverage
     global open_time_position
+    global open_time_order
+
     if direction == 'long':
         if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
             open_time_position = back_price_1[back_price_1.index(
@@ -276,7 +278,12 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            open_time_position = open_time_order
+            if close_time_position == 0:
+                open_time_position = open_time_order
+            else:
+                open_time_order = close_time_position
+                open_time_position = close_time_position
+                
             # side_1 = rows1[0][0]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
@@ -287,6 +294,8 @@ def open_position(block_number):
                 price = float(price_old)
             if open_price_order == 0:
                 open_price_order = price
+            else:
+                open_price_order = close_price_order
             leverage = rows1[block_number][0]['position_action']['leverage']
             lot = (float(start_balance) * float(price)) * float(leverage)
             lot = int(round(lot, -1))
@@ -331,7 +340,11 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            open_time_position = open_time_order
+            if close_time_position == 0:
+                open_time_position = open_time_order
+            else:
+                open_time_order = close_time_position
+                open_time_position = close_time_position
             # side_1 = rows1[0][1]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
@@ -342,6 +355,8 @@ def open_position(block_number):
                 price = float(price_old) + (float(price_old) / 100)
             if open_price_order == 0:
                 open_price_order = price
+            else:
+                open_price_order = close_price_order
             try:
                 leverage = rows1[block_number][1]['position_action']['leverage']
             except:
@@ -426,9 +441,12 @@ def close_position():
     global order_type
     global money_day
     global ids
+    global close_time_position
+    global close_price_order
     
     if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'long' or direction == 'long' and order_type == 'market':
         close_candle = float(cc['close'])
+        close_price_order = close_candle
         order_type_1 = order[3]
         direction = order[0]
         if direction == 'long':
@@ -492,6 +510,7 @@ def close_position():
 
     if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'short' or direction == 'short' and order_type == 'market':
         close_candle = float(cc['close'])
+        close_price_order = close_candle
         order_type_1 = order[3]
         direction = order[0]
         if direction == 'long':
