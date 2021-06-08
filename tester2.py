@@ -145,6 +145,17 @@ def reset_variables():
 
 # проверка условий блока
 def check_block_condition(indicator, direction, last_ind, db_position):
+        
+    if direction == 'long':
+        if db_position[0].get('indicator_1'):
+            return check_indicator_1(indicator, direction, last_ind, db_position)
+    else:
+        if db_position[1].get('indicator_1'):
+            return check_indicator_1(indicator, direction, last_ind, db_position)
+
+# проверка идентификатора1 в блоке условий
+def check_indicator_1(indicator, direction, last_ind, db_position):
+
     if direction == 'long':
         ind_oper = db_position[0]['indicator_1']['value'].split(' ')[0]
         ind_value = float(db_position[0]['indicator_1']['value'].split(' ')[1])
