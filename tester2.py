@@ -144,14 +144,16 @@ def reset_variables():
     block_num = 0
 
 # проверка условий блока
-def check_block_condition(indicator, direction, change, last_ind, db_position):
+def check_block_condition(indicator, direction, last_ind, db_position):
     if direction == 'long':
         ind_oper = db_position[0]['indicator_1']['value'].split(' ')[0]
         ind_value = float(db_position[0]['indicator_1']['value'].split(' ')[1])
+        change = db_position[0]['indicator_1']['change']
         # side_1 = rows1[0][0]['position_action']['direction']
     else:
         ind_oper = db_position[1]['indicator_1']['value'].split(' ')[0]
         ind_value = float(db_position[1]['indicator_1']['value'].split(' ')[1])
+        change = db_position[1]['indicator_1']['change']
         # side_1 = rows1[0][0]['position_action']['direction']
     if change == 'more_than_previous':
         if indicator > last_ind:
@@ -211,9 +213,8 @@ def open_order():
         except:
             return True
         direction = 'long'
-        change = rows1[block_num][0]['indicator_1']['change']
         order_type = rows1[block_num][0]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, change, last_ind, rows1[block_num]):
+        if check_block_condition(indicator1, direction, last_ind, rows1[block_num]):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
@@ -226,9 +227,8 @@ def open_order():
         except:
             return True
         direction = 'short'
-        change = rows1[block_num][1]['indicator_1']['change']
         order_type = rows1[block_num][1]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, change, last_ind, rows1[block_num]):
+        if check_block_condition(indicator1, direction, last_ind, rows1[block_num]):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
@@ -415,9 +415,8 @@ def change_block_num(block_number):
                     'indicator_1' + '_' + rows1[ac_block_num-1][1]['indicator_1']['setting']]
             except:
                 continue
-            change = rows1[ac_block_num-1][1]['indicator_1']['change']
             next_order = rows1[ac_block_num-1][1]['position_action']['order']
-        if check_block_condition(indicator2, direction, change, last_ind, rows1[ac_block_num-1]): 
+        if check_block_condition(indicator2, direction, last_ind, rows1[ac_block_num-1]): 
             block_num = ac_block_num-1
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
