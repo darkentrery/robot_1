@@ -65,8 +65,11 @@ for row in rows1:
 
 old_date = 0
 stat = '0'
+leverage = 0
 price = ''
+sta_block = 0
 lot = ''
+price_old = 0
 results = []
 last_value = 0
 fee_limit = 0
@@ -124,8 +127,8 @@ order_type_1 = 0
 order_type_2 = 0
 cancel_status = ''
 open_price_order = 0
-len_strings_value = 20
-no_price_timeout = 30
+len_strings_value = 10
+no_price_timeout = 100
 time_price_timeout = 0
 for gg in rows1:
     #try:
@@ -181,13 +184,9 @@ def block_1(indicator, direction, change, last_ind):
                     return True
     return False
 
-def block_2(indicator, direction, change, last_ind):
-    if direction == 'long':
-        ind_oper_2 = rows1[1][0]['indicator_1']['value'].split(' ')[0]
-        ind_value_2 = float(rows1[1][0]['indicator_1']['value'].split(' ')[1])
-    else:
-        ind_oper_2 = rows1[1][1]['indicator_1']['value'].split(' ')[0]
-        ind_value_2 = float(rows1[1][1]['indicator_1']['value'].split(' ')[1])
+def block_2(indicator, direction, change, last_ind, stat_block):
+    ind_oper_2 = rows1[1][stat_block]['indicator_1']['value'].split(' ')[0]
+    ind_value_2 = float(rows1[1][stat_block]['indicator_1']['value'].split(' ')[1])
     if change == 'more_than_previous':
         if indicator > last_ind:
             if ind_oper_2 == '<=':
@@ -225,13 +224,9 @@ def block_2(indicator, direction, change, last_ind):
 
     return False
 
-def block_3_1(indicator, dictin, direction, change, last_ind):
-    if direction == 'long':
-        ind_oper_3 = rows1[4][0]['indicator_1_1']['value'].split(' ')[0]
-        ind_value_3 = float(rows1[4][0]['indicator_1_1']['value'].split(' ')[1])
-    else:
-        ind_oper_3 = rows1[4][1]['indicator_1_1']['value'].split(' ')[0]
-        ind_value_3 = float(rows1[4][1]['indicator_1_1']['value'].split(' ')[1])
+def block_3_1(indicator, dictin, direction, change, last_ind, stat_block):
+    ind_oper_3 = rows1[4][stat_block]['indicator_1_1']['value'].split(' ')[0]
+    ind_value_3 = float(rows1[4][stat_block]['indicator_1_1']['value'].split(' ')[1])
     if change != 0:
         if change == 'more_than_previous':
             if dictin[indicator] > last_ind:
@@ -285,13 +280,9 @@ def block_3_1(indicator, dictin, direction, change, last_ind):
                 return True
     return False
 
-def block_3_2(indicator, direction, change, last_ind):
-    if direction == 'long':
-        ind_oper_4 = rows1[4][0]['indicator_1_2']['value'].split(' ')[0]
-        ind_value_4 = float(rows1[4][0]['indicator_1_2']['value'].split(' ')[1])
-    else:
-        ind_oper_4 = rows1[4][1]['indicator_1_2']['value'].split(' ')[0]
-        ind_value_4 = float(rows1[4][1]['indicator_1_2']['value'].split(' ')[1])
+def block_3_2(indicator, direction, change, last_ind, stat_block):
+    ind_oper_4 = rows1[4][stat_block]['indicator_1_2']['value'].split(' ')[0]
+    ind_value_4 = float(rows1[4][stat_block]['indicator_1_2']['value'].split(' ')[1])
     if change != 0:
         if change == 'more_than_previous':
             if indicator > last_ind:
@@ -366,13 +357,10 @@ def block_4(indicator, direction):
             return True
     return False
 
-def block_5(indicator, direction, num_block, change, last_ind):
-    if direction == 'long':
-        ind_oper_6 = rows1[num_block][0]['indicator_1']['value'].split(' ')[0]
-        ind_value_6 = float(rows1[num_block][0]['indicator_1']['value'].split(' ')[1])
-    else:
-        ind_oper_6 = rows1[num_block][1]['indicator_1']['value'].split(' ')[0]
-        ind_value_6 = float(rows1[num_block][1]['indicator_1']['value'].split(' ')[1])
+def block_5(indicator, direction, num_block, change, last_ind, stat_block):
+    ind_oper_6 = rows1[num_block][stat_block]['indicator_1']['value'].split(' ')[0]
+    ind_value_6 = float(rows1[num_block][stat_block]['indicator_1']['value'].split(' ')[1])
+
     if change == 'more_than_previous':
         if indicator > last_ind:
             if ind_oper_6 == '>=':
@@ -438,21 +426,13 @@ def block_6(dictin, proboi, direction, num_block):
         return proboi_end
     return False
 
-def block_6_1(dictin, proboi, direction, num_block, side):
-    if direction == 'long':
-        proc_value_2 = float(rows1[num_block][0]['indicator_2']['exit_price_percent'])
-        check = rows1[num_block][0]['indicator_2']['check']
-        try:
-            exit_price_price = rows1[num_block][0]['indicator_2']['exit_price_price']
-        except:
-            exit_price_price = False
-    else:
-        proc_value_2 = float(rows1[num_block][1]['indicator_2']['exit_price_percent'])
-        check = rows1[num_block][1]['indicator_2']['check']
-        try:
-            exit_price_price = rows1[num_block][1]['indicator_2']['exit_price_price']
-        except:
-            exit_price_price = False
+def block_6_1(dictin, proboi, direction, num_block, side, stat_block):
+    proc_value_2 = float(rows1[num_block][stat_block]['indicator_2']['exit_price_percent'])
+    check = rows1[num_block][stat_block]['indicator_2']['check']
+    try:
+        exit_price_price = rows1[num_block][stat_block]['indicator_2']['exit_price_price']
+    except:
+        exit_price_price = False
     candle_check = 0
     try:
         if check == 'low':
@@ -496,12 +476,9 @@ def block_6_1(dictin, proboi, direction, num_block, side):
             return value
     return False
 
-def block_9_1(dictin, old_proboi, proboi, direction, num_block, side, exit_price_price):
+def block_9_1(dictin, old_proboi, proboi, direction, num_block, side, exit_price_price, stat_block):
     if exit_price_price == False:
-        if direction == 'long':
-            check = rows1[num_block][0]['indicator_2']['check']
-        else:
-            check = rows1[num_block][1]['indicator_2']['check']
+        check = rows1[num_block][stat_block]['indicator_2']['check']
         try:
             if check == 'low':
                 if float(dictin['low']) < float(proboi):
@@ -525,10 +502,7 @@ def block_9_1(dictin, old_proboi, proboi, direction, num_block, side, exit_price
             return False
         return False
     else:
-        if direction == 'long':
-            check = rows1[num_block][0]['indicator_2']['check']
-        else:
-            check = rows1[num_block][1]['indicator_2']['check']
+        check = rows1[num_block][stat_block]['indicator_2']['check']
         try:
             if check == 'low':
                 if float(dictin['low']) < float(proboi):
@@ -551,6 +525,7 @@ def block_9_1(dictin, old_proboi, proboi, direction, num_block, side, exit_price
                         return proc
         except:
             return False
+        return False
 
 def block_7(dictin, proboi, direction):
     proc = ''
@@ -605,33 +580,115 @@ def block_9(indicator, direction):
             return True
     return False
 
-def block_11(open_price_order, direction, num_block):
+def block_11(open_price_order, direction, num_block, price_close1, price_close2, leverage, stat_block):
+    ind_oper_9 = rows1[num_block][stat_block]['position_condition']['pnl'].split(' ')[0]
+    ind_value_9 = float(rows1[num_block][stat_block]['position_condition']['pnl'].split(' ')[1])
     if direction == 'short':
-        ind_oper_9 = rows1[num_block][1]['position_condition']['pnl'].split(' ')[0]
-        ind_value_9 = float(rows1[num_block][1]['position_condition']['pnl'].split(' ')[1])
-        pnl = open_price_order - (((open_price_order / 100) * ind_value_9))
+        pnl = open_price_order - (((open_price_order / 100) * ind_value_9))/float(leverage)
     else:
-        ind_oper_9 = rows1[num_block][0]['position_condition']['pnl'].split(' ')[0]
-        ind_value_9 = float(rows1[num_block][0]['position_condition']['pnl'].split(' ')[1])
-        pnl = open_price_order + (((open_price_order / 100) * ind_value_9))
-    if ind_oper_9 == '>=':
-        if pnl >= ind_value_9:
-            return True
-    if ind_oper_9 == '<=':
-        if pnl <= ind_value_9:
-            return True
-    if ind_oper_9 == '=':
-        if pnl == ind_value_9:
-            return True
-    if ind_oper_9 == '>':
-        if pnl > ind_value_9:
-            return True
-    if ind_oper_9 == '<':
-        if pnl < ind_value_9:
-            return True
+        pnl = open_price_order + (((open_price_order / 100) * ind_value_9))/float(leverage)
+
+    if direction == 'long':
+        if ind_oper_9 == '>=':
+            if price_close1 >= pnl:
+                return pnl
+        if ind_oper_9 == '<=':
+            if price_close1 <= pnl:
+                return pnl
+        if ind_oper_9 == '=':
+            if price_close1 == pnl:
+                return pnl
+        if ind_oper_9 == '>':
+            if price_close1 > pnl:
+                return pnl
+        if ind_oper_9 == '<':
+            if price_close1 < pnl:
+                return pnl
+        if ind_oper_9 == '>=':
+            if price_close2 >= pnl:
+                return pnl
+        if ind_oper_9 == '<=':
+            if price_close2 <= pnl:
+                return pnl
+        if ind_oper_9 == '=':
+            if price_close2 == pnl:
+                return pnl
+        if ind_oper_9 == '>':
+            if price_close2 > pnl:
+                return pnl
+        if ind_oper_9 == '<':
+            if price_close2 < pnl:
+                return pnl
+    else:
+        if ind_oper_9 == '>=':
+            if pnl >= price_close1:
+                return pnl
+        if ind_oper_9 == '<=':
+            if pnl <= price_close1:
+                return pnl
+        if ind_oper_9 == '=':
+            if pnl == price_close1:
+                return pnl
+        if ind_oper_9 == '>':
+            if pnl > price_close1:
+                return pnl
+        if ind_oper_9 == '<':
+            if pnl < price_close1:
+                return pnl
+        if ind_oper_9 == '>=':
+            if pnl >= price_close2:
+                return pnl
+        if ind_oper_9 == '<=':
+            if pnl <= price_close2:
+                return pnl
+        if ind_oper_9 == '=':
+            if pnl == price_close2:
+                return pnl
+        if ind_oper_9 == '>':
+            if pnl > price_close2:
+                return pnl
+        if ind_oper_9 == '<':
+            if pnl < price_close2:
+                return pnl
     return False
 
+def block_17(dictin, indicator, direction, block_id, stat_block):
+    indicator = float(indicator)
+    exit_price_percent = float(rows1[block_id][stat_block]['indicator_2']['exit_price_percent'])
+    check = rows1[block_id][stat_block]['indicator_2']['check']
+    side = rows1[block_id][stat_block]['indicator_2']['side']
 
+
+
+    if side == 'high':
+        if check == 'high':
+            if (float(dictin['high'])-indicator)/(indicator/100) >= exit_price_percent:
+                price = float(indicator) + ((float(indicator) / 100) * exit_price_percent)#float(dictin['high'])
+                return price
+        if check == 'low':
+            if (float(dictin['low'])-indicator)/(indicator/100) >= exit_price_percent:
+                price = float(indicator) - ((float(indicator) / 100) * exit_price_percent)#float(cc['low'])
+                return price
+        if check == 'close':
+            if (float(dictin['close'])-indicator)/(indicator/100) >= exit_price_percent:
+                price = dictin['close']
+                return price
+    if side == 'low':
+        if check == 'high':
+            if (indicator - float(dictin['high']))/(indicator/100) >= exit_price_percent:
+                price = float(indicator) + ((float(indicator) / 100) * exit_price_percent)#dictin['high']
+                return price
+        if check == 'low':
+            if (indicator - float(dictin['low']))/(indicator/100) >= exit_price_percent:
+
+
+                price = float(indicator) - ((float(indicator) / 100) * exit_price_percent)#dictin['low']
+                return price
+        if check == 'close':
+            if (indicator - float(dictin['close']))/(indicator/100) >= exit_price_percent:
+                price = dictin['close']
+                return price
+    return False
 
 for cc in back_price_1:
     if len(order) > 0:
@@ -833,11 +890,12 @@ for cc in back_price_1:
                 open_time_position = open_time_order
                 side_1 = rows1[0][1]['position_action']['direction']
                 price_old = back_price_1[back_price_1.index(cc) - 1]['close']
+                print('tcena ' + str(price_old))
                 try:
                     price_indent = rows1[0][1]['position_action']['price_indent']
                     price = float(price_old) + (float(price_old) / 100) * float(price_indent)
                 except:
-                    price = float(price_old) + (float(price_old) / 100)
+                    price = float(price_old) #+ (float(price_old) / 100)
                 if open_price_order == 0:
                     open_price_order = price
                 try:
@@ -884,7 +942,7 @@ for cc in back_price_1:
 
                 if block_2(indicator2, direction, change, last_ind):
                     print('cancel2')
-
+                    close_candle = float(cc['close'])
                     block_num = 1
                     stat = 'close_1'
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']#cc['time']
@@ -1213,40 +1271,41 @@ for cc in back_price_1:
                     block_id = block_id + ',14'
                     break
     if stat == 'open_2_2':
-        if direction == 'long':
-            activation1 = activations[block_num][0].split(',')
+        if block_num == 14 or block_num == 4 or block_num == 10:
+            if direction == 'long':
+                activation1 = activations[block_num][1].split(',')
+            else:
+                activation1 = activations[block_num][0].split(',')
         else:
-            activation1 = activations[block_num][1].split(',')
+            if direction == 'long':
+                activation1 = activations[block_num][0].split(',')
+            else:
+                activation1 = activations[block_num][1].split(',')
         for block in activation1:
             if block == '2_long' or block == '2_short':
-                if direction == 'long':
-                    indicator2 = cc['indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
-                    order_type_2 = rows1[1][0]['position_action']['order_type']
-                    cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[1][0]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[1][0]['indicator_1']['change']
+
+                if block == '2_long':
+                    stat_block = 0
                 else:
-                    indicator2 = cc['indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
-                    order_type_2 = rows1[1][1]['position_action']['order_type']
-                    cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[1][1]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[1][1]['indicator_1']['change']
+                    stat_block = 1
+                indicator2 = cc['indicator_1' + '_' + rows1[1][stat_block]['indicator_1']['setting']]
+                order_type_2 = rows1[1][stat_block]['position_action']['order_type']
+                cancel_status = rows1[1][stat_block]['position_action']['cancel'].split(',')
+                try:
+                    last_ind = back_price_1[back_price_1.index(cc) - 1][
+                        'indicator_1' + '_' + rows1[1][stat_block]['indicator_1']['setting']]
+                except:
+                    continue
+                change = rows1[1][stat_block]['indicator_1']['change']
+
                 #print(cc['time'])
-                if block_2(indicator2, direction, change, last_ind):
+                if block_2(indicator2, direction, change, last_ind, stat_block):
                     print('Закрытие')
                     block_num = 1
                     stat = 'close_1'
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
-                    block_id = block_id + ',2_' + str(direction)
-
+                    block_id = block_id + ',' + str(block)
+                    close_candle = float(cc['close'])
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1254,18 +1313,21 @@ for cc in back_price_1:
                     break
             # безубыток
             if block == '3_long' or block == '3_short':
-                if direction == 'long':
-                    order_type_2 = rows1[2][0]['position_action']['order_type']
+                if block == '3_long':
+                    stat_block = 0
                 else:
-                    order_type_2 = rows1[2][1]['position_action']['order_type']
+                    stat_block = 1
+                order_type_2 = rows1[2][stat_block]['position_action']['order_type']
 
-                if block_11(open_price_order, direction, 2):
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 2, price_close1, price_close2, leverage, stat_block):
                     print('Безубыток')
                     block_num = 2
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',3_' + str(direction)
-
+                    block_id = block_id + ',' + str(block)
+                    close_candle = block_11(open_price_order, direction, 2, price_close1, price_close2, leverage, stat_block)
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1273,18 +1335,21 @@ for cc in back_price_1:
                     break
             # стоп
             if block == '4_long' or block == '4_short':
-                if direction == 'long':
-                    order_type_2 = rows1[3][0]['position_action']['order_type']
+                if block == '4_long':
+                    stat_block = 0
                 else:
-                    order_type_2 = rows1[3][1]['position_action']['order_type']
-
-                if block_11(open_price_order, direction, 3):
+                    stat_block = 1
+                order_type_2 = rows1[3][stat_block]['position_action']['order_type']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 3, price_close1, price_close2, leverage, stat_block):
                     print('Стоп')
+                    print(cc['time'])
                     block_num = 3
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',4_' + str(direction)
-
+                    block_id = block_id + ',' + str(block)
+                    close_candle = float(block_11(open_price_order, direction, 3, price_close1, price_close2, leverage, stat_block))
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1292,64 +1357,45 @@ for cc in back_price_1:
                     break
             # продолжение тренда открытие
             if block == '5_long' or block == '5_short':
+                if block == '5_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
                 if vh_vih_stat == 0:
-                    if direction == 'long':
-                        indicator3 = 'indicator_1' + '_' + rows1[4][0]['indicator_1_1']['setting']
-                        order_type_2 = rows1[4][0]['position_action_1']['order_type']
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[4][0]['indicator_1_1']['setting']]
-                        except:
-                            continue
-                        try:
-                            change = rows1[4][0]['indicator_1_1']['change']
-                        except:
-                            change = 0
-                    else:
-                        indicator3 = 'indicator_1' + '_' + rows1[4][1]['indicator_1_1']['setting']
-                        order_type_2 = rows1[4][1]['position_action_1']['order_type']
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[4][1]['indicator_1_1']['setting']]
-                        except:
-                            continue
-                        try:
-                            change = rows1[4][1]['indicator_1_1']['change']
-                        except:
-                            change = 0
-                    if block_3_1(indicator3, cc, direction, change, last_ind):
+                    indicator3 = 'indicator_1' + '_' + rows1[4][stat_block]['indicator_1_1']['setting']
+                    order_type_2 = rows1[4][stat_block]['position_action_1']['order_type']
+                    try:
+                        last_ind = back_price_1[back_price_1.index(cc) - 1][
+                            'indicator_1' + '_' + rows1[4][stat_block]['indicator_1_1']['setting']]
+                    except:
+                        continue
+                    try:
+                        change = rows1[4][stat_block]['indicator_1_1']['change']
+                    except:
+                        change = 0
+
+                    if block_3_1(indicator3, cc, direction, change, last_ind, stat_block):
                         vh_vih_stat = 1
                         # stat = 'vhod_vihod_1'
                         # block_id = block_id + ',3'
                         # break
                 else:
-                    if direction == 'long':
-                        indicator6 = cc['indicator_1_' + rows1[4][0]['indicator_1_2']['setting']]
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[4][0]['indicator_1_2']['setting']]
-                        except:
-                            continue
-                        try:
-                            change = rows1[4][0]['indicator_1_1']['change']
-                        except:
-                            change = 0
-                    else:
-                        indicator6 = cc['indicator_1_' + rows1[4][1]['indicator_1_2']['setting']]
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[4][1]['indicator_1_2']['setting']]
-                        except:
-                            continue
-                        try:
-                            change = rows1[4][1]['indicator_1_2']['change']
-                        except:
-                            change = 0
-                    if block_3_2(indicator6, direction, change, last_ind):
+                    indicator6 = cc['indicator_1_' + rows1[4][stat_block]['indicator_1_2']['setting']]
+                    try:
+                        last_ind = back_price_1[back_price_1.index(cc) - 1][
+                            'indicator_1' + '_' + rows1[4][stat_block]['indicator_1_2']['setting']]
+                    except:
+                        continue
+                    try:
+                        change = rows1[4][stat_block]['indicator_1_1']['change']
+                    except:
+                        change = 0
+
+                    if block_3_2(indicator6, direction, change, last_ind, stat_block):
                         print('Продолжение тренда открытие')
                         stat = 'close_open_1'
                         block_num = 4
-                        block_id = block_id + ',5_' + str(direction)
+                        block_id = block_id + ',' + str(block)
                         close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                         vh_vih_stat = 0
 
@@ -1360,53 +1406,39 @@ for cc in back_price_1:
                         break
             # продолжение тренда закрытие
             if block == '6_long' or block == '6_short':
+                if block == '6_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
                 if vh_vih_stat == 0:
-                    if direction == 'long':
-                        indicator3 = 'indicator_1' + '_' + rows1[5][0]['indicator_1_1']['setting']
-                        order_type_2 = rows1[5][0]['position_action']['order_type']
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[5][0]['indicator_1_1']['setting']]
-                        except:
-                            continue
-                        change = rows1[5][0]['indicator_1_1']['change']
-                    else:
-                        indicator3 = 'indicator_1' + '_' + rows1[5][1]['indicator_1_1']['setting']
-                        order_type_2 = rows1[5][1]['position_action']['order_type']
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[5][1]['indicator_1_1']['setting']]
-                        except:
-                            continue
-                        change = rows1[5][1]['indicator_1_1']['change']
-                    if block_3_1(indicator3, cc, direction, change, last_ind):
+                    indicator3 = 'indicator_1' + '_' + rows1[5][stat_block]['indicator_1_1']['setting']
+                    order_type_2 = rows1[5][stat_block]['position_action']['order_type']
+                    try:
+                        last_ind = back_price_1[back_price_1.index(cc) - 1][
+                            'indicator_1' + '_' + rows1[5][stat_block]['indicator_1_1']['setting']]
+                    except:
+                        continue
+                    change = rows1[5][stat_block]['indicator_1_1']['change']
+                    if block_3_1(indicator3, cc, direction, change, last_ind, stat_block):
                         print('Продолжение тренда закрытие 1')
                         vh_vih_stat = 1
                         # stat = 'vhod_vihod_1'
                         # block_id = block_id + ',3'
                         # break
                 else:
-                    if direction == 'long':
-                        indicator6 = cc['indicator_1_' + rows1[5][0]['indicator_1_2']['setting']]
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[5][0]['indicator_1_2']['setting']]
-                        except:
-                            continue
-                        change = rows1[5][0]['indicator_1_2']['change']
-                    else:
-                        indicator6 = cc['indicator_1_' + rows1[5][1]['indicator_1_2']['setting']]
-                        try:
-                            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                                'indicator_1' + '_' + rows1[5][1]['indicator_1_2']['setting']]
-                        except:
-                            continue
-                        change = rows1[5][1]['indicator_1_2']['change']
-                    if block_3_2(indicator6, direction, change, last_ind):
+                    indicator6 = cc['indicator_1_' + rows1[5][stat_block]['indicator_1_2']['setting']]
+                    try:
+                        last_ind = back_price_1[back_price_1.index(cc) - 1][
+                            'indicator_1' + '_' + rows1[5][stat_block]['indicator_1_2']['setting']]
+                    except:
+                        continue
+                    change = rows1[5][stat_block]['indicator_1_2']['change']
+
+                    if block_3_2(indicator6, direction, change, last_ind, stat_block):
                         print('Продолжение тренда закрытие 2')
                         stat = 'close_2'
                         block_num = 5
-                        block_id = block_id + ',6_' + str(direction)
+                        block_id = block_id + ',' + str(block)
                         close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
                         vh_vih_stat = 0
 
@@ -1417,17 +1449,19 @@ for cc in back_price_1:
                         break
             # продолжение тренда безубыток
             if block == '7_long' or block == '7_short':
-                if direction == 'long':
-                    order_type_2 = rows1[6][0]['position_action']['order_type']
+                if block == '7_long':
+                    stat_block = 0
                 else:
-                    order_type_2 = rows1[6][1]['position_action']['order_type']
-
-                if block_11(open_price_order, direction, 6):
+                    stat_block = 1
+                order_type_2 = rows1[6][stat_block]['position_action']['order_type']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 6, price_close1, price_close2, leverage, stat_block):
                     print('Продолжение тренда безубыток')
                     block_num = 6
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
                     stat = 'close_1'
-                    block_id = block_id + ',7_' + str(direction)
+                    block_id = block_id + ',' + str(block)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1436,30 +1470,25 @@ for cc in back_price_1:
                     break
             # продолжение тренда стоп
             if block == '8_long' or block == '8_short':
-                if direction == 'long':
-                    indicator9 = cc['indicator_1_' + rows1[7][0]['indicator_1']['setting']]
-                    order_type_2 = rows1[7][0]['position_action']['order_type']
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[7][0]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[7][0]['indicator_1']['change']
+                if block == '8_long':
+                    stat_block = 0
                 else:
-                    indicator9 = cc['indicator_1_' + rows1[7][1]['indicator_1']['setting']]
-                    order_type_2 = rows1[7][1]['position_action']['order_type']
-                    try:
-                        last_ind = back_price_1[back_price_1.index(cc) - 1][
-                            'indicator_1' + '_' + rows1[7][1]['indicator_1']['setting']]
-                    except:
-                        continue
-                    change = rows1[7][1]['indicator_1']['change']
-                if block_5(indicator9, direction, 7, change, last_ind):
+                    stat_block = 1
+                indicator9 = cc['indicator_1_' + rows1[7][stat_block]['indicator_1']['setting']]
+                order_type_2 = rows1[7][stat_block]['position_action']['order_type']
+                try:
+                    last_ind = back_price_1[back_price_1.index(cc) - 1][
+                        'indicator_1' + '_' + rows1[7][stat_block]['indicator_1']['setting']]
+                except:
+                    continue
+                change = rows1[7][stat_block]['indicator_1']['change']
+
+                if block_5(indicator9, direction, 7, change, last_ind, stat_block):
                     print('Продолжение тренда стоп')
                     block_num = 7
                     close_time_order = back_price_1[back_price_1.index(cc)+1]['time']
                     stat = 'close_2'
-                    block_id = block_id + ',8_' + str(direction)
+                    block_id = block_id + ',' + str(block)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1468,32 +1497,29 @@ for cc in back_price_1:
                     break
             # пробой уровня 1 ступень(без ступенек)
             if block == '10_long' or block == '10_short':
-                if order[0] == 'long':
-                    side = rows1[9][0]['indicator_2']['side']
 
-                    try:
-                        proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[9][0]['indicator_2']['setting'] + '-' +
-                                          rows1[9][0]['indicator_2']['side']])
-                    except:
-                        proboi = 0
+                if block == '10_long':
+                    stat_block = 0
                 else:
-                    side = rows1[9][1]['indicator_2']['side']
-                    try:
-                        proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[9][1]['indicator_2']['setting'] + '-' +
-                                          rows1[9][1]['indicator_2']['side']])
-                    except:
-                        proboi = 0
+                    stat_block = 1
+                side = rows1[9][stat_block]['indicator_2']['side']
+                try:
+                    proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[9][stat_block]['indicator_2']['setting'] + '-' +
+                                        rows1[9][stat_block]['indicator_2']['side']])
+                except:
+                    proboi = 0
+
                 # if direction == 'long':
                 # order_type_2 = rows1[6][0]['position_action']['order_type']
                 # else:
                 # order_type_2 = rows1[6][1]['position_action']['order_type']
-                if block_6_1(cc, proboi, direction, 9, side):
+                if block_6_1(cc, proboi, direction, 9, side, stat_block):
                     print('Пробой без ступенек ступень сработал')
                     block_num = 9
                     stat = 'close_open_2'
-                    close_candle = block_6_1(cc, proboi, direction, 9, side)
+                    close_candle = block_6_1(cc, proboi, direction, 9, side, stat_block)
                     close_time_order = cc['time']
-                    block_id = block_id + ',10_' + str(direction)
+                    block_id = block_id + ',' + str(block)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
@@ -1503,55 +1529,43 @@ for cc in back_price_1:
             # пробой уровня вторая ступень(со ступеньками)
             if block == '9_long' or block == '9_short':
 
-                if order[0] == 'long':
-                    side = rows1[8][0]['indicator_2']['side']
-                    check = rows1[8][0]['indicator_2']['check']
-                    try:
-                        exit_price_price_main = rows1[8][0]['indicator_2']['exit_price_price']
-                    except:
-                        exit_price_price_main = 'no'
-                    proc_value_2 = float(rows1[8][0]['indicator_2']['exit_price_percent'])
-                    try:
-                        proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[8][0]['indicator_2']['setting'] + '-' +
-                                          rows1[8][0]['indicator_2']['side']])
-                        if proboi_status == 0:
-                            old_proboi = proboi
-                    except:
-                        proboi = 0
-                    try:
-                        new_breakdown_sum = int(rows1[8][0]['indicator_2']['new_breakdown_sum'])
-                    except:
-                        new_breakdown_sum = 1
+                if block == '9_long':
+                    stat_block = 0
                 else:
-                    side = rows1[8][1]['indicator_2']['side']
-                    check = rows1[8][1]['indicator_2']['check']
-                    try:
-                        exit_price_price_main = rows1[8][1]['indicator_2']['exit_price_price']
-                    except:
-                        exit_price_price_main = 'no'
-                    proc_value_2 = float(rows1[8][1]['indicator_2']['exit_price_percent'])
-                    try:
-                        proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[8][1]['indicator_2']['setting'] + '-' +
-                                          rows1[8][1]['indicator_2']['side']])
-                        if proboi_status == 0:
-                            old_proboi = proboi
-                    except:
-                        proboi = 0
-                    try:
-                        new_breakdown_sum = int(rows1[8][1]['indicator_2']['new_breakdown_sum'])
-                    except:
-                        new_breakdown_sum = 1
+                    stat_block = 1
+                side = rows1[8][stat_block]['indicator_2']['side']
+                check = rows1[8][stat_block]['indicator_2']['check']
+                try:
+                    exit_price_price_main = rows1[8][stat_block]['indicator_2']['exit_price_price']
+                except:
+                    exit_price_price_main = 'no'
+                proc_value_2 = float(rows1[8][stat_block]['indicator_2']['exit_price_percent'])
+                try:
+                    proboi = float(back_price_1[back_price_1.index(cc)-1]['indicator_2_' + rows1[8][stat_block]['indicator_2']['setting'] + '-' +
+                                        rows1[8][stat_block]['indicator_2']['side']])
+                    if proboi_status == 0:
+                        old_proboi = proboi
+                except:
+                    proboi = 0
+                try:
+                    new_breakdown_sum = int(rows1[8][stat_block]['indicator_2']['new_breakdown_sum'])
+                except:
+                    new_breakdown_sum = 1
+                #print('oldproboi ' + str(old_proboi))
+                #print('proboi ' + str(proboi))
                 if proboi_stup >= new_breakdown_sum and proboi_line_proc >= proc_value_2:
+
                     print('Пробой со ступеньками сработал')
                     block_num = 8
                     stat = 'close_open_2'
 
                     proboi_status = 0
-                    close_time_order = cc['time']
-                    block_id = block_id + ',9_' + str(direction)
+                    close_time_order = back_price_1[back_price_1.index(cc)-1]['time']
+                    block_id = block_id + ',' + str(block)
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
+                    proboi_status = 0
                     exit_price_price = False
                     break
                 else:
@@ -1573,11 +1587,14 @@ for cc in back_price_1:
                         proboi_status = 0
                         exit_price_price = False
                         continue
-                    if block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price):
+                    if block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price, stat_block):
                         print('Сработала одна ступень пробоя')
                         print('time == ' + str(cc['time']))
+                        #print('oldproboi work ' + str(old_proboi))
+                        #print('proboi work' + str(proboi))
                         proboi_status = 1
-                        proboi_line_proc = block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price)
+                        proboi_line_proc = block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price, stat_block)
+
                         print('proc == ' + str(proboi_line_proc))
                         print('proboi stup == ' + str(proboi_stup))
                         proboi_stup = proboi_stup + 1
@@ -1599,11 +1616,15 @@ for cc in back_price_1:
 
             # пробой уровня закрытие
             if block == '12_long' or block == '12_short':
-                order_type_2 = rows1[11][0]['position_action']['order_type']
-                check_stup = float(back_price_1[back_price_1.index(cc) - 1]['indicator_2_' + rows1[11][0]['indicator_2']['setting'] + '-' + rows1[11][0]['indicator_2']['side']])
-                side_1 = rows1[11][0]['indicator_2']['side']
-                check = rows1[11][0]['indicator_2']['check']
-                exit_price_percent = rows1[11][0]['indicator_2']['exit_price_percent']
+                if block == '12_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
+                order_type_2 = rows1[11][stat_block]['position_action']['order_type']
+                check_stup = float(back_price_1[back_price_1.index(cc) - 1]['indicator_2_' + rows1[11][stat_block]['indicator_2']['setting'] + '-' + rows1[11][stat_block]['indicator_2']['side']])
+                side_1 = rows1[11][stat_block]['indicator_2']['side']
+                check = rows1[11][stat_block]['indicator_2']['check']
+                exit_price_percent = rows1[11][stat_block]['indicator_2']['exit_price_percent']
                 if side_1 == 'high':
                     if check == 'close':
                         if float(cc['close']) >= check_stup:
@@ -1613,7 +1634,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1629,7 +1650,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1645,7 +1666,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1662,7 +1683,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1678,7 +1699,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1694,7 +1715,7 @@ for cc in back_price_1:
                                 block_num = 11
                                 close_time_order = cc['time']
                                 stat = 'close_1'
-                                block_id = block_id + ',12_' + str(direction)
+                                block_id = block_id + ',' + str(block)
                                 check_stup = 0
                                 price_value = 0
                                 proboi_line_proc = 0
@@ -1706,17 +1727,20 @@ for cc in back_price_1:
 
             # пробой уровня безубыток
             if block == '13_long' or block == '13_short':
-                if direction == 'long':
-                    order_type_2 = rows1[12][0]['position_action']['order_type']
+                if block == '13_long':
+                    stat_block = 0
                 else:
-                    order_type_2 = rows1[12][1]['position_action']['order_type']
-
-                if block_11(open_price_order, direction, 12):
+                    stat_block = 1
+                order_type_2 = rows1[12][stat_block]['position_action']['order_type']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 12, price_close1, price_close2, leverage, stat_block):
                     print('пробой безубыток')
                     block_num = 12
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',13_' + str(direction)
+                    close_candle = block_11(open_price_order, direction, 12, price_close1, price_close2, leverage, stat_block)
+                    block_id = block_id + ',' + str(block)
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
@@ -1724,25 +1748,427 @@ for cc in back_price_1:
                     break
             # Пробой стоп
             if block == '14_long' or block == '14_short':
-                if direction == 'long':
-                    order_type_2 = rows1[13][0]['position_action']['order_type']
+                if block == '14_long':
+                    stat_block = 0
                 else:
-                    order_type_2 = rows1[13][1]['position_action']['order_type']
-
-                if block_11(open_price_order, direction, 13):
+                    stat_block = 1
+                order_type_2 = rows1[13][stat_block]['position_action']['order_type']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 13, price_close1, price_close2, leverage, stat_block):
+                    close_candle = block_11(open_price_order, direction, 13, price_close1, price_close2, leverage, stat_block)
                     print('Пробой стоп')
                     block_num = 13
                     close_time_order = cc['time']
                     stat = 'close_1'
-                    block_id = block_id + ',14_' + str(direction)
+                    block_id = block_id + ',' + str(block)
 
                     proboi_line_proc = 0
                     proboi_stup = 0
                     old_proboi = 0
                     exit_price_price = False
                     break
-            #if block == '15_short' or block == '15_long':
+            # Нож разворот
+            if block == '15_short' or block == '15_long':
+                if block == '15_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
+                order_type_2 = rows1[14][stat_block]['position_action_1']['order_type']
+                change = rows1[14][stat_block]['candles']['change']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 14, price_close1, price_close2, leverage, stat_block):
+                    if change == 'price_lower_previous_low':
+                        if cc['low'] < back_price_1[back_price_1.index(cc)-1]['low']:
+                            price_old = back_price_1[back_price_1.index(cc)-1]['low']
+                            print('Нож сработал')
+                            block_num = 14
+                            close_candle = block_11(open_price_order, direction, 14, price_close1, price_close2, leverage, stat_block)
+                            close_time_order = cc['time']
+                            block_id = block_id + ',' + str(block)
+                            stat = 'close_open_knife'
+                            proboi_line_proc = 0
+                            proboi_stup = 0
+                            old_proboi = 0
+                            exit_price_price = False
+                            break
+                    if change == 'price_higher_previous_high':
+                        if cc['high'] > back_price_1[back_price_1.index(cc)-1]['high']:
+                            print('Нож сработал')
+                            price_old = back_price_1[back_price_1.index(cc) - 1]['high']
+                            block_num = 14
+                            close_candle = block_11(open_price_order, direction, 14, price_close1, price_close2, leverage, stat_block)
+                            close_time_order = cc['time']
+                            block_id = block_id + ',' + str(block)
+                            stat = 'close_open_knife'
+                            proboi_line_proc = 0
+                            proboi_stup = 0
+                            old_proboi = 0
+                            exit_price_price = False
+                            break
+            # Нож  разворот закрытие
+            if block == '16_short' or block == '16_long':
+                if block == '16_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
 
+                order_type_2 = rows1[15][stat_block]['position_action']['order_type']
+                indicator = float(back_price_1[back_price_1.index(cc) - 1]['indicator_2_' + rows1[15][stat_block]['indicator_2']['setting'] + '-' + rows1[15][stat_block]['indicator_2']['side']])
+                if block_17(cc, indicator, direction, 15, stat_block):
+                    print('Закрытие ножа')
+                    print(cc['time'])
+                    block_num = 15
+                    stat = 'close_knife'
+                    close_candle = block_17(cc, indicator, direction, 15, stat_block)
+                    proboi_status = 0
+                    close_time_order = cc['time']
+                    block_id = block_id + ',' + str(block)
+                    proboi_line_proc = 0
+                    proboi_stup = 0
+                    old_proboi = 0
+                    exit_price_price = False
+                    break
+            """if block == '17_short' or block == '17_long':
+                if block == '17_short':
+                    direction1 = 'short'
+                else:
+                    directon1 = 'long'
+                if direction == 'long':
+                    order_type_2 = rows1[16][0]['position_action']['order_type']
+                    indicator = float(back_price_1[back_price_1.index(cc) - 1]['indicator_2_' + rows1[16][0]['indicator_2']['setting'] + '-' + rows1[16][0]['indicator_2']['side']])
+
+                else:
+                    order_type_2 = rows1[16][1]['position_action']['order_type']
+                    indicator = float(back_price_1[back_price_1.index(cc) - 1][
+                                          'indicator_2_' + rows1[16][1]['indicator_2']['setting'] + '-' +
+                                          rows1[16][1]['indicator_2']['side']])
+
+
+                if block_17(cc, indicator, direction1, 16):
+                    print('Закрытие ножа')
+                    print('LEVERAGE ' + str(leverage))
+                    block_num = 16
+                    stat = 'close_knife'
+                    proboi_status = 0
+                    close_time_order = cc['time']
+                    close_candle = block_17(cc, indicator, direction, 16)
+                    block_id = block_id + ',18_' + str(direction)
+                    proboi_line_proc = 0
+                    proboi_stup = 0
+                    old_proboi = 0
+                    exit_price_price = False
+                    break"""
+            if block == '17_short' or block == '17_long':
+                if block == '17_long':
+                    stat_block = 0
+                else:
+                    stat_block = 1
+                order_type_2 = rows1[16][stat_block]['position_action']['order_type']
+                price_close1 = cc['high']
+                price_close2 = cc['low']
+                if block_11(open_price_order, direction, 16, price_close1, price_close2, leverage, stat_block):
+                    print('Закрытие ножа')
+                    print(cc['time'])
+                    block_num = 16
+                    close_candle = block_11(open_price_order, direction, 16, price_close1, price_close2, leverage, stat_block)
+                    stat = 'close_knife'
+                    proboi_status = 0
+                    close_time_order = cc['time']
+                    block_id = block_id + ',' + str(block)
+                    proboi_line_proc = 0
+                    proboi_stup = 0
+                    old_proboi = 0
+                    exit_price_price = False
+                    break
+
+    if stat == 'close_knife':
+        if direction == 'long':
+            #close_candle = float(cc['close'])
+            order_type_1 = order[3]
+            direction = order[0]
+            if direction == 'long':
+                if close_candle >= order[1]:
+                    res = 'profit'
+                    profit_sum = profit_sum + 1
+                else:
+                    res = 'loss'
+                    loss_sum = loss_sum + 1
+                if order_type_1 == 'limit':
+                    points_deal = close_candle - order[1]
+                else:
+                    points_deal = close_candle - order[1] - squeeze
+                    squeeze = squeeze + squeeze
+            else:
+                if order[1] >= close_candle:
+                    res = 'profit'
+                    profit_sum = profit_sum + 1
+                else:
+                    res = 'loss'
+                    loss_sum = loss_sum + 1
+                if order_type_1 == 'limit':
+                    points_deal = order[1] - close_candle
+                else:
+                    points_deal = order[1] - close_candle - squeeze
+                    squeeze = squeeze + squeeze
+            fee = 0
+            money_deal = (points_deal / close_candle) * (lot / price) - fee
+            all_sum = all_sum + money_deal
+            money_day = money_day + money_deal
+            percent_deal = (money_deal / balance) * 100
+            balance = balance + money_deal
+            percent_day = (money_day / start_balance) * 100
+            min_percent_list.append(percent_day)
+            min_balance_percent = min(min_percent_list)
+            if order_type == 'limit':
+                close_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
+            else:
+                close_time_position = close_time_order
+
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
+                2] and id_day!=1:
+                id_day = id_day - 1
+            insert_stmt = (
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            )
+            data = (
+                id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position,
+                order_type_2,
+                close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal, percent_deal,
+                balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
+            cursor.execute(insert_stmt, data)
+            cnx.commit()
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
+                2] and id_day!=1:
+                id_day = id_day + 1
+            order = []
+            close_candle = 0
+            open_time_order = 0
+            open_time_position = 0
+            open_price_order = 0
+            open_price_position = 0
+            close_time_order = 0
+            close_time_position = 0
+            points_deal = 0
+            res = ''
+            fee = 0
+            money_deal = 0
+            stat = '0'
+            block_id = ''
+            ids = ids + 1
+            stat = '0'
+            block_num = 0
+        else:
+            #close_candle = float(cc['close'])
+            order_type_1 = order[3]
+            direction = order[0]
+            if direction == 'long':
+                if close_candle >= order[1]:
+                    res = 'profit'
+                    profit_sum = profit_sum + 1
+                else:
+                    res = 'loss'
+                    loss_sum = loss_sum + 1
+                if order_type_1 == 'limit':
+                    points_deal = close_candle - order[1]
+                else:
+                    points_deal = close_candle - order[1] - squeeze
+                    squeeze = squeeze + squeeze
+            else:
+                if order[1] >= close_candle:
+                    res = 'profit'
+                    profit_sum = profit_sum + 1
+                else:
+                    res = 'loss'
+                    loss_sum = loss_sum + 1
+                if order_type_1 == 'limit':
+                    points_deal = order[1] - close_candle
+                else:
+                    points_deal = order[1] - close_candle - squeeze
+                    squeeze = squeeze + squeeze
+            fee = 0
+            money_deal = (points_deal / close_candle) * (lot / price) - fee
+
+            all_sum = all_sum + money_deal
+            money_day = money_day + money_deal
+            percent_deal = (money_deal / balance) * 100
+            balance = balance + money_deal
+            percent_day = (money_day / start_balance) * 100
+            min_percent_list.append(percent_day)
+            min_balance_percent = min(min_percent_list)
+            if order_type == 'limit':
+                close_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
+            else:
+                close_time_position = close_time_order
+            # print(close_time_position)
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
+                2] and id_day!=1:
+                id_day = id_day - 1
+            insert_stmt = (
+                "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            )
+            data = (
+                id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position,
+                order_type_2,
+                close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal, percent_deal,
+                balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
+            cursor.execute(insert_stmt, data)
+            cnx.commit()
+            if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[
+                2] and id_day!=1:
+                id_day = id_day + 1
+            order = []
+            close_candle = 0
+            open_time_order = 0
+            open_time_position = 0
+            open_price_order = 0
+            open_price_position = 0
+            close_time_order = 0
+            close_time_position = 0
+            points_deal = 0
+            res = ''
+            fee = 0
+            money_deal = 0
+            stat = '0'
+            block_id = ''
+            ids = ids + 1
+            stat = '0'
+            block_num = 0
+    if stat == 'close_open_knife':
+        if direction == 'long':
+            try:
+                price_indent1 = float(rows1[14][0]['position_action_1']['price_indent'])
+            except:
+                price_indent1 = 0
+            order_type_2 = rows1[14][0]['position_action_1']['order_type']
+        else:
+            try:
+                price_indent1 = float(rows1[14][1]['position_action_1']['price_indent'])
+            except:
+                price_indent1 = 0
+            order_type_2 = rows1[14][1]['position_action_1']['order_type']
+
+        if price_indent1 != 0:
+            close_candle = float(price_old) + (float(price_old) / 100) * price_indent1
+        else:
+            close_candle = float(price_old)
+        order_type_1 = order[3]
+        if direction == 'long':
+            if close_candle >= order[1]:
+                res = 'profit'
+                profit_sum = profit_sum + 1
+            else:
+                res = 'loss'
+                loss_sum = loss_sum + 1
+            if order_type_1 == 'limit':
+                points_deal = close_candle - order[1]
+            else:
+                points_deal = close_candle - order[1] - squeeze
+                squeeze = squeeze + squeeze
+        else:
+            if order[1] >= close_candle:
+                res = 'profit'
+                profit_sum = profit_sum + 1
+            else:
+                res = 'loss'
+                loss_sum = loss_sum + 1
+            if order_type_1 == 'limit':
+                points_deal = order[1] - close_candle
+            else:
+                points_deal = order[1] - close_candle - squeeze
+                squeeze = squeeze + squeeze
+
+
+        fee = 0
+        try:
+            money_deal = (points_deal / close_candle) * (lot / price) - fee
+        except Exception as e:
+            print(e)
+        all_sum = all_sum + money_deal
+        money_day = money_day + money_deal
+        percent_deal = (money_deal / balance) * 100
+        balance = balance + money_deal
+        percent_day = (money_day / start_balance) * 100
+        min_percent_list.append(percent_day)
+        min_balance_percent = min(min_percent_list)
+        close_time_position = cc['time']#back_price_1[back_price_1.index(cc)+1]['time']
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
+            id_day = id_day - 1
+        insert_stmt = (
+            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        )
+        data = (id_day, order[0], lot, order_type_1, open_time_order, open_price_order, open_time_position, order_type_2,close_time_order, close_candle, close_time_position, fee, res, points_deal, money_deal,percent_deal,balance, money_day, percent_day, min_balance_percent, 0, 0, block_id)
+        cursor.execute(insert_stmt, data)
+        cnx.commit()
+
+        if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
+            id_day = id_day + 1
+        order = []
+        close_candle = 0
+        open_time_order = 0
+        open_time_position = 0
+        open_price_order = 0
+        open_price_position = 0
+        close_time_order = 0
+        close_time_position = 0
+        points_deal = 0
+        res = ''
+        fee = 0
+        money_deal = 0
+        stat = '0'
+        ids = ids + 1
+        # open second
+        if direction == 'long': #long
+            try:
+                price_indent2 = float(rows1[14][0]['position_action_2']['price_indent'])
+            except:
+                price_indent2 = 0
+            try:
+                leverage2 = float(rows1[14][0]['position_action_2']['leverage'])
+            except:
+                leverage2 = 1
+            leverage = leverage2
+            direction = rows1[14][0]['position_action_2']['direction']
+            order_type = rows1[14][0]['position_action_2']['order_type']
+        else:
+            try:
+                price_indent2 = float(rows1[14][1]['position_action_2']['price_indent'])
+            except:
+                price_indent2 = 0
+            try:
+                leverage2 = float(rows1[14][1]['position_action_2']['leverage'])
+            except:
+                leverage2 = 1
+            leverage = leverage2
+            direction = rows1[14][1]['position_action_2']['direction']
+            order_type = rows1[14][1]['position_action_2']['order_type']
+        open_time_order = cc['time']#back_price_1[back_price_1.index(cc)+1]['time']
+        open_time_position = cc['time']#back_price_1[back_price_1.index(cc)+1]['time']
+        if direction == 'long':
+            if price_indent2 != 0:
+                price = float(price_old) + (float(price_old) / 100) * price_indent2
+            else:
+                price = float(price_old)
+        else:
+            if price_indent2 != 0:
+                price = float(price_old) - (float(price_old) / 100) * price_indent2
+            else:
+                price = float(price_old)
+        open_price_order = price
+        lot = (start_balance * price) * leverage2
+        lot = int(round(lot, -1))
+        order.append(direction)
+        order.append(price)
+        order.append(lot)
+        order.append(order_type)
+        order.append(cc['time'])
+        block_num = 14
+        block_id = '15_' + str(direction)
+        stat = 'open_2_2'
     if stat == 'close_2':
         if direction == 'long':
             close_candle = float(cc['close'])
@@ -1900,7 +2326,7 @@ for cc in back_price_1:
 
     if stat == 'close_1':
         if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'long' or direction == 'long' and order_type == 'market':
-            close_candle = float(cc['close'])
+            #close_candle = float(cc['close'])
             order_type_1 = order[3]
             direction = order[0]
             if direction == 'long':
@@ -1911,9 +2337,9 @@ for cc in back_price_1:
                     res = 'loss'
                     loss_sum = loss_sum + 1
                 if order_type_1 == 'limit':
-                    points_deal = close_candle - order[1]
+                    points_deal = close_candle - float(order[1])
                 else:
-                    points_deal = close_candle - order[1] - squeeze
+                    points_deal = close_candle - float(order[1]) - float(squeeze)
                     squeeze = squeeze + squeeze
             else:
                 if order[1] >= close_candle:
@@ -1923,9 +2349,9 @@ for cc in back_price_1:
                     res = 'loss'
                     loss_sum = loss_sum + 1
                 if order_type_1 == 'limit':
-                    points_deal = order[1] - close_candle
+                    points_deal = order[1] - float(close_candle)
                 else:
-                    points_deal = order[1] - close_candle - squeeze
+                    points_deal = order[1] - float(close_candle) - float(squeeze)
                     squeeze = squeeze + squeeze
             fee = 0
             money_deal = (points_deal / close_candle) * (lot / price) - fee
@@ -2011,7 +2437,7 @@ for cc in back_price_1:
                     cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
                     continue
         if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'short' or direction == 'short' and order_type == 'market':
-            close_candle = float(cc['close'])
+            #close_candle = float(cc['close'])
             order_type_1 = order[3]
             direction = order[0]
             if direction == 'long':
@@ -2039,6 +2465,7 @@ for cc in back_price_1:
                     points_deal = order[1] - close_candle - squeeze
                     squeeze = squeeze + squeeze
             fee = 0
+            print(close_candle)
             money_deal = (points_deal / close_candle) * (lot / price) - fee
             all_sum = all_sum + money_deal
             money_day = money_day + money_deal
@@ -2217,6 +2644,7 @@ for cc in back_price_1:
                 leverage2 = float(rows1[4][0]['position_action_2']['leverage'])
             except:
                 leverage2 = 1
+            leverage = leverage2
             direction = rows1[4][0]['position_action_2']['direction']
             order_type = rows1[4][0]['position_action_2']['order_type']
         else:
@@ -2228,6 +2656,7 @@ for cc in back_price_1:
                 leverage2 = float(rows1[4][1]['position_action_2']['leverage'])
             except:
                 leverage2 = 1
+            leverage = leverage2
             direction = rows1[4][1]['position_action_2']['direction']
             order_type = rows1[4][1]['position_action_2']['order_type']
         open_time_order = back_price_1[back_price_1.index(cc)+1]['time']
@@ -2308,7 +2737,10 @@ for cc in back_price_1:
         percent_day = (money_day / start_balance) * 100
         min_percent_list.append(percent_day)
         min_balance_percent = min(min_percent_list)
-        close_time_position = cc['time']
+        if order_type == 'market':
+            close_time_position = close_time_order
+        else:
+            close_time_position = cc['time']
         if str(open_time_position).split(' ')[0].split('-')[2] != str(close_time_position).split(' ')[0].split('-')[2] and id_day!=1:
             id_day = id_day - 1
         #print('IDDAY in base ' + str(id_day))
@@ -2342,13 +2774,14 @@ for cc in back_price_1:
         money_deal = 0
         stat = '0'
         ids = ids + 1
-        block_id = '11'
+        block_id = '11_' + str(direction)
         if direction == 'long':
             try:
                 price_indent2 = float(rows1[10][0]['position_action_2']['price_indent'])
             except:
                 price_indent2 = 0
             leverage2 = rows1[10][0]['position_action_2']['leverage']
+            leverage = leverage2
             direction = rows1[10][0]['position_action_2']['direction']
         else:
             try:
@@ -2356,6 +2789,7 @@ for cc in back_price_1:
             except:
                 price_indent2 = 0
             leverage2 = rows1[10][1]['position_action_2']['leverage']
+            leverage = leverage2
             direction = rows1[10][1]['position_action_2']['direction']
         if direction == 'long':
             if price_indent2 != 0:
@@ -2369,9 +2803,12 @@ for cc in back_price_1:
             else:
                 price = close_candle1#float(cc['close']) - (float(cc['close']) / 100)
             order_type = rows1[10][1]['position_action_2']['order_type']
-
-        open_time_order = cc['time']
-        open_time_position = cc['time']
+        if order_type == 'market':
+            open_time_order = back_price_1[back_price_1.index(cc)-1]['time']
+            open_time_position = back_price_1[back_price_1.index(cc)-1]['time']
+        else:
+            open_time_order = cc['time']
+            open_time_position = cc['time']
         open_price_order = price
         lot = (float(start_balance) * float(price)) * float(leverage2)
         lot = int(round(lot, -1))
@@ -2381,7 +2818,7 @@ for cc in back_price_1:
         order.append(order_type)
         order.append(cc['time'])
         stat = 'open_2_2'
-        print('open close_open')
+        print('open close_open prob')
         continue
 
 
@@ -2398,10 +2835,3 @@ data = (profitability, all_sum, profit_percent, profit_sum, loss_percent, loss_s
 cursor.execute(insert_stmt, data)
 cnx.commit()
 cnx.close()
-
-
-
-
-
-
-
