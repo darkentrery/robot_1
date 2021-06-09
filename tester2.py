@@ -102,9 +102,13 @@ order_type_1 = 0
 order_type_2 = 0
 open_price_order = 0
 close_price_order = 0
+price_close1 = 0
+price_close2 = 0
+
 for gg in rows1:
-    rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
-    activations.append([gg[7], gg[9]])
+    rows2.insert(gg[0], [ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
+    ##rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
+    activations.append([gg[7], gg[9], gg[0]])
 rows1 = rows2
 
 # обнуление глобальных переменных
@@ -144,28 +148,100 @@ def reset_variables():
     block_num = 0
 
 # проверка условий блока
-def check_block_condition(indicator, direction, last_ind, db_position):
+def check_block_condition(indicator, direction, last_ind, db_position, price_close1, price_close2):
         
     if direction == 'long':
         if db_position[0].get('indicator_1'):
-            return check_indicator_1(indicator, direction, last_ind, db_position)
+            return check_indicator_1(indicator, direction, last_ind, db_position[0])
+        elif db_position[0].get('position_condition') and db_position[0]['position_condition'].get('pnl'):    
+            return check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
     else:
         if db_position[1].get('indicator_1'):
-            return check_indicator_1(indicator, direction, last_ind, db_position)
+            return check_indicator_1(indicator, direction, last_ind, db_position[1])
+        elif db_position[1].get('position_condition') and db_position[1]['position_condition'].get('pnl'):    
+            return check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
+
+#проверка pnl
+def check_pnl(open_price_order, direction, db_position, price_close1, price_close2, leverage):
+    
+    ind_oper = db_position['position_condition']['pnl'].split(' ')[0]
+    ind_value = float(db_position['position_condition']['pnl'].split(' ')[1])
+    if direction == 'short':
+        pnl = open_price_order - (((open_price_order / 100) * ind_value))/float(leverage)
+    else:
+        pnl = open_price_order + (((open_price_order / 100) * ind_value))/float(leverage)
+
+    if direction == 'long':
+        if ind_oper== '>=':
+            if price_close1 >= pnl:
+                return pnl
+        if ind_oper == '<=':
+            if price_close1 <= pnl:
+                return pnl
+        if ind_oper == '=':
+            if price_close1 == pnl:
+                return pnl
+        if ind_oper == '>':
+            if price_close1 > pnl:
+                return pnl
+        if ind_oper == '<':
+            if price_close1 < pnl:
+                return pnl
+        if ind_oper == '>=':
+            if price_close2 >= pnl:
+                return pnl
+        if ind_oper == '<=':
+            if price_close2 <= pnl:
+                return pnl
+        if ind_oper == '=':
+            if price_close2 == pnl:
+                return pnl
+        if ind_oper == '>':
+            if price_close2 > pnl:
+                return pnl
+        if ind_oper == '<':
+            if price_close2 < pnl:
+                return pnl
+    else:
+        if ind_oper == '>=':
+            if pnl >= price_close1:
+                return pnl
+        if ind_oper == '<=':
+            if pnl <= price_close1:
+                return pnl
+        if ind_oper == '=':
+            if pnl == price_close1:
+                return pnl
+        if ind_oper == '>':
+            if pnl > price_close1:
+                return pnl
+        if ind_oper == '<':
+            if pnl < price_close1:
+                return pnl
+        if ind_oper == '>=':
+            if pnl >= price_close2:
+                return pnl
+        if ind_oper == '<=':
+            if pnl <= price_close2:
+                return pnl
+        if ind_oper == '=':
+            if pnl == price_close2:
+                return pnl
+        if ind_oper == '>':
+            if pnl > price_close2:
+                return pnl
+        if ind_oper == '<':
+            if pnl < price_close2:
+                return pnl
+    return False
 
 # проверка идентификатора1 в блоке условий
 def check_indicator_1(indicator, direction, last_ind, db_position):
 
-    if direction == 'long':
-        ind_oper = db_position[0]['indicator_1']['value'].split(' ')[0]
-        ind_value = float(db_position[0]['indicator_1']['value'].split(' ')[1])
-        change = db_position[0]['indicator_1']['change']
-        # side_1 = rows1[0][0]['position_action']['direction']
-    else:
-        ind_oper = db_position[1]['indicator_1']['value'].split(' ')[0]
-        ind_value = float(db_position[1]['indicator_1']['value'].split(' ')[1])
-        change = db_position[1]['indicator_1']['change']
-        # side_1 = rows1[0][0]['position_action']['direction']
+    ind_oper = db_position['indicator_1']['value'].split(' ')[0]
+    ind_value = float(db_position['indicator_1']['value'].split(' ')[1])
+    change = db_position['indicator_1']['change']
+
     if change == 'more_than_previous':
         if indicator > last_ind:
             if ind_oper == '>=':
@@ -219,13 +295,12 @@ def open_order():
         indicator1 = cc['indicator_1' + '_' +
             rows1[block_num][0]['indicator_1']['setting']]
         try:
-            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                'indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
+            last_ind = back_price_1[back_price_1.index(cc) - 1]['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
         except:
             return True
         direction = 'long'
         order_type = rows1[block_num][0]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, last_ind, rows1[block_num]):
+        if check_block_condition(indicator1, direction, last_ind, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
@@ -239,7 +314,7 @@ def open_order():
             return True
         direction = 'short'
         order_type = rows1[block_num][1]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, last_ind, rows1[block_num]):
+        if check_block_condition(indicator1, direction, last_ind, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
@@ -388,12 +463,16 @@ def open_position(block_number):
 
 # попытка смены блока
 def change_block_num(block_number):
+    
     global direction
     global block_id
     global block_num
     global stat
     global order_type_2
     global close_time_order
+    global price_close1
+    global price_close2
+
     if direction == 'long':
         activation_blocks = activations[block_number][0].split(',')
     else:
@@ -402,7 +481,7 @@ def change_block_num(block_number):
         ac_block_parameters = ac_block.split('_')
         if (len(ac_block_parameters)) < 2:
             continue
-        ac_block_num = int(ac_block_parameters[0])
+        ac_block_num = int(ac_block_parameters[2])
         ac_block_direction = ac_block_parameters[1]
         if ac_block_direction == 'long' and direction == 'long':
             indicator2 = cc['indicator_1' + '_' +
@@ -427,7 +506,7 @@ def change_block_num(block_number):
             except:
                 continue
             next_order = rows1[ac_block_num-1][1]['position_action']['order']
-        if check_block_condition(indicator2, direction, last_ind, rows1[ac_block_num-1]): 
+        if check_block_condition(indicator2, direction, last_ind, rows1[ac_block_num-1], cc['high'], cc['low']): 
             block_num = ac_block_num-1
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
@@ -597,6 +676,9 @@ for cc in back_price_1:
         percent_day = 0
         min_percent_list.clear()
         min_balance_percent = 0
+
+    price_close1 = cc['high']
+    price_close2 = cc['low']
 
     if open_order():
         print('Открытие ордера')
