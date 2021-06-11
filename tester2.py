@@ -305,6 +305,8 @@ def open_order():
     global open_time_order
     global order_type
     global change
+    global open_price_order
+    global close_time_position
 
     if stat != '0':
         return False
@@ -347,6 +349,10 @@ def open_order():
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
+        else:
+            close_time_position = 0
+            open_price_order = 0
+
     return False
 
 # открытие позиции
