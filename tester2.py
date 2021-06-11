@@ -548,7 +548,7 @@ def change_block_num(block_number):
             block_num = ac_block_num
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            block_id = block_id + ',' + str(ac_block_num) + '_' + direction
+            block_id = block_id + ',' + ac_block_parameters[0] + '_' + direction
 
             proboi_line_proc = 0
             proboi_stup = 0
