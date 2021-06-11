@@ -149,16 +149,26 @@ def reset_variables():
     block_num = 0
 
 # проверка условий блока
-def check_block_condition(indicator, direction, last_ind, db_position, price_close1, price_close2):
-        
+def check_block_condition(candle, indicators, direction, db_position, price_close1, price_close2):
+    
     if direction == 'long':
-        if db_position[0].get('indicator_1'):
-            return check_indicator_1(indicator, direction, last_ind, db_position[0])
+        if indicators != None:
+            for indicator in indicators:
+                last_ind = back_price_1[back_price_1.index(candle) - 1][indicator['name']]
+                result_ind = check_indicator(indicator, direction, last_ind, db_position[0])
+                if result_ind == False: 
+                    return False
+            return True 
         elif db_position[0].get('position_condition') and db_position[0]['position_condition'].get('pnl'):    
             return check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
     else:
-        if db_position[1].get('indicator_1'):
-            return check_indicator_1(indicator, direction, last_ind, db_position[1])
+        if indicators != None:
+            for indicator in indicators:
+                last_ind = back_price_1[back_price_1.index(candle) - 1][indicator['name']]
+                result_ind = check_indicator(indicator, direction, last_ind, db_position[1])
+                if result_ind == False: 
+                    return False
+            return True
         elif db_position[1].get('position_condition') and db_position[1]['position_condition'].get('pnl'):    
             return check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
 
@@ -237,11 +247,17 @@ def check_pnl(open_price_order, direction, db_position, price_close1, price_clos
     return False
 
 # проверка идентификатора1 в блоке условий
-def check_indicator_1(indicator, direction, last_ind, db_position):
+def check_indicator(indicator_condition, direction, last_ind, db_position):
 
-    ind_oper = db_position['indicator_1']['value'].split(' ')[0]
-    ind_value = float(db_position['indicator_1']['value'].split(' ')[1])
-    change = db_position['indicator_1']['change']
+    indicator = cc[indicator_condition['name']]
+    try:
+        last_ind = back_price_1[back_price_1.index(cc) - 1][indicator_condition['name']]
+    except:
+        return False 
+
+    ind_oper = indicator_condition['value'].split(' ')[0]
+    ind_value = float(indicator_condition['value'].split(' ')[1])
+    change = indicator_condition['change']
 
     if change == 'more_than_previous':
         if indicator > last_ind:
@@ -293,29 +309,41 @@ def open_order():
     if stat != '0':
         return False
     if '0' in activations[block_num][0].split(','):
-        indicator1 = cc['indicator_1' + '_' +
-            rows1[block_num][0]['indicator_1']['setting']]
-        try:
-            last_ind = back_price_1[back_price_1.index(cc) - 1]['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
-        except:
-            return True
+
+        if rows1[block_num][0].get('indicators'):
+            indicators = rows1[block_num][0]['indicators']
+        else:
+            indicators = None
+
+        ##indicator1 = cc['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
+        ##try:
+        ##    last_ind = back_price_1[back_price_1.index(cc) - 1]['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
+        ##except:
+        ##    return True
+
         direction = 'long'
         order_type = rows1[block_num][0]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, last_ind, rows1[block_num], cc['high'], cc['low']):
+        if check_block_condition(cc, indicators, direction, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
     if '0' in activations[block_num][1].split(','):
-        indicator1 = cc['indicator_1' + '_' +
-            rows1[block_num][1]['indicator_1']['setting']]
-        try:
-            last_ind = back_price_1[back_price_1.index(cc) - 1][
-                'indicator_1' + '_' + rows1[block_num][1]['indicator_1']['setting']]
-        except:
-            return True
+
+        if rows1[block_num][1].get('indicators'):
+            indicators = rows1[block_num][1]['indicators']
+        else:
+            indicators = None
+
+        ##indicator1 = cc['indicator_1' + '_' +
+        ##    rows1[block_num][1]['indicator_1']['setting']]
+        ##try:
+        ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
+        ##        'indicator_1' + '_' + rows1[block_num][1]['indicator_1']['setting']]
+        ##except:
+        ##    return True
         direction = 'short'
         order_type = rows1[block_num][1]['position_action']['order_type']
-        if check_block_condition(indicator1, direction, last_ind, rows1[block_num], cc['high'], cc['low']):
+        if check_block_condition(cc, indicators, direction, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
@@ -485,29 +513,38 @@ def change_block_num(block_number):
         ac_block_num = block_order[ac_block_parameters[0]]
         ac_block_direction = ac_block_parameters[1]
         if ac_block_direction == 'long' and direction == 'long':
-            indicator2 = cc['indicator_1' + '_' +
-                rows1[ac_block_num][0]['indicator_1']['setting']]
+            if rows1[ac_block_num][0].get('indicators'):
+                indicators = rows1[ac_block_num][0]['indicators']
+            else:
+                indicators = None
+            
+            ##indicator2 = cc['indicator_1' + '_' +
+            ##    rows1[ac_block_num][0]['indicator_1']['setting']]
             order_type_2 = rows1[ac_block_num][0]['position_action']['order_type']
-            # cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
-            try:
-                last_ind = back_price_1[back_price_1.index(cc) - 1][
-                    'indicator_1' + '_' + rows1[ac_block_num][0]['indicator_1']['setting']]
-            except:
-                continue
-            change = rows1[ac_block_num][0]['indicator_1']['change']
+            ## cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
+            ##try:
+            ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
+            ##        'indicator_1' + '_' + rows1[ac_block_num][0]['indicator_1']['setting']]
+            ##except:
+            ##    continue
+            ##change = rows1[ac_block_num][0]['indicator_1']['change']
             next_order = rows1[ac_block_num][0]['position_action']['order']
         elif ac_block_direction == 'short' and direction == 'short':
-            indicator2 = cc['indicator_1' + '_' +
-                rows1[ac_block_num][1]['indicator_1']['setting']]
+            if rows1[ac_block_num][1].get('indicators'):
+                indicators = rows1[ac_block_num][1]['indicators']
+            else:
+                indicators = None
+            ##indicator2 = cc['indicator_1' + '_' +
+            ##    rows1[ac_block_num][1]['indicator_1']['setting']]
             order_type_2 = rows1[ac_block_num][1]['position_action']['order_type']
-            # cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
-            try:
-                last_ind = back_price_1[back_price_1.index(cc) - 1][
-                    'indicator_1' + '_' + rows1[ac_block_num][1]['indicator_1']['setting']]
-            except:
-                continue
+            ## cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
+            ##try:
+            ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
+            ##        'indicator_1' + '_' + rows1[ac_block_num][1]['indicator_1']['setting']]
+            ##except:
+            ##    continue
             next_order = rows1[ac_block_num][1]['position_action']['order']
-        if check_block_condition(indicator2, direction, last_ind, rows1[ac_block_num], cc['high'], cc['low']): 
+        if check_block_condition(cc, indicators, direction, rows1[ac_block_num], cc['high'], cc['low']): 
             block_num = ac_block_num
             stat = 'position_' + next_order
             close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
