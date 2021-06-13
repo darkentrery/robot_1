@@ -518,11 +518,6 @@ def change_block_num(block_number):
             if close_time_order == 0:
                 close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             block_id = block_id + ',' + ac_block_parameters[0] + '_' + direction
-
-            proboi_line_proc = 0
-            proboi_stup = 0
-            old_proboi = 0
-            exit_price_price = False
             break
 
 # закрытие позиции
