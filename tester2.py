@@ -160,7 +160,12 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
                     return False
             return True 
         elif db_position[0].get('position_condition') and db_position[0]['position_condition'].get('pnl'):    
-            return check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
+            pnl = check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
+            if pnl:
+                close_time_order = pnl
+                return True
+            else:
+                return False
     else:
         if indicators != None:
             for indicator in indicators:
@@ -170,7 +175,12 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
                     return False
             return True
         elif db_position[1].get('position_condition') and db_position[1]['position_condition'].get('pnl'):    
-            return check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
+            pnl = check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
+            if pnl:
+                close_time_order = pnl
+                return True
+            else:
+                return False
 
 #проверка pnl
 def check_pnl(open_price_order, direction, db_position, price_close1, price_close2, leverage):
@@ -349,9 +359,9 @@ def open_order():
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
-        else:
-            close_time_position = 0
-            open_price_order = 0
+        #else:
+        #    close_time_position = 0
+        #    open_price_order = 0
 
     return False
 
@@ -399,11 +409,11 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            if close_time_position == 0:
-                open_time_position = open_time_order
-            else:
-                open_time_order = close_time_position
-                open_time_position = close_time_position
+            #if close_time_position == 0:
+            open_time_position = open_time_order
+            #else:
+            #    open_time_order = close_time_position
+            #    open_time_position = close_time_position
                 
             # side_1 = rows1[0][0]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
@@ -413,10 +423,10 @@ def open_position(block_number):
                               100) * float(price_indent)
             except:
                 price = float(price_old)
-            if open_price_order == 0:
-                open_price_order = price
-            else:
-                open_price_order = close_price_order
+            #if open_price_order == 0:
+            open_price_order = price
+            #else:
+            #    open_price_order = close_price_order
             leverage = rows1[block_number][0]['position_action']['leverage']
             lot = (float(start_balance) * float(price)) * float(leverage)
             lot = int(round(lot, -1))
@@ -461,11 +471,11 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            if close_time_position == 0:
-                open_time_position = open_time_order
-            else:
-                open_time_order = close_time_position
-                open_time_position = close_time_position
+            #if close_time_position == 0:
+            open_time_position = open_time_order
+            #else:
+            #    open_time_order = close_time_position
+            #    open_time_position = close_time_position
             # side_1 = rows1[0][1]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
@@ -474,10 +484,10 @@ def open_position(block_number):
                               100) * float(price_indent)
             except:
                 price = float(price_old) + (float(price_old) / 100)
-            if open_price_order == 0:
-                open_price_order = price
-            else:
-                open_price_order = close_price_order
+            #if open_price_order == 0:
+            open_price_order = price
+            #else:
+            #    open_price_order = close_price_order
             try:
                 leverage = rows1[block_number][1]['position_action']['leverage']
             except:
@@ -553,7 +563,8 @@ def change_block_num(block_number):
         if check_block_condition(cc, indicators, direction, rows1[ac_block_num], cc['high'], cc['low']): 
             block_num = ac_block_num
             stat = 'position_' + next_order
-            close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
+            if close_time_order == 0:
+                close_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
             block_id = block_id + ',' + ac_block_parameters[0] + '_' + direction
 
             proboi_line_proc = 0
@@ -724,6 +735,10 @@ for cc in back_price_1:
     price_close1 = cc['high']
     price_close2 = cc['low']
 
+    if stat == 'position_open':
+        change_block_num(block_num)
+    if stat == 'position_close' and close_position():
+        print('Закрытие позиции')
     if open_order():
         print('Открытие ордера')
         stat = 'order_is_opened'
@@ -731,11 +746,7 @@ for cc in back_price_1:
     if stat == 'order_is_opened' and open_position(block_num):
         print('Открытие позиции')
         continue
-    if stat == 'position_open':
-        change_block_num(block_num)
-    if stat == 'position_close' and close_position():
-        print('Закрытие позиции')
-        continue  
+      
  
 # рассчет результата
 profitability = (money_result/start_balance) - 1

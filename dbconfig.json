@@ -1,8 +1,8 @@
 {
     "user": "tester",
     "password": "testerpass",
-    "host": "95.142.35.241",
-    "database_host": "tester_4",
+    "host": "95.142.38.22",
+    "database_host": "tester_2",
     "table_price": "back_price",
     "table_result": "back_positions"
 }
