@@ -151,6 +151,8 @@ def reset_variables():
 # проверка условий блока
 def check_block_condition(candle, indicators, direction, db_position, price_close1, price_close2):
     
+    global close_candle
+
     if direction == 'long':
         if indicators != None:
             for indicator in indicators:
@@ -162,7 +164,7 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
         elif db_position[0].get('position_condition') and db_position[0]['position_condition'].get('pnl'):    
             pnl = check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
             if pnl:
-                close_time_order = pnl
+                close_candle = pnl
                 return True
             else:
                 return False
@@ -177,7 +179,7 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
         elif db_position[1].get('position_condition') and db_position[1]['position_condition'].get('pnl'):    
             pnl = check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
             if pnl:
-                close_time_order = pnl
+                close_candle = pnl
                 return True
             else:
                 return False
@@ -327,17 +329,10 @@ def open_order():
         else:
             indicators = None
 
-        ##indicator1 = cc['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
-        ##try:
-        ##    last_ind = back_price_1[back_price_1.index(cc) - 1]['indicator_1' + '_' + rows1[block_num][0]['indicator_1']['setting']]
-        ##except:
-        ##    return True
-
         direction = 'long'
         order_type = rows1[block_num][0]['position_action']['order_type']
         if check_block_condition(cc, indicators, direction, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            # cancel_status = rows1[0][0]['position_action']['cancel'].split(',')
             return True
     if '0' in activations[block_num][1].split(','):
 
@@ -346,22 +341,11 @@ def open_order():
         else:
             indicators = None
 
-        ##indicator1 = cc['indicator_1' + '_' +
-        ##    rows1[block_num][1]['indicator_1']['setting']]
-        ##try:
-        ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
-        ##        'indicator_1' + '_' + rows1[block_num][1]['indicator_1']['setting']]
-        ##except:
-        ##    return True
         direction = 'short'
         order_type = rows1[block_num][1]['position_action']['order_type']
         if check_block_condition(cc, indicators, direction, rows1[block_num], cc['high'], cc['low']):
             open_time_order = back_price_1[back_price_1.index(cc) + 1]['time']
-            # cancel_status = rows1[0][1]['position_action']['cancel'].split(',')
             return True
-        #else:
-        #    close_time_position = 0
-        #    open_price_order = 0
 
     return False
 
@@ -409,13 +393,7 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            #if close_time_position == 0:
             open_time_position = open_time_order
-            #else:
-            #    open_time_order = close_time_position
-            #    open_time_position = close_time_position
-                
-            # side_1 = rows1[0][0]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][0]['position_action']['price_indent']
@@ -423,10 +401,7 @@ def open_position(block_number):
                               100) * float(price_indent)
             except:
                 price = float(price_old)
-            #if open_price_order == 0:
             open_price_order = price
-            #else:
-            #    open_price_order = close_price_order
             leverage = rows1[block_number][0]['position_action']['leverage']
             lot = (float(start_balance) * float(price)) * float(leverage)
             lot = int(round(lot, -1))
@@ -444,7 +419,6 @@ def open_position(block_number):
         if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
             open_time_position = back_price_1[back_price_1.index(
                 cc) + 1]['time']
-            # side_1 = rows1[0][1]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][1]['position_action']['price_indent']
@@ -471,12 +445,7 @@ def open_position(block_number):
             block_id = str(block_number + 1) + '_' + direction
             return True
         if order_type == 'market':
-            #if close_time_position == 0:
             open_time_position = open_time_order
-            #else:
-            #    open_time_order = close_time_position
-            #    open_time_position = close_time_position
-            # side_1 = rows1[0][1]['position_action']['direction']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][1]['position_action']['price_indent']
@@ -484,10 +453,7 @@ def open_position(block_number):
                               100) * float(price_indent)
             except:
                 price = float(price_old) + (float(price_old) / 100)
-            #if open_price_order == 0:
             open_price_order = price
-            #else:
-            #    open_price_order = close_price_order
             try:
                 leverage = rows1[block_number][1]['position_action']['leverage']
             except:
@@ -534,31 +500,14 @@ def change_block_num(block_number):
             else:
                 indicators = None
             
-            ##indicator2 = cc['indicator_1' + '_' +
-            ##    rows1[ac_block_num][0]['indicator_1']['setting']]
             order_type_2 = rows1[ac_block_num][0]['position_action']['order_type']
-            ## cancel_status = rows1[1][0]['position_action']['cancel'].split(',')
-            ##try:
-            ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
-            ##        'indicator_1' + '_' + rows1[ac_block_num][0]['indicator_1']['setting']]
-            ##except:
-            ##    continue
-            ##change = rows1[ac_block_num][0]['indicator_1']['change']
             next_order = rows1[ac_block_num][0]['position_action']['order']
         elif ac_block_direction == 'short' and direction == 'short':
             if rows1[ac_block_num][1].get('indicators'):
                 indicators = rows1[ac_block_num][1]['indicators']
             else:
                 indicators = None
-            ##indicator2 = cc['indicator_1' + '_' +
-            ##    rows1[ac_block_num][1]['indicator_1']['setting']]
             order_type_2 = rows1[ac_block_num][1]['position_action']['order_type']
-            ## cancel_status = rows1[1][1]['position_action']['cancel'].split(',')
-            ##try:
-            ##    last_ind = back_price_1[back_price_1.index(cc) - 1][
-            ##        'indicator_1' + '_' + rows1[ac_block_num][1]['indicator_1']['setting']]
-            ##except:
-            ##    continue
             next_order = rows1[ac_block_num][1]['position_action']['order']
         if check_block_condition(cc, indicators, direction, rows1[ac_block_num], cc['high'], cc['low']): 
             block_num = ac_block_num
@@ -587,9 +536,11 @@ def close_position():
     global ids
     global close_time_position
     global close_price_order
+    global close_candle
     
     if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'long' or direction == 'long' and order_type == 'market':
-        close_candle = float(cc['close'])
+        if close_candle == 0:
+            close_candle = float(cc['close'])
         close_price_order = close_candle
         order_type_1 = order[3]
         direction = order[0]
