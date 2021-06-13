@@ -732,9 +732,6 @@ for cc in back_price_1:
         min_percent_list.clear()
         min_balance_percent = 0
 
-    price_close1 = cc['high']
-    price_close2 = cc['low']
-
     if stat == 'position_open':
         change_block_num(block_num)
     if stat == 'position_close' and close_position():
