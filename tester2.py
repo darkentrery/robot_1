@@ -152,6 +152,7 @@ def reset_variables():
 def check_block_condition(candle, indicators, direction, db_position, price_close1, price_close2):
     
     global close_candle
+    global close_time_order
 
     if direction == 'long':
         if indicators != None:
@@ -164,6 +165,7 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
         elif db_position[0].get('position_condition') and db_position[0]['position_condition'].get('pnl'):    
             pnl = check_pnl(open_price_order, direction, db_position[0], price_close1, price_close2, leverage)
             if pnl:
+                close_time_order = candle['time']
                 close_candle = pnl
                 return True
             else:
@@ -179,6 +181,7 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
         elif db_position[1].get('position_condition') and db_position[1]['position_condition'].get('pnl'):    
             pnl = check_pnl(open_price_order, direction, db_position[1], price_close1, price_close2, leverage)
             if pnl:
+                close_time_order = candle['time']
                 close_candle = pnl
                 return True
             else:
@@ -604,7 +607,8 @@ def close_position():
         return True
 
     if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit' and direction == 'short' or direction == 'short' and order_type == 'market':
-        close_candle = float(cc['close'])
+        if close_candle == 0:
+            close_candle = float(cc['close'])
         close_price_order = close_candle
         order_type_1 = order[3]
         direction = order[0]
