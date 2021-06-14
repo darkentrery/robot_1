@@ -477,8 +477,6 @@ def change_block_num(block_number):
     global stat
     global order_type_2
     global close_time_order
-    global price_close1
-    global price_close2
 
     if direction == 'long':
         activation_blocks = activations[block_number][0].split(',')
