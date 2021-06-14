@@ -135,10 +135,10 @@ def reset_variables():
     close_candle = 0
     open_time_order = 0
     open_time_position = 0
-    #open_price_order = 0
+    open_price_order = 0##
     open_price_position = 0
     close_time_order = 0
-    #close_time_position = 0
+    close_time_position = 0##
     points_deal = 0
     res = ''
     fee = 0
@@ -369,14 +369,11 @@ def open_position(block_number):
 
     if direction == 'long':
         if cc['low'] <= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
-            open_time_position = back_price_1[back_price_1.index(
-                cc) + 1]['time']
-            # side_1 = rows1[0][0]['position_action']['direction']
+            open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][0]['position_action']['price_indent']
-                price = float(price_old) - (float(price_old) /
-                              100) * float(price_indent)
+                price = float(price_old) - (float(price_old) / 100) * float(price_indent)
             except:
                 price = float(price_old) - (float(price_old) / 100)
             if open_price_order == 0:
@@ -400,8 +397,7 @@ def open_position(block_number):
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][0]['position_action']['price_indent']
-                price = float(price_old) - (float(price_old) /
-                              100) * float(price_indent)
+                price = float(price_old) - (float(price_old) / 100) * float(price_indent)
             except:
                 price = float(price_old)
             open_price_order = price
@@ -420,13 +416,11 @@ def open_position(block_number):
             return True
     if direction == 'short':
         if cc['high'] >= back_price_1[back_price_1.index(cc) - 1]['close'] and order_type == 'limit':
-            open_time_position = back_price_1[back_price_1.index(
-                cc) + 1]['time']
+            open_time_position = back_price_1[back_price_1.index(cc) + 1]['time']
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][1]['position_action']['price_indent']
-                price = float(price_old) + (float(price_old) /
-                              100) * float(price_indent)
+                price = float(price_old) + (float(price_old) / 100) * float(price_indent)
             except:
                 price = float(price_old)
             if open_price_order == 0:
@@ -452,10 +446,9 @@ def open_position(block_number):
             price_old = back_price_1[back_price_1.index(cc) - 1]['close']
             try:
                 price_indent = rows1[block_number][1]['position_action']['price_indent']
-                price = float(price_old) + (float(price_old) /
-                              100) * float(price_indent)
+                price = float(price_old) + (float(price_old) / 100) * float(price_indent)
             except:
-                price = float(price_old) + (float(price_old) / 100)
+                price = float(price_old)
             open_price_order = price
             try:
                 leverage = rows1[block_number][1]['position_action']['leverage']
