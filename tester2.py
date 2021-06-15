@@ -105,6 +105,7 @@ close_price_order = 0
 block_order = {}
 
 iter = 0
+blocks_data = rows1
 for gg in rows1:
     rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
     activations.append([gg[7], gg[9]])
@@ -188,10 +189,15 @@ def check_block_condition(candle, indicators, direction, db_position, price_clos
                 return False
 
 #проверка pnl
-def check_pnl(open_price_order, direction, db_position, price_close1, price_close2, leverage):
+def check_pnl(condition, block, candle):
     
-    ind_oper = db_position['position_condition']['pnl'].split(' ')[0]
-    ind_value = float(db_position['position_condition']['pnl'].split(' ')[1])
+    global open_price_order
+    global leverage
+
+    direction = block['direction']
+
+    ind_oper = condition['pnl'].split(' ')[0]
+    ind_value = float(condition['pnl'].split(' ')[1])
     if direction == 'short':
         pnl = open_price_order - (((open_price_order / 100) * ind_value))/float(leverage)
     else:
@@ -199,65 +205,65 @@ def check_pnl(open_price_order, direction, db_position, price_close1, price_clos
 
     if direction == 'long':
         if ind_oper== '>=':
-            if price_close1 >= pnl:
+            if candle['high'] >= pnl:
                 return pnl
         if ind_oper == '<=':
-            if price_close1 <= pnl:
+            if candle['high'] <= pnl:
                 return pnl
         if ind_oper == '=':
-            if price_close1 == pnl:
+            if candle['high'] == pnl:
                 return pnl
         if ind_oper == '>':
-            if price_close1 > pnl:
+            if candle['high'] > pnl:
                 return pnl
         if ind_oper == '<':
-            if price_close1 < pnl:
+            if candle['high'] < pnl:
                 return pnl
         if ind_oper == '>=':
-            if price_close2 >= pnl:
+            if candle['low'] >= pnl:
                 return pnl
         if ind_oper == '<=':
-            if price_close2 <= pnl:
+            if candle['low'] <= pnl:
                 return pnl
         if ind_oper == '=':
-            if price_close2 == pnl:
+            if candle['low'] == pnl:
                 return pnl
         if ind_oper == '>':
-            if price_close2 > pnl:
+            if candle['low'] > pnl:
                 return pnl
         if ind_oper == '<':
-            if price_close2 < pnl:
+            if candle['low'] < pnl:
                 return pnl
     else:
         if ind_oper == '>=':
-            if pnl >= price_close1:
+            if pnl >= candle['high']:
                 return pnl
         if ind_oper == '<=':
-            if pnl <= price_close1:
+            if pnl <= candle['high']:
                 return pnl
         if ind_oper == '=':
-            if pnl == price_close1:
+            if pnl == candle['high']:
                 return pnl
         if ind_oper == '>':
-            if pnl > price_close1:
+            if pnl > candle['high']:
                 return pnl
         if ind_oper == '<':
-            if pnl < price_close1:
+            if pnl < candle['high']:
                 return pnl
         if ind_oper == '>=':
-            if pnl >= price_close2:
+            if pnl >= candle['low']:
                 return pnl
         if ind_oper == '<=':
-            if pnl <= price_close2:
+            if pnl <= candle['low']:
                 return pnl
         if ind_oper == '=':
-            if pnl == price_close2:
+            if pnl == candle['low']:
                 return pnl
         if ind_oper == '>':
-            if pnl > price_close2:
+            if pnl > candle['low']:
                 return pnl
         if ind_oper == '<':
-            if pnl < price_close2:
+            if pnl < candle['low']:
                 return pnl
     return False
 
@@ -653,9 +659,67 @@ def close_position():
         return True
     return False
 
+
+def get_first_block(blocks):
+
+    block_data = {}    
+
+    for block in blocks:
+        if '0' in block[7].split(','):
+            block_data['direction'] = 'long'
+            block_data['conditions'] = block[8]['conditions']
+            block_data['actions'] = block[8]['actions']
+            return block_data
+        elif '0' in block[9].split(','):
+            block_data['direction'] = 'short'
+            block_data['conditions'] = block[10]['conditions']
+            block_data['actions'] = block[10]['actions']
+            return block_data
+    
+    return None
+
+def check_blocks_condition(blocks, candle):
+
+    for block in blocks:
+        block_conditions_done = block_conditions_done(block, candle)
+        if block_conditions_done:
+            return block
+    
+    return None
+
+def block_conditions_done(block, candle):
+
+    cur_condition_number = None
+
+    for condition in block['conditions']:
+        
+        if condition.get('done') and condition['done']:
+            continue
+
+        if cur_condition_number <> None and condition['number'] <> cur_condition_number:
+            return False
+
+        
+        if condition['type'] == 'pnl':
+            result = check_pnl(condition, block, candle)
+
+
+
+
+active_blocks = get_first_block(blocks_data)
+if active_blocks == None:
+    raise Exception('There is no first block in startegy')
+else:
+    active_blocks = [active_blocks] 
+strategy_state = 'check_blocks_conditions'
+
 # обход по свечам
 for cc in back_price_1:
     
+    # проверка условий активных блоков
+    if strategy_state == 'check_blocks_conditions':
+        action_block = check_blocks_condition(active_blocks, cc)
+
     # настройка первого дня
     if back_price_1.index(cc) == 0:
         id_day = 1
@@ -673,17 +737,17 @@ for cc in back_price_1:
         min_percent_list.clear()
         min_balance_percent = 0
 
-    if stat == 'position_open':
-        change_block_num(block_num)
-    if stat == 'position_close' and close_position():
-        print('Закрытие позиции')
-    if open_order():
-        print('Открытие ордера')
-        stat = 'order_is_opened'
-        continue
-    if stat == 'order_is_opened' and open_position(block_num):
-        print('Открытие позиции')
-        continue
+    #if stat == 'position_open':
+    #    change_block_num(block_num)
+    #if stat == 'position_close' and close_position():
+    #    print('Закрытие позиции')
+    #if open_order():
+    #    print('Открытие ордера')
+    #    stat = 'order_is_opened'
+    #    continue
+    #if stat == 'order_is_opened' and open_position(block_num):
+    #    print('Открытие позиции')
+    #    continue
       
  
 # рассчет результата
