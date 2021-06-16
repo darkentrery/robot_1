@@ -81,9 +81,14 @@ loss_percent = 0
 loss_sum = 0
 id_day = 0
 
+block_order = {}
+iter = 0
+
 blocks_data = rows1
 for gg in rows1:
     rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
+    block_order[str(gg[0])] = iter
+    iter = iter + 1
 rows1 = rows2
 
 # обнуление глобальных переменных
@@ -109,51 +114,47 @@ def check_indicator(condition, block, candle):
 
     ind_oper = condition['value'].split(' ')[0]
     ind_value = float(condition['value'].split(' ')[1])
-    change = condition['change']
+    if condition.get('change'):
+        change = condition['change']
+    else:
+        change = ''
+
+    change_check = False
 
     if change == 'more_than_previous':
         if indicator > last_ind:
-            if ind_oper == '>=':
-                if indicator >= ind_value:
-                    return True
-            if ind_oper == '<=':
-                if indicator <= ind_value:
-                    return True
-            if ind_oper == '<':
-                if indicator < ind_value:
-                    return True
-            if ind_oper == '>':
-                if indicator > ind_value:
-                    return True
-            if ind_oper == '=':
-                if indicator == ind_value:
-                    return True
-    else:
+            change_check = True
+    elif change == 'less_than_previous':
         if indicator < last_ind:
-            if ind_oper == '>=':
-                if indicator >= ind_value:
-                    return True
-            if ind_oper == '<=':
-                if indicator <= ind_value:
-                    return True
-            if ind_oper == '<':
-                if indicator < ind_value:
-                    return True
-            if ind_oper == '>':
-                if indicator > ind_value:
-                    return True
-            if ind_oper == '=':
-                if indicator == ind_value:
-                    return True
+            change_check = True
+    elif change == '':
+        change_check = True
+    
+    if change_check == True:
+        if ind_oper == '>=':
+            if indicator >= ind_value:
+               return True
+        if ind_oper == '<=':
+            if indicator <= ind_value:
+                return True
+        if ind_oper == '<':
+            if indicator < ind_value:
+                return True
+        if ind_oper == '>':
+            if indicator > ind_value:
+                return True
+        if ind_oper == '=':
+            if indicator == ind_value:
+                return True
+
     return False
 
-def get_activation_blocks(action_block, blocks_data):
+def get_activation_blocks(action_block, blocks_data, block_order):
 
     blocks = []
     block_data = {}
 
-    str_blocks = []
-    direction = ''
+    activation_blocks = []
 
     if action_block != '0':
         direction = action_block['direction']
@@ -162,10 +163,13 @@ def get_activation_blocks(action_block, blocks_data):
             if activtation == '0':
                 continue
             else:
-                str_blocks.append(activtation)
+                activation_block = {}
+                activation_block['id'] = activtation.split('_')[0]
+                activation_block['direction'] = activtation.split('_')[1]
+                activation_blocks.append(activation_block)
 
-    for block in blocks_data:
-        if action_block == '0':
+    if action_block == '0':
+        for block in blocks_data:
             if '0' in block[7].split(','):
                 block_data['direction'] = 'long'
                 block_data['conditions'] = ast.literal_eval(block[8])['conditions']
@@ -182,22 +186,25 @@ def get_activation_blocks(action_block, blocks_data):
                 block_data['activations'] = block[9]
                 blocks.append(block_data)
                 return blocks
-        else:
-            if str(block[0]) in str_blocks:
-                if direction == 'long':
-                    block_data['direction'] = 'long'
-                    block_data['conditions'] = ast.literal_eval(block[8])['conditions']
-                    block_data['actions'] = ast.literal_eval(block[8])['actions']
-                    block_data['number'] = block[0]
-                    block_data['activations'] = block[7]
-                    blocks.append(block_data)
-                else:
-                    block_data['direction'] = 'short'
-                    block_data['conditions'] = ast.literal_eval(block[10])['conditions']
-                    block_data['actions'] = ast.literal_eval(block[10])['actions']
-                    block_data['number'] = block[0]
-                    block_data['activations'] = block[9]
-                    blocks.append(block_data)
+    else:
+        for activation_block in activation_blocks: 
+
+            index = block_order[activation_block['id']]
+
+            if activation_block['direction'] == 'long':
+                block_data['direction'] = 'long'
+                block_data['conditions'] = ast.literal_eval(blocks_data[index][8])['conditions']
+                block_data['actions'] = ast.literal_eval(blocks_data[index][8])['actions']
+                block_data['number'] = blocks_data[index][0]
+                block_data['activations'] = blocks_data[index][7]
+                blocks.append(block_data)
+            else:
+                block_data['direction'] = 'short'
+                block_data['conditions'] = ast.literal_eval(blocks_data[index][10])['conditions']
+                block_data['actions'] = ast.literal_eval(blocks_data[index][10])['actions']
+                block_data['number'] = blocks_data[index][0]
+                block_data['activations'] = blocks_data[index][9]
+                blocks.append(block_data)
     
     return blocks
 
@@ -464,7 +471,7 @@ def close_position(order, block, candle):
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
         )
         data = (
-            id_day, order['direction'], order['lot'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order_type_2,
+            id_day, order['direction'], order['lot'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
             order['close_time_order'], order['close_price_order'], order['close_time_position'], fee, res, points_deal, money_deal, percent_deal,
             equity, money_day, percent_day, min_balance_percent, 0, 0, order['path'])
         try:
@@ -507,7 +514,7 @@ def execute_block_actions(block, order, candle):
                 order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
                 order['state'] = 'order_is_opened'
                 return False 
-            if order['state'] == 'order_is_opened':
+            elif order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle)
                 if result:
                     action['done'] = True
@@ -515,13 +522,14 @@ def execute_block_actions(block, order, candle):
                 else:
                     action['done'] = False
                     return False
-            return False
+            else:
+                return False
 
     return True
 
 def main():
 
-    activation_blocks = get_activation_blocks('0', blocks_data)
+    activation_blocks = get_activation_blocks('0', blocks_data, block_order)
     if len(activation_blocks) == 0:
         raise Exception('There is no first block in startegy')
 
@@ -559,7 +567,7 @@ def main():
         if strategy_state == 'execute_block_actions':
             result = execute_block_actions(action_block, order, cc)
             if result == True:
-                activation_blocks = get_activation_blocks(action_block, blocks_data)
+                activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
 
 main()
