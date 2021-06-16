@@ -79,9 +79,7 @@ profit_percent = 0
 profit_sum = 0
 loss_percent = 0
 loss_sum = 0
-
-#open_price_position = 0
-#close_time_order = 0
+id_day = 0
 
 blocks_data = rows1
 for gg in rows1:
@@ -149,7 +147,7 @@ def check_indicator(condition, block, candle):
                     return True
     return False
 
-def get_activation_blocks(action_block, blocks):
+def get_activation_blocks(action_block, blocks_data):
 
     blocks = []
     block_data = {}
@@ -166,21 +164,21 @@ def get_activation_blocks(action_block, blocks):
             else:
                 str_blocks.append(activtation)
 
-    for block in blocks:
+    for block in blocks_data:
         if action_block == '0':
             if '0' in block[7].split(','):
                 block_data['direction'] = 'long'
-                block_data['conditions'] = block[8]['conditions']
-                block_data['actions'] = block[8]['actions']
-                block_data['number'] = block[2]
+                block_data['conditions'] = ast.literal_eval(block[8])['conditions']
+                block_data['actions'] = ast.literal_eval(block[8])['actions']
+                block_data['number'] = block[0]
                 block_data['activations'] = block[7]
                 blocks.append(block_data)
                 return blocks
             elif '0' in block[9].split(','):
                 block_data['direction'] = 'short'
-                block_data['conditions'] = block[10]['conditions']
-                block_data['actions'] = block[10]['actions']
-                block_data['number'] = block[2]
+                block_data['conditions'] = ast.literal_eval(block[10])['conditions']
+                block_data['actions'] = ast.literal_eval(block[10])['actions']
+                block_data['number'] = block[0]
                 block_data['activations'] = block[9]
                 blocks.append(block_data)
                 return blocks
@@ -188,43 +186,77 @@ def get_activation_blocks(action_block, blocks):
             if str(block[0]) in str_blocks:
                 if direction == 'long':
                     block_data['direction'] = 'long'
-                    block_data['conditions'] = block[8]['conditions']
-                    block_data['actions'] = block[8]['actions']
-                    block_data['number'] = block[2]
+                    block_data['conditions'] = ast.literal_eval(block[8])['conditions']
+                    block_data['actions'] = ast.literal_eval(block[8])['actions']
+                    block_data['number'] = block[0]
                     block_data['activations'] = block[7]
                     blocks.append(block_data)
                 else:
                     block_data['direction'] = 'short'
-                    block_data['conditions'] = block[10]['conditions']
-                    block_data['actions'] = block[10]['actions']
-                    block_data['number'] = block[2]
+                    block_data['conditions'] = ast.literal_eval(block[10])['conditions']
+                    block_data['actions'] = ast.literal_eval(block[10])['actions']
+                    block_data['number'] = block[0]
                     block_data['activations'] = block[9]
                     blocks.append(block_data)
     
     return blocks
 
-def check_blocks_condition(blocks, candle):
+def block_conditions_done(block, candle, order):
+
+    cur_condition_number = None
+
+    for condition in block['conditions']:
+        
+        if condition.get('done') and condition['done']:
+            continue
+
+        if cur_condition_number != None and condition['number'] != cur_condition_number:
+            return False
+
+        
+        if condition['type'] == 'pnl':
+            result = check_pnl(condition, block, candle, order)
+            if result == False:
+                condition['done'] = False
+                return False
+            else:
+                order['close_time_order'] = candle['time']
+                order['close_price_order'] = result
+        elif condition['type'] == 'indicator':
+            result = check_indicator(condition, block, candle)
+            if result == False:
+                condition['done'] = False
+                return False
+        else:
+            condition['done'] = False
+            return False
+
+        cur_condition_number = condition['number']
+
+        condition['done'] = True
+        return True
+
+def check_blocks_condition(blocks, candle, order):
 
     for block in blocks:
-        block_conditions_done = block_conditions_done(block, candle)
-        if block_conditions_done:
+        if block_conditions_done(block, candle, order):
             return block
     
     return None
 
-def check_pnl(condition, block, candle):
+def check_pnl(condition, block, candle, order):
     
     direction = block['direction']
 
-    ind_oper = condition['pnl'].split(' ')[0]
-    ind_value = float(condition['pnl'].split(' ')[1])
+    ind_oper = condition['value'].split(' ')[0]
+    ind_value = float(condition['value'].split(' ')[1])
     if direction == 'short':
-        pnl = open_price_order - (((open_price_order / 100) * ind_value))/float(leverage)
+        pnl = order['open_price_order'] - (((order['open_price_order'] / 100) * ind_value))/float(order['leverage'])
     else:
-        pnl = open_price_order + (((open_price_order / 100) * ind_value))/float(leverage)
+        pnl = order['open_price_order'] + (((order['open_price_order'] / 100) * ind_value))/float(order['leverage'])
 
     if direction == 'long':
-        if ind_oper== '>=':
+        if ind_oper == '>=':
             if candle['high'] >= pnl:
                 return pnl
         if ind_oper == '<=':
@@ -286,47 +318,20 @@ def check_pnl(condition, block, candle):
             if pnl < candle['low']:
                 return pnl
     return False
-
-def block_conditions_done(block, candle):
-
-    cur_condition_number = None
-
-    for condition in block['conditions']:
-        
-        if condition.get('done') and condition['done']:
-            continue
-
-        if cur_condition_number != None and condition['number'] <> cur_condition_number:
-            return False
-
-        
-        if condition['type'] == 'pnl':
-            result = check_pnl(condition, block, candle)
-            if result == False:
-                condition['done'] = False
-                return False
-        elif condition['type'] == 'indicator':
-            result = check_indicator(condition, block, candle)
-            if result == False:
-                condition['done'] = False
-                return False
-        else:
-            condition['done'] = False
-            return False
-
-        cur_condition_number = condition['number']
-
-        condition['done'] = True
-        return True
         
 def get_new_order():
 
     order = {}
     order['leverage'] = 0
+
     order['open_price_order'] = 0
-    order['open_price_position'] = 0
-    order['close_price_position'] = 0
     order['close_price_order'] = 0
+
+    order['open_time_order'] = 0
+    order['open_time_position'] = 0
+    order['close_time_position'] = 0
+    order['close_time_order'] = 0
+
     order['leverage'] = 1
     order['price_indent'] = 0
     order['direction'] = ''
@@ -484,13 +489,15 @@ def execute_block_actions(block, order, candle):
             continue
 
         if action['order'] == "close":
+            if order['close_time_order'] == 0:
+                order['close_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
             result = close_position(order, block, candle)
             if result:
-                action['done'] == True
+                action['done'] = True
                 print('Закрытие позиции')
                 order = get_new_order()
             else:
-                action['done'] == False
+                action['done'] = False
                 return False
         if action['order'] == "open":
             if order['state'] == 'start':
@@ -503,70 +510,77 @@ def execute_block_actions(block, order, candle):
             if order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle)
                 if result:
-                    action['done'] == True
+                    action['done'] = True
                     print('Открытие позиции')
                 else:
-                    action['done'] == False
+                    action['done'] = False
                     return False
             return False
 
     return True
 
+def main():
+
+    activation_blocks = get_activation_blocks('0', blocks_data)
+    if len(activation_blocks) == 0:
+        raise Exception('There is no first block in startegy')
+
+    strategy_state = 'check_blocks_conditions'
+    action_block = None
+    order = get_new_order()
+
+    # обход по свечам
+    for cc in back_price_1:
+        
+        # настройка первого дня
+        if back_price_1.index(cc) == 0:
+            id_day = 1
+            day = str(cc['time']).split(' ')[0].split('-')[2]
+            ids = 1
+        else:
+            ids = ids + 1
+            # настройка дня
+
+        if str(cc['time']).split(' ')[0].split('-')[2] > day:
+            day = str(cc['time']).split(' ')[0].split('-')[2]
+            money_result = money_result + money_day
+            money_day = 0
+            percent_day = 0
+            min_percent_list.clear()
+            min_balance_percent = 0
+
+        # проверка условий активных блоков
+        if strategy_state == 'check_blocks_conditions':
+            action_block = check_blocks_condition(activation_blocks, cc, order)
+            if action_block != None:
+                strategy_state = 'execute_block_actions'
+        
+        # исполнение действий блока
+        if strategy_state == 'execute_block_actions':
+            result = execute_block_actions(action_block, order, cc)
+            if result == True:
+                activation_blocks = get_activation_blocks(action_block, blocks_data)
+                strategy_state = 'check_blocks_conditions'
+
+main()
+
 # ---------- main cicrle -----------------------------
 
-activation_blocks = get_activation_blocks('0', blocks_data)
-if activation_blocks.count() == 0:
-    raise Exception('There is no first block in startegy')
-
-strategy_state = 'check_blocks_conditions'
-action_block = None
-order = get_new_order()
-
-# обход по свечам
-for cc in back_price_1:
-    
-    # проверка условий активных блоков
-    if strategy_state == 'check_blocks_conditions':
-        action_block = check_blocks_condition(activation_blocks, cc)
-        if action_block != None:
-            strategy_state = 'execute_block_actions'
-    
-    # исполнение действий блока
-    if strategy_state == 'execute_block_actions':
-        result = execute_block_actions(action_block, order, cc)
-        if result == True:
-            activation_blocks = get_activation_blocks(action_block, blocks_data)
-            strategy_state = 'check_blocks_conditions'
-            
-        
-
-    # настройка первого дня
-    if back_price_1.index(cc) == 0:
-        id_day = 1
-        day = str(cc['time']).split(' ')[0].split('-')[2]
-        ids = 1
-    else:
-        ids = ids + 1
-        # настройка дня
-
-    if str(cc['time']).split(' ')[0].split('-')[2] > day:
-        day = str(cc['time']).split(' ')[0].split('-')[2]
-        money_result = money_result + money_day
-        money_day = 0
-        percent_day = 0
-        min_percent_list.clear()
-        min_balance_percent = 0
       
  
 # рассчет результата
 profitability = (money_result/start_balance) - 1
 all_orders = profit_sum + loss_sum
-profit_percent = profit_sum/(all_orders/100)
-loss_percent = loss_sum/(all_orders/100)
-insert_stmt = ("INSERT INTO back_positions_sum(profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)"
-"VALUES (%s, %s, %s, %s, %s, %s)")
 
-data = (profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)
-cursor.execute(insert_stmt, data)
+if all_orders > 0:
+
+    profit_percent = profit_sum/(all_orders/100)
+    loss_percent = loss_sum/(all_orders/100)
+    insert_stmt = ("INSERT INTO back_positions_sum(profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)"
+    "VALUES (%s, %s, %s, %s, %s, %s)")
+
+    data = (profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)
+    cursor.execute(insert_stmt, data)
+
 cnx.commit()
 cnx.close()
