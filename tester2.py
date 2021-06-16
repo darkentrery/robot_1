@@ -218,12 +218,14 @@ def block_conditions_done(block, candle, order):
 
     for condition in block['conditions']:
         
-        if condition.get('done') and condition['done']:
+        if condition.get('done') == None:
+            condition['done'] = False
+
+        if condition['done']:
             continue
 
         if cur_condition_number != None and condition['number'] != cur_condition_number:
             return False
-
         
         if condition['type'] == 'pnl':
             result = check_pnl(condition, block, candle, order)
@@ -245,7 +247,8 @@ def block_conditions_done(block, candle, order):
         cur_condition_number = condition['number']
 
         condition['done'] = True
-        return True
+        
+    return True
 
 def check_blocks_condition(blocks, candle, order):
 
@@ -575,10 +578,6 @@ for cc in back_price_1:
         if result == True:
             activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
             strategy_state = 'check_blocks_conditions'
-
-# ---------- main cicrle -----------------------------
-
-      
  
 # рассчет результата
 profitability = (money_result/start_balance) - 1
