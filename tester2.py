@@ -152,25 +152,26 @@ def check_indicator(condition, block, candle):
 def get_activation_blocks(action_block, blocks_data, block_order):
 
     blocks = []
-    block_data = {}
-
     activation_blocks = []
 
     if action_block != '0':
-        direction = action_block['direction']
         activations = action_block['activations'].split(',')
         for activtation in activations:
             if activtation == '0':
                 continue
             else:
-                activation_block = {}
-                activation_block['id'] = activtation.split('_')[0]
-                activation_block['direction'] = activtation.split('_')[1]
-                activation_blocks.append(activation_block)
+                if activtation == '':
+                    action_block = '0'
+                else:
+                    activation_block = {}
+                    activation_block['id'] = activtation.split('_')[0]
+                    activation_block['direction'] = activtation.split('_')[1]
+                    activation_blocks.append(activation_block)
 
     if action_block == '0':
         for block in blocks_data:
             if '0' in block[7].split(','):
+                block_data = {}
                 block_data['direction'] = 'long'
                 block_data['conditions'] = ast.literal_eval(block[8])['conditions']
                 block_data['actions'] = ast.literal_eval(block[8])['actions']
@@ -179,6 +180,7 @@ def get_activation_blocks(action_block, blocks_data, block_order):
                 blocks.append(block_data)
                 return blocks
             elif '0' in block[9].split(','):
+                block_data = {}
                 block_data['direction'] = 'short'
                 block_data['conditions'] = ast.literal_eval(block[10])['conditions']
                 block_data['actions'] = ast.literal_eval(block[10])['actions']
@@ -192,6 +194,7 @@ def get_activation_blocks(action_block, blocks_data, block_order):
             index = block_order[activation_block['id']]
 
             if activation_block['direction'] == 'long':
+                block_data = {}
                 block_data['direction'] = 'long'
                 block_data['conditions'] = ast.literal_eval(blocks_data[index][8])['conditions']
                 block_data['actions'] = ast.literal_eval(blocks_data[index][8])['actions']
@@ -199,6 +202,7 @@ def get_activation_blocks(action_block, blocks_data, block_order):
                 block_data['activations'] = blocks_data[index][7]
                 blocks.append(block_data)
             else:
+                block_data = {}
                 block_data['direction'] = 'short'
                 block_data['conditions'] = ast.literal_eval(blocks_data[index][10])['conditions']
                 block_data['actions'] = ast.literal_eval(blocks_data[index][10])['actions']
@@ -365,7 +369,7 @@ def open_position(order, block, candle):
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             order['lot'] = int(round(lot, -1))
             order['price'] = price
-            order['path'] = str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -379,7 +383,7 @@ def open_position(order, block, candle):
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
             order['price'] = price
-            order['path'] = str(block['number']) + '_' + order['direction']
+            order['path'] =order['path'] + str(block['number']) + '_' + order['direction']
             return True
     if order['direction'] == 'short':
         if candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
@@ -395,7 +399,7 @@ def open_position(order, block, candle):
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
             order['price'] = price
-            order['path'] = str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -409,7 +413,7 @@ def open_position(order, block, candle):
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
             order['price'] = price
-            order['path'] = str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
     return False
 
@@ -426,6 +430,8 @@ def close_position(order, block, candle):
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
         
+        order['path'] = order['path'] + ', ' + str(block['number']) + '_' + order['direction']
+
         if order['close_price_order'] == 0:
             order['close_price_order'] = float(candle['close'])
         if order['direction'] == 'long':
@@ -488,7 +494,9 @@ def close_position(order, block, candle):
 
     return False
 
-def execute_block_actions(block, order, candle):
+def execute_block_actions(block, candle):
+
+    global order
 
     for action in block['actions']:
 
@@ -527,50 +535,46 @@ def execute_block_actions(block, order, candle):
 
     return True
 
-def main():
+activation_blocks = get_activation_blocks('0', blocks_data, block_order)
+if len(activation_blocks) == 0:
+    raise Exception('There is no first block in startegy')
 
-    activation_blocks = get_activation_blocks('0', blocks_data, block_order)
-    if len(activation_blocks) == 0:
-        raise Exception('There is no first block in startegy')
+strategy_state = 'check_blocks_conditions'
+action_block = None
+order = get_new_order()
 
-    strategy_state = 'check_blocks_conditions'
-    action_block = None
-    order = get_new_order()
+# обход по свечам
+for cc in back_price_1:
+    
+    # настройка первого дня
+    if back_price_1.index(cc) == 0:
+        id_day = 1
+        day = str(cc['time']).split(' ')[0].split('-')[2]
+        ids = 1
+    else:
+        ids = ids + 1
+        # настройка дня
 
-    # обход по свечам
-    for cc in back_price_1:
-        
-        # настройка первого дня
-        if back_price_1.index(cc) == 0:
-            id_day = 1
-            day = str(cc['time']).split(' ')[0].split('-')[2]
-            ids = 1
-        else:
-            ids = ids + 1
-            # настройка дня
+    if str(cc['time']).split(' ')[0].split('-')[2] > day:
+        day = str(cc['time']).split(' ')[0].split('-')[2]
+        money_result = money_result + money_day
+        money_day = 0
+        percent_day = 0
+        min_percent_list.clear()
+        min_balance_percent = 0
 
-        if str(cc['time']).split(' ')[0].split('-')[2] > day:
-            day = str(cc['time']).split(' ')[0].split('-')[2]
-            money_result = money_result + money_day
-            money_day = 0
-            percent_day = 0
-            min_percent_list.clear()
-            min_balance_percent = 0
-
-        # проверка условий активных блоков
-        if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, cc, order)
-            if action_block != None:
-                strategy_state = 'execute_block_actions'
-        
-        # исполнение действий блока
-        if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, order, cc)
-            if result == True:
-                activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
-                strategy_state = 'check_blocks_conditions'
-
-main()
+    # проверка условий активных блоков
+    if strategy_state == 'check_blocks_conditions':
+        action_block = check_blocks_condition(activation_blocks, cc, order)
+        if action_block != None:
+            strategy_state = 'execute_block_actions'
+    
+    # исполнение действий блока
+    if strategy_state == 'execute_block_actions':
+        result = execute_block_actions(action_block, cc)
+        if result == True:
+            activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+            strategy_state = 'check_blocks_conditions'
 
 # ---------- main cicrle -----------------------------
 
