@@ -104,6 +104,8 @@ def reset_variables():
     fee = 0
     money_deal = 0
 
+# ---------- conditions -----------------
+
 def check_indicator(condition, block, candle):
 
     indicator = candle[condition['name']]
@@ -148,115 +150,6 @@ def check_indicator(condition, block, candle):
                 return True
 
     return False
-
-def get_activation_blocks(action_block, blocks_data, block_order):
-
-    blocks = []
-    activation_blocks = []
-
-    if action_block != '0':
-        activations = action_block['activations'].split(',')
-        for activtation in activations:
-            if activtation == '0':
-                continue
-            else:
-                if activtation == '':
-                    action_block = '0'
-                else:
-                    activation_block = {}
-                    activation_block['id'] = activtation.split('_')[0]
-                    activation_block['direction'] = activtation.split('_')[1]
-                    activation_blocks.append(activation_block)
-
-    if action_block == '0':
-        for block in blocks_data:
-            if '0' in block[7].split(','):
-                block_data = {}
-                block_data['direction'] = 'long'
-                block_data['conditions'] = ast.literal_eval(block[8])['conditions']
-                block_data['actions'] = ast.literal_eval(block[8])['actions']
-                block_data['number'] = block[0]
-                block_data['activations'] = block[7]
-                blocks.append(block_data)
-                return blocks
-            elif '0' in block[9].split(','):
-                block_data = {}
-                block_data['direction'] = 'short'
-                block_data['conditions'] = ast.literal_eval(block[10])['conditions']
-                block_data['actions'] = ast.literal_eval(block[10])['actions']
-                block_data['number'] = block[0]
-                block_data['activations'] = block[9]
-                blocks.append(block_data)
-                return blocks
-    else:
-        for activation_block in activation_blocks: 
-
-            index = block_order[activation_block['id']]
-
-            if activation_block['direction'] == 'long':
-                block_data = {}
-                block_data['direction'] = 'long'
-                block_data['conditions'] = ast.literal_eval(blocks_data[index][8])['conditions']
-                block_data['actions'] = ast.literal_eval(blocks_data[index][8])['actions']
-                block_data['number'] = blocks_data[index][0]
-                block_data['activations'] = blocks_data[index][7]
-                blocks.append(block_data)
-            else:
-                block_data = {}
-                block_data['direction'] = 'short'
-                block_data['conditions'] = ast.literal_eval(blocks_data[index][10])['conditions']
-                block_data['actions'] = ast.literal_eval(blocks_data[index][10])['actions']
-                block_data['number'] = blocks_data[index][0]
-                block_data['activations'] = blocks_data[index][9]
-                blocks.append(block_data)
-    
-    return blocks
-
-def block_conditions_done(block, candle, order):
-
-    cur_condition_number = None
-
-    for condition in block['conditions']:
-        
-        if condition.get('done') == None:
-            condition['done'] = False
-
-        if condition['done']:
-            continue
-
-        if cur_condition_number != None and condition['number'] != cur_condition_number:
-            return False
-        
-        if condition['type'] == 'pnl':
-            result = check_pnl(condition, block, candle, order)
-            if result == False:
-                condition['done'] = False
-                return False
-            else:
-                order['close_time_order'] = candle['time']
-                order['close_price_order'] = result
-        elif condition['type'] == 'indicator':
-            result = check_indicator(condition, block, candle)
-            if result == False:
-                condition['done'] = False
-                return False
-        else:
-            condition['done'] = False
-            return False
-
-        cur_condition_number = condition['number']
-
-        condition['done'] = True
-        
-    return True
-
-def check_blocks_condition(blocks, candle, order):
-
-    for block in blocks:
-        if block_conditions_done(block, candle, order):
-            return block
-    
-    return None
 
 def check_pnl(condition, block, candle, order):
     
@@ -332,6 +225,228 @@ def check_pnl(condition, block, candle, order):
             if pnl < candle['low']:
                 return pnl
     return False
+
+def check_proboi(condition, block, candle, order):
+
+    indicator_name = condition['name']
+    side = condition['side']
+
+    try:
+        proboi = float(back_price_1[back_price_1.index(candle) - 1][indicator_name + '-' + side])
+    except:
+        proboi = 0
+
+    proc_value_2 = float(condition['exit_price_percent'])
+    check = condition['check']
+    try:
+        exit_price_price = condition['exit_price_price']
+    except:
+        exit_price_price = False
+    candle_check = 0
+    try:
+        if check == 'low':
+            proc = (float(proboi) - float(candle['low'])) / (float(proboi) / 100)
+            candle_check = float(candle['low'])
+            value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
+        if check == 'close':
+            if side == 'high':
+                proc = (float(candle['close']) - float(proboi)) / (float(proboi)/100)
+                candle_check = float(candle['close'])
+                #value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
+            if side == 'low':
+                proc = (float(proboi) - float(candle['close'])) / (float(proboi) / 100)
+                candle_check = float(candle['close'])
+                #value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
+            value = float(candle['close'])
+        if check == 'high':
+            proc = (float(candle['high']) - float(proboi)) / (float(proboi)/100)
+            candle_check = float(candle['high'])
+            value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
+
+    except:
+        return False
+    if proc > proc_value_2:
+        if exit_price_price:
+            if check == 'low':
+                if exit_price_price == 'yes':
+                    if float(candle['close']) <= float(proboi):
+                        return value
+                else:
+                    if float(candle['close']) > float(proboi):
+                        return value
+            if check == 'high':
+                if exit_price_price == 'yes':
+                    if float(candle['close']) >= float(proboi):
+                        return value
+                else:
+                    if float(candle['close']) < float(proboi):
+                        return value
+
+        else:
+            return value
+    return False
+
+
+# ---------- engine -----------------
+
+def set_block_data(direction, table_row, col_number, col_conditions_a, col_activations):
+
+    c_a = ast.literal_eval(table_row[col_conditions_a])
+    if c_a.get('conditions') == None:
+        conditions = []
+    else:
+        conditions = c_a['conditions']
+
+    if c_a.get('actions') == None:
+        actions = []
+    else:
+        actions = c_a['actions']
+
+    block_data = {}
+    block_data['direction'] = direction
+    block_data['conditions'] = conditions
+    block_data['actions'] = actions
+    block_data['number'] = table_row[col_number]
+    block_data['activations'] = table_row[col_activations]
+    return block_data 
+
+def get_activation_blocks(action_block, blocks_data, block_order):
+
+    blocks = []
+    activation_blocks = []
+
+    if action_block != '0':
+        activations = action_block['activations'].split(',')
+        for activtation in activations:
+            if activtation == '0':
+                continue
+            else:
+                if activtation == '':
+                    action_block = '0'
+                else:
+                    activation_block = {}
+                    activation_block['id'] = activtation.split('_')[0]
+                    activation_block['direction'] = activtation.split('_')[1]
+                    activation_blocks.append(activation_block)
+
+    if action_block == '0':
+        for block in blocks_data:
+            if '0' in block[7].split(','):
+                block_data = set_block_data('long', block, 0, 8, 7)
+                blocks.append(block_data)
+                return blocks
+            elif '0' in block[9].split(','):
+                block_data = set_block_data('short', block, 0, 10, 9)
+                blocks.append(block_data)
+                return blocks
+    else:
+        for activation_block in activation_blocks: 
+
+            index = block_order[activation_block['id']]
+
+            if activation_block['direction'] == 'long':
+                block_data = set_block_data('long', blocks_data[index], 0, 8, 7)
+                blocks.append(block_data)
+            else:
+                block_data = set_block_data('short', blocks_data[index], 0, 10, 9)
+                blocks.append(block_data)
+    
+    return blocks
+
+def check_blocks_condition(blocks, candle, order):
+
+    for block in blocks:
+        if block_conditions_done(block, candle, order):
+            return block
+    
+    return None
+
+def block_conditions_done(block, candle, order):
+
+    cur_condition_number = None
+
+    for condition in block['conditions']:
+        
+        if condition.get('done') == None:
+            condition['done'] = False
+
+        if condition['done']:
+            continue
+
+        if cur_condition_number != None and condition['number'] != cur_condition_number:
+            return False
+        
+        if condition['type'] == 'pnl':
+            result = check_pnl(condition, block, candle, order)
+            if result == False:
+                condition['done'] = False
+                return False
+            else:
+                order['close_time_order'] = candle['time']
+                order['close_price_order'] = result
+        elif condition['type'] == 'indicator':
+            result = check_indicator(condition, block, candle)
+            if result == False:
+                condition['done'] = False
+                return False
+        elif condition['type'] == 'indicator-proboi':
+            result = check_proboi(condition, block, candle, order)
+            if result == False:
+                condition['done'] = False
+                return False
+            else:
+                order['close_time_order'] = candle['time']
+                order['close_price_order'] = result
+        else:
+            condition['done'] = False
+            return False
+
+        cur_condition_number = condition['number']
+
+        condition['done'] = True
+        
+    return True
+
+def execute_block_actions(block, candle):
+
+    global order
+
+    for action in block['actions']:
+
+        if action.get('done') and action['done'] == True:
+            continue
+
+        if action['order'] == "close":
+            if order['close_time_order'] == 0:
+                order['close_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
+            result = close_position(order, block, candle)
+            if result:
+                action['done'] = True
+                print('Закрытие позиции')
+                order = get_new_order()
+            else:
+                action['done'] = False
+                return False
+        if action['order'] == "open":
+            if order['state'] == 'start':
+                order['order_type'] = action['order_type']
+                order['direction'] = action['direction']
+                order['leverage'] = action['leverage']
+                order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
+                order['state'] = 'order_is_opened'
+                return False 
+            elif order['state'] == 'order_is_opened':
+                result = open_position(order, block, candle)
+                if result:
+                    action['done'] = True
+                    print('Открытие позиции')
+                else:
+                    action['done'] = False
+                    return False
+            else:
+                return False
+
+    return True
 
 def get_new_order():
 
@@ -496,47 +611,6 @@ def close_position(order, block, candle):
         return True
 
     return False
-
-def execute_block_actions(block, candle):
-
-    global order
-
-    for action in block['actions']:
-
-        if action.get('done') and action['done'] == True:
-            continue
-
-        if action['order'] == "close":
-            if order['close_time_order'] == 0:
-                order['close_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
-            result = close_position(order, block, candle)
-            if result:
-                action['done'] = True
-                print('Закрытие позиции')
-                order = get_new_order()
-            else:
-                action['done'] = False
-                return False
-        if action['order'] == "open":
-            if order['state'] == 'start':
-                order['order_type'] = action['order_type']
-                order['direction'] = action['direction']
-                order['leverage'] = action['leverage']
-                order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
-                order['state'] = 'order_is_opened'
-                return False 
-            elif order['state'] == 'order_is_opened':
-                result = open_position(order, block, candle)
-                if result:
-                    action['done'] = True
-                    print('Открытие позиции')
-                else:
-                    action['done'] = False
-                    return False
-            else:
-                return False
-
-    return True
 
 # ---------- main programm -----------------
 
