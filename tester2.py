@@ -410,6 +410,8 @@ def block_conditions_done(block, candle, order):
 def execute_block_actions(block, candle):
 
     global order
+    saved_close_time = 0
+    saved_close_price = 0
 
     for action in block['actions']:
 
@@ -423,7 +425,11 @@ def execute_block_actions(block, candle):
             if result:
                 action['done'] = True
                 print('Закрытие позиции')
+                saved_close_time = order['close_time_order']
+                saved_close_price = order['close_price_order']
                 order = get_new_order()
+                action['order'] = "open"
+                continue
             else:
                 action['done'] = False
                 return False
@@ -431,8 +437,14 @@ def execute_block_actions(block, candle):
             if order['state'] == 'start':
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
-                order['leverage'] = action['leverage']
-                order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
+                if  action.get('leverage') != None:
+                    order['leverage'] = action['leverage']
+                if saved_close_time == 0:
+                    order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
+                else:
+                    order['open_time_order'] = saved_close_time
+                if saved_close_price != 0:
+                    order['open_price_order'] = saved_close_price
                 order['state'] = 'order_is_opened'
                 return False 
             elif order['state'] == 'order_is_opened':
@@ -440,6 +452,7 @@ def execute_block_actions(block, candle):
                 if result:
                     action['done'] = True
                     print('Открытие позиции')
+                    continue
                 else:
                     action['done'] = False
                     return False
@@ -481,7 +494,7 @@ def open_position(order, block, candle):
             if order['price_indent'] != 0:
                 price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
             else:
-                price = float(price_old) - (float(price_old) / 100)
+                price = float(price_old)# - (float(price_old) / 100)
             if order['open_price_order'] == 0:
                 order['open_price_order'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
@@ -496,12 +509,13 @@ def open_position(order, block, candle):
                 price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            order['open_price_order'] = price
+            if order['open_price_order'] == 0:
+                order['open_price_order'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
             order['price'] = price
-            order['path'] =order['path'] + str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
     if order['direction'] == 'short':
         if candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
@@ -526,7 +540,8 @@ def open_position(order, block, candle):
                 price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            order['open_price_order'] = price
+            if order['open_price_order'] == 0:
+                order['open_price_order'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
