@@ -332,7 +332,7 @@ def check_pnl(condition, block, candle, order):
             if pnl < candle['low']:
                 return pnl
     return False
-        
+
 def get_new_order():
 
     order = {}
@@ -538,6 +538,8 @@ def execute_block_actions(block, candle):
 
     return True
 
+# ---------- main programm -----------------
+
 activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
@@ -546,7 +548,6 @@ strategy_state = 'check_blocks_conditions'
 action_block = None
 order = get_new_order()
 
-# обход по свечам
 for cc in back_price_1:
     
     # настройка первого дня
@@ -579,7 +580,6 @@ for cc in back_price_1:
             activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
             strategy_state = 'check_blocks_conditions'
  
-# рассчет результата
 profitability = (money_result/start_balance) - 1
 all_orders = profit_sum + loss_sum
 
