@@ -91,7 +91,6 @@ for gg in rows1:
     iter = iter + 1
 rows1 = rows2
 
-# обнуление глобальных переменных
 def reset_variables():
 
     global points_deal
@@ -284,7 +283,6 @@ def check_proboi(condition, block, candle, order):
             return value
 
     return False
-
 
 # ---------- engine -----------------
 
