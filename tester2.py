@@ -95,12 +95,10 @@ rows1 = rows2
 def reset_variables():
 
     global points_deal
-    global res
     global fee
     global money_deal
 
     points_deal = 0
-    res = ''
     fee = 0
     money_deal = 0
 
@@ -447,8 +445,8 @@ def execute_block_actions(block, candle):
                     order['open_price_order'] = saved_close_price
                     order['price'] = saved_close_price
                 order['state'] = 'order_is_opened'
-                return False 
-            elif order['state'] == 'order_is_opened':
+                #return False 
+            if order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle)
                 if result:
                     action['done'] = True
@@ -660,18 +658,28 @@ for cc in back_price_1:
         min_percent_list.clear()
         min_balance_percent = 0
 
-    # проверка условий активных блоков
-    if strategy_state == 'check_blocks_conditions':
-        action_block = check_blocks_condition(activation_blocks, cc, order)
-        if action_block != None:
-            strategy_state = 'execute_block_actions'
-    
-    # исполнение действий блока
-    if strategy_state == 'execute_block_actions':
-        result = execute_block_actions(action_block, cc)
-        if result == True:
-            activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
-            strategy_state = 'check_blocks_conditions'
+
+    while True:
+        # проверка условий активных блоков
+        if strategy_state == 'check_blocks_conditions':
+            action_block = check_blocks_condition(activation_blocks, cc, order)
+            if action_block != None:
+                strategy_state = 'execute_block_actions'
+                # если в блоке нет текущих действий, то активным блоком назначаем следующий
+                if len(action_block['actions']) == 0:
+                    activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+                    if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
+                        action_block = activation_blocks[0]
+            else:
+                break
+
+
+        # исполнение действий блока
+        if strategy_state == 'execute_block_actions':
+            result = execute_block_actions(action_block, cc)
+            if result == True:
+                activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+                strategy_state = 'check_blocks_conditions'
  
 profitability = (money_result/start_balance) - 1
 all_orders = profit_sum + loss_sum
