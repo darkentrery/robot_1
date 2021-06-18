@@ -494,7 +494,7 @@ def open_position(order, block, candle):
             if order['price_indent'] != 0:
                 price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
             else:
-                price = float(price_old)# - (float(price_old) / 100)
+                price = float(price_old)
             if order['open_price_order'] == 0:
                 order['open_price_order'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
