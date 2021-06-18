@@ -23,13 +23,35 @@
     }
 }
 
+
+{
+    "conditions": [
+        {
+            "type": "indicator",
+            "name": "indicator_1_2-2",
+            "value": "< -100",
+            "change": "more_than_previous",
+            "number": "1"
+        }
+    ],
+    "actions": [
+        {
+            "direction": "short",
+            "order": "close",
+            "candle_price": "close_last_candle",
+            "price_indent": "0.0",
+            "order_type": "market",
+            "cancel": "3_short,4_short"
+        }
+    ]
+}
+
 pnl = 59598.08
 58598.5
 
 class block_condition(object):
 
-Условие:
-    "order"
+Условие: "order"
 
 
 АктивныйБлок 
