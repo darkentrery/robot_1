@@ -445,6 +445,7 @@ def execute_block_actions(block, candle):
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
                     order['open_price_order'] = saved_close_price
+                    order['price'] = saved_close_price
                 order['state'] = 'order_is_opened'
                 return False 
             elif order['state'] == 'order_is_opened':
@@ -452,7 +453,6 @@ def execute_block_actions(block, candle):
                 if result:
                     action['done'] = True
                     print('Открытие позиции')
-                    continue
                 else:
                     action['done'] = False
                     return False
@@ -499,7 +499,8 @@ def open_position(order, block, candle):
                 order['open_price_order'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             order['lot'] = int(round(lot, -1))
-            order['price'] = price
+            if order['price'] == 0:
+                order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
         if order['order_type'] == 'market':
@@ -514,7 +515,8 @@ def open_position(order, block, candle):
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
-            order['price'] = price
+            if order['price'] == 0:
+                order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
     if order['direction'] == 'short':
@@ -530,7 +532,8 @@ def open_position(order, block, candle):
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
-            order['price'] = price
+            if order['price'] == 0:
+                order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
         if order['order_type'] == 'market':
@@ -545,7 +548,8 @@ def open_position(order, block, candle):
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
-            order['price'] = price
+            if order['price'] == 0:
+                order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
             return True
     return False
