@@ -282,6 +282,7 @@ def check_proboi(condition, block, candle, order):
 
         else:
             return value
+
     return False
 
 
@@ -438,7 +439,7 @@ def execute_block_actions(block, candle):
                 if  action.get('leverage') != None:
                     order['leverage'] = action['leverage']
                 if saved_close_time == 0:
-                    order['open_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
+                    order['open_time_order'] = back_price_1[back_price_1.index(candle)]['time']
                 else:
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
@@ -660,6 +661,7 @@ for cc in back_price_1:
 
 
     while True:
+        
         # проверка условий активных блоков
         if strategy_state == 'check_blocks_conditions':
             action_block = check_blocks_condition(activation_blocks, cc, order)
