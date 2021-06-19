@@ -1,8 +1,6 @@
 import mysql.connector
 import json
-import datetime
 import os
-import sys
 import ast
 
 directory = os.path.dirname(os.path.abspath(__file__))
@@ -59,13 +57,7 @@ except Exception as e:
     print(e)
 rows1 = cursor.fetchall()
 
-#algo = []
-#for row in rows1:
-#    uslovie = row[7]
-#    algo.append(uslovie)
-
-
-squeeze = 0  # 30
+squeeze = 0
 ids = 0
 money_deal = 0
 percent_deal = 0
