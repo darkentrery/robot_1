@@ -104,11 +104,14 @@ def reset_variables():
 
 # ---------- conditions -----------------
 
-def check_value_change(condition, block, candle, order):
+def check_value_change(condition, block, candle, order, prev_candle):
 
-    indicator = candle[condition['name']]
+    if prev_candle == None:
+        return False
+
+    indicator = prev_candle[condition['name']]
     try:
-        last_ind = back_price_1[back_price_1.index(candle) - 1][condition['name']]
+        last_ind = back_price_1[back_price_1.index(prev_candle) - 1][condition['name']]
     except:
         return False 
 
@@ -350,15 +353,15 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     
     return blocks
 
-def check_blocks_condition(blocks, candle, order):
+def check_blocks_condition(blocks, candle, order, prev_candle):
 
     for block in blocks:
-        if block_conditions_done(block, candle, order):
+        if block_conditions_done(block, candle, order, prev_candle):
             return block
     
     return None
 
-def block_conditions_done(block, candle, order):
+def block_conditions_done(block, candle, order, prev_candle):
 
     cur_condition_number = None
 
@@ -382,7 +385,7 @@ def block_conditions_done(block, candle, order):
                 order['close_time_order'] = candle['time']
                 order['close_price_order'] = result
         elif condition['type'] == 'value_change':
-            result = check_value_change(condition, block, candle, order)
+            result = check_value_change(condition, block, candle, order, prev_candle)
             if result == False:
                 condition['done'] = False
                 return False
@@ -638,20 +641,21 @@ if len(activation_blocks) == 0:
 strategy_state = 'check_blocks_conditions'
 action_block = None
 order = get_new_order()
+prev_candle = None
 
-for cc in back_price_1:
+for candle in back_price_1:
     
     # настройка первого дня
-    if back_price_1.index(cc) == 0:
+    if back_price_1.index(candle) == 0:
         id_day = 1
-        day = str(cc['time']).split(' ')[0].split('-')[2]
+        day = str(candle['time']).split(' ')[0].split('-')[2]
         ids = 1
     else:
         ids = ids + 1
         # настройка дня
 
-    if str(cc['time']).split(' ')[0].split('-')[2] > day:
-        day = str(cc['time']).split(' ')[0].split('-')[2]
+    if str(candle['time']).split(' ')[0].split('-')[2] > day:
+        day = str(candle['time']).split(' ')[0].split('-')[2]
         money_result = money_result + money_day
         money_day = 0
         percent_day = 0
@@ -663,7 +667,7 @@ for cc in back_price_1:
         
         # проверка условий активных блоков
         if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, cc, order)
+            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle)
             if action_block != None:
                 strategy_state = 'execute_block_actions'
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
@@ -676,10 +680,12 @@ for cc in back_price_1:
 
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, cc)
+            result = execute_block_actions(action_block, candle)
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
+    
+    prev_candle = candle 
 
  
 profitability = (money_result/start_balance) - 1
