@@ -88,7 +88,6 @@ iter = 0
 
 blocks_data = rows1
 for gg in rows1:
-    #rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
     block_order[str(gg[0])] = iter
     iter = iter + 1
 rows1 = rows2
@@ -105,7 +104,7 @@ def reset_variables():
 
 # ---------- conditions -----------------
 
-def check_indicator(condition, block, candle):
+def check_value_change(condition, block, candle, order):
 
     indicator = candle[condition['name']]
     try:
@@ -225,7 +224,7 @@ def check_pnl(condition, block, candle, order):
                 return pnl
     return False
 
-def check_proboi(condition, block, candle, order):
+def check_exit_price(condition, block, candle, order):
 
     indicator_name = condition['name']
     side = condition['side']
@@ -383,12 +382,12 @@ def block_conditions_done(block, candle, order):
                 order['close_time_order'] = candle['time']
                 order['close_price_order'] = result
         elif condition['type'] == 'value_change':
-            result = check_indicator(condition, block, candle)
+            result = check_value_change(condition, block, candle, order)
             if result == False:
                 condition['done'] = False
                 return False
         elif condition['type'] == 'exit_price':
-            result = check_proboi(condition, block, candle, order)
+            result = check_exit_price(condition, block, candle, order)
             if result == False:
                 condition['done'] = False
                 return False
@@ -423,11 +422,10 @@ def execute_block_actions(block, candle):
             result = close_position(order, block, candle)
             if result:
                 action['done'] = True
-                print('Закрытие позиции')
+                print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_order']
                 order = get_new_order()
-                action['order'] = "open"
                 continue
             else:
                 action['done'] = False
@@ -452,7 +450,7 @@ def execute_block_actions(block, candle):
                 result = open_position(order, block, candle)
                 if result:
                     action['done'] = True
-                    print('Открытие позиции')
+                    print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
                     return False
@@ -676,13 +674,13 @@ for cc in back_price_1:
             else:
                 break
 
-
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
             result = execute_block_actions(action_block, cc)
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
+
  
 profitability = (money_result/start_balance) - 1
 all_orders = profit_sum + loss_sum
