@@ -282,7 +282,7 @@ def check_exit_price(condition, block, candle, order):
 
 # ---------- engine -----------------
 
-def set_block_data(table_row, col_number, col_conditions_a, col_activations):
+def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_activations):
 
     c_a = ast.literal_eval(table_row[col_conditions_a])
     if c_a.get('conditions') == None:
@@ -300,6 +300,7 @@ def set_block_data(table_row, col_number, col_conditions_a, col_activations):
     block_data['actions'] = actions
     block_data['number'] = table_row[col_number]
     block_data['activations'] = table_row[col_activations]
+    block_data['alg_number'] = alg_number
     return block_data 
 
 def get_activation_blocks(action_block, blocks_data, block_order):
@@ -324,11 +325,11 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     if action_block == '0':
         for block in blocks_data:
             if '0' in block[5].split(','):
-                block_data = set_block_data(block, 0, 4, 5)
+                block_data = set_block_data(block, '1', 0, 4, 5)
                 blocks.append(block_data)
                 return blocks
             elif '0' in block[7].split(','):
-                block_data = set_block_data(block, 0, 6, 7)
+                block_data = set_block_data(block, '2', 0, 6, 7)
                 blocks.append(block_data)
                 return blocks
     else:
@@ -337,10 +338,10 @@ def get_activation_blocks(action_block, blocks_data, block_order):
             index = block_order[activation_block['id']]
 
             if activation_block['direction'] == '1':
-                block_data = set_block_data(blocks_data[index], 0, 4, 5)
+                block_data = set_block_data(blocks_data[index], '1', 0, 4, 5)
                 blocks.append(block_data)
             else:
-                block_data = set_block_data(blocks_data[index], 0, 6, 7)
+                block_data = set_block_data(blocks_data[index], '2', 0, 6, 7)
                 blocks.append(block_data)
     
     return blocks
@@ -494,7 +495,7 @@ def open_position(order, block, candle):
             order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
-            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -510,7 +511,7 @@ def open_position(order, block, candle):
             order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
-            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
             return True
     if order['direction'] == 'short':
         if candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
@@ -527,7 +528,7 @@ def open_position(order, block, candle):
             order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
-            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -543,7 +544,7 @@ def open_position(order, block, candle):
             order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
-            order['path'] = order['path'] + str(block['number']) + '_' + order['direction']
+            order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
             return True
     return False
 
@@ -560,7 +561,7 @@ def close_position(order, block, candle):
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
         
-        order['path'] = order['path'] + ', ' + str(block['number']) + '_' + order['direction']
+        order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
         if order['close_price_order'] == 0:
             order['close_price_order'] = float(candle['close'])
