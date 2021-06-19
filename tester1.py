@@ -22,6 +22,7 @@ except Exception as e:
     print(e)
 cursor = cnx.cursor()
 table1 = data['table_price']
+algorithm = data['table_algorithm']
 try:
     cursor.execute('SELECT * FROM {0}'.format(table1))
 except Exception as e:
@@ -42,16 +43,17 @@ for row in rows:
         dict1[ss] = row[keys.index(ss)]
     back_price_1.append(dict1)
 print(len(back_price_1))
-table2 = data['table_result']
+table_result = data['table_result']
+table_result_sum = data['table_result_sum']
 try:
-    cursor.execute("TRUNCATE TABLE back_positions")
-    cursor.execute("TRUNCATE TABLE back_positions_sum")
+    cursor.execute("TRUNCATE TABLE {0}".format(table_result))
+    cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
 except Exception as e:
     print('Ошибка получения таблицы с результами, причина: ')
     print(e)
 
 try:
-    cursor.execute('SELECT * FROM front_algorithms')
+    cursor.execute('SELECT * FROM {0}'.format(algorithm))
 except Exception as e:
     print('Ошибка получения таблицы с настройками, причина: ')
     print(e)
@@ -86,7 +88,7 @@ iter = 0
 
 blocks_data = rows1
 for gg in rows1:
-    rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
+    #rows2.append([ast.literal_eval(gg[8]), ast.literal_eval(gg[10])])
     block_order[str(gg[0])] = iter
     iter = iter + 1
 rows1 = rows2
@@ -150,7 +152,7 @@ def check_indicator(condition, block, candle):
 
 def check_pnl(condition, block, candle, order):
     
-    direction = block['direction']
+    direction = order['direction']
 
     ind_oper = condition['value'].split(' ')[0]
     ind_value = float(condition['value'].split(' ')[1])
@@ -286,7 +288,7 @@ def check_proboi(condition, block, candle, order):
 
 # ---------- engine -----------------
 
-def set_block_data(direction, table_row, col_number, col_conditions_a, col_activations):
+def set_block_data(table_row, col_number, col_conditions_a, col_activations):
 
     c_a = ast.literal_eval(table_row[col_conditions_a])
     if c_a.get('conditions') == None:
@@ -300,7 +302,6 @@ def set_block_data(direction, table_row, col_number, col_conditions_a, col_activ
         actions = c_a['actions']
 
     block_data = {}
-    block_data['direction'] = direction
     block_data['conditions'] = conditions
     block_data['actions'] = actions
     block_data['number'] = table_row[col_number]
@@ -328,12 +329,12 @@ def get_activation_blocks(action_block, blocks_data, block_order):
 
     if action_block == '0':
         for block in blocks_data:
-            if '0' in block[7].split(','):
-                block_data = set_block_data('long', block, 0, 8, 7)
+            if '0' in block[5].split(','):
+                block_data = set_block_data(block, 0, 4, 5)
                 blocks.append(block_data)
                 return blocks
-            elif '0' in block[9].split(','):
-                block_data = set_block_data('short', block, 0, 10, 9)
+            elif '0' in block[7].split(','):
+                block_data = set_block_data(block, 0, 6, 7)
                 blocks.append(block_data)
                 return blocks
     else:
@@ -341,11 +342,11 @@ def get_activation_blocks(action_block, blocks_data, block_order):
 
             index = block_order[activation_block['id']]
 
-            if activation_block['direction'] == 'long':
-                block_data = set_block_data('long', blocks_data[index], 0, 8, 7)
+            if activation_block['direction'] == '1':
+                block_data = set_block_data(blocks_data[index], 0, 4, 5)
                 blocks.append(block_data)
             else:
-                block_data = set_block_data('short', blocks_data[index], 0, 10, 9)
+                block_data = set_block_data(blocks_data[index], 0, 6, 7)
                 blocks.append(block_data)
     
     return blocks
@@ -381,12 +382,12 @@ def block_conditions_done(block, candle, order):
             else:
                 order['close_time_order'] = candle['time']
                 order['close_price_order'] = result
-        elif condition['type'] == 'indicator':
+        elif condition['type'] == 'value_change':
             result = check_indicator(condition, block, candle)
             if result == False:
                 condition['done'] = False
                 return False
-        elif condition['type'] == 'indicator-proboi':
+        elif condition['type'] == 'exit_price':
             result = check_proboi(condition, block, candle, order)
             if result == False:
                 condition['done'] = False
@@ -609,8 +610,8 @@ def close_position(order, block, candle):
         if str(order['open_time_position']).split(' ')[0].split('-')[2] != str(order['close_time_position']).split(' ')[0].split('-')[2]:
             id_day = id_day - 1
         insert_stmt = (
-            "INSERT INTO back_positions(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_balance_percent, minimum_losses_percent, price_deviation, blocks_id)"
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"
+            "INSERT INTO {0}(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             id_day, order['direction'], order['lot'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
@@ -690,10 +691,10 @@ if all_orders > 0:
 
     profit_percent = profit_sum/(all_orders/100)
     loss_percent = loss_sum/(all_orders/100)
-    insert_stmt = ("INSERT INTO back_positions_sum(profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)"
-    "VALUES (%s, %s, %s, %s, %s, %s)")
+    insert_stmt = ("INSERT INTO {0}(profitability, money_result, profit_percent, profit_average_points, profit_sum, loss_percent, loss_average_points, loss_sum)"
+    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (profitability, money_result, profit_percent, profit_sum, loss_percent, loss_sum)
+    data = (profitability, money_result, profit_percent, 0, profit_sum, loss_percent, 0, loss_sum)
     cursor.execute(insert_stmt, data)
 
 cnx.commit()
