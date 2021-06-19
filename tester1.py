@@ -59,10 +59,10 @@ except Exception as e:
     print(e)
 rows1 = cursor.fetchall()
 
-algo = []
-for row in rows1:
-    uslovie = row[7]
-    algo.append(uslovie)
+#algo = []
+#for row in rows1:
+#    uslovie = row[7]
+#    algo.append(uslovie)
 
 
 squeeze = 0  # 30
