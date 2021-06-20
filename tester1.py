@@ -280,6 +280,89 @@ def check_exit_price(condition, block, candle, order):
 
     return False
 
+'''
+def check_steps_proboi(condition, block, candle, order):
+
+    side = condition['side']
+    check = condition['check']
+    try:
+        exit_price_price_main = condition['exit_price_price']
+    except:
+        exit_price_price_main = 'no'
+    proc_value_2 = float(condition['exit_price_percent'])
+    try:
+        proboi = float(back_price_1[back_price_1.index(candle) - 1][condition['name'] + '-' + condition['side']])
+        if proboi_status == 0:
+            old_proboi = proboi
+    except:
+        proboi = 0
+    try:
+        new_breakdown_sum = int(condition['new_breakdown_sum'])
+    except:
+        new_breakdown_sum = 1
+    if proboi_stup >= new_breakdown_sum and proboi_line_proc >= proc_value_2:
+        print('Пробой со ступеньками сработал')
+        block_num = 8
+        stat = 'close_open_2'
+        vh_vih_stat = 0
+        proboi_status = 0
+        close_time_order = back_price_1[back_price_1.index(candle) - 1]['time']
+        if main_status == 'active':
+            block_id = block_id + ',' + str(block)
+        else:
+            block_id = block_id + ',' + str(main_status) + str(block)
+        proboi_line_proc = 0
+        proboi_stup = 0
+        old_proboi = 0
+        proboi_status = 0
+        exit_price_price = False
+        break
+    else:
+        if old_proboi != 0 and side == 'high' and proboi < old_proboi:
+            print('обнуление')
+            print('time == ' + str(candle['time']))
+            old_proboi = 0
+            proboi_stup = 0
+            proboi_line_proc = 0
+            proboi_status = 0
+            exit_price_price = False
+            vh_vih_stat = 0
+            continue
+        if old_proboi != 0 and side == 'low' and proboi > old_proboi:
+            print('обнуление')
+            print('time == ' + str(candle['time']))
+            old_proboi = 0
+            proboi_stup = 0
+            proboi_line_proc = 0
+            proboi_status = 0
+            vh_vih_stat = 0
+            exit_price_price = False
+            continue
+        if block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price, stat_block):
+            print('Сработала одна ступень пробоя')
+            print('time == ' + str(cc['time']))
+            # print('oldproboi work ' + str(old_proboi))
+            # print('proboi work' + str(proboi))
+            proboi_status = 1
+            proboi_line_proc = block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price,
+                                            stat_block)
+
+            print('proc == ' + str(proboi_line_proc))
+            print('proboi stup == ' + str(proboi_stup))
+            proboi_stup = proboi_stup + 1
+            if proboi_stup + 1 == new_breakdown_sum and exit_price_price_main == 'yes':
+                exit_price_price = True
+            if proboi_stup >= new_breakdown_sum:
+                if check == 'low':
+                    close_candle = float(proboi) - ((float(proboi) / 100) * proc_value_2)
+                if check == 'close':
+                    close_candle = float(cc['close'])
+                if check == 'high':
+                    close_candle = float(proboi) + ((float(proboi) / 100) * proc_value_2)
+            print('close_candle1 ' + str(close_candle))
+            continue
+'''
+
 # ---------- engine -----------------
 
 def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_activations):
@@ -327,11 +410,9 @@ def get_activation_blocks(action_block, blocks_data, block_order):
             if '0' in block[5].split(','):
                 block_data = set_block_data(block, '1', 0, 4, 5)
                 blocks.append(block_data)
-                return blocks
-            elif '0' in block[7].split(','):
+            if '0' in block[7].split(','):
                 block_data = set_block_data(block, '2', 0, 6, 7)
                 blocks.append(block_data)
-                return blocks
     else:
         for activation_block in activation_blocks: 
 
@@ -666,6 +747,7 @@ for candle in back_price_1:
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
                 if len(action_block['actions']) == 0:
                     activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+                    # назначаем только, если он (блок) один и в нем нет условий
                     if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
                         action_block = activation_blocks[0]
             else:
@@ -677,6 +759,7 @@ for candle in back_price_1:
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
+                break
     
     prev_candle = candle 
 
