@@ -463,6 +463,8 @@ def block_conditions_done(block, candle, order, prev_candle):
             if result == False:
                 condition['done'] = False
                 return False
+            else:
+                order['condition_checked_candle'] = prev_candle
         elif condition['type'] == 'exit_price':
             result = check_exit_price(condition, block, candle, order)
             if result == False:
@@ -478,6 +480,9 @@ def block_conditions_done(block, candle, order, prev_candle):
         cur_condition_number = condition['number']
 
         condition['done'] = True
+
+        if order['condition_checked_candle'] == None:
+            order['condition_checked_candle'] = candle
         
     return True
 
@@ -494,7 +499,6 @@ def execute_block_actions(block, candle):
 
         if action['order'] == "close":
             if order['close_time_order'] == 0:
-                #order['close_time_order'] = back_price_1[back_price_1.index(candle) + 1]['time']
                 order['close_time_order'] = candle['time']
             result = close_position(order, block, candle)
             if result:
@@ -503,6 +507,7 @@ def execute_block_actions(block, candle):
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_order']
                 order = get_new_order()
+                candle['was_close'] = True 
                 continue
             else:
                 action['done'] = False
@@ -514,7 +519,6 @@ def execute_block_actions(block, candle):
                 if  action.get('leverage') != None:
                     order['leverage'] = action['leverage']
                 if saved_close_time == 0:
-                    #order['open_time_order'] = back_price_1[back_price_1.index(candle)]['time']
                     order['open_time_order'] = candle['time']
                 else:
                     order['open_time_order'] = saved_close_time
@@ -557,6 +561,8 @@ def get_new_order():
     order['path'] = ''
     order['lot'] = 0
     order['price'] = 0
+
+    order['condition_checked_candle'] = None
 
     return order
 
@@ -642,10 +648,18 @@ def close_position(order, block, candle):
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
         
+        # если уже было закрытие в данной свече
+        if candle.get('was_close') != None and candle['was_close'] == True:
+            order['close_time_order'] = 0
+            return False
+
         order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
         if order['close_price_order'] == 0:
-            order['close_price_order'] = float(candle['close'])
+            if order['condition_checked_candle'] == None:
+                order['close_price_order'] = float(candle['close'])
+            else:
+                order['close_price_order'] = float(order['condition_checked_candle']['close'])
         if order['direction'] == 'long':
             if order['close_price_order'] >= order['price']:
                 res = 'profit'
@@ -752,13 +766,14 @@ for candle in back_price_1:
                         action_block = activation_blocks[0]
             else:
                 break
-
+        
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
             result = execute_block_actions(action_block, candle)
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
+            else:
                 break
     
     prev_candle = candle 
