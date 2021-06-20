@@ -498,6 +498,8 @@ def execute_block_actions(block, candle):
             continue
 
         if action['order'] == "close":
+            if action['direction'] != order['direction']:
+                return False   
             if order['close_time_order'] == 0:
                 order['close_time_order'] = candle['time']
             result = close_position(order, block, candle)
