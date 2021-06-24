@@ -294,7 +294,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
                     return proc
             if check == 'close':
                 if side == 'high':
-                    if float(candle['close']) > float(proboi):
+                    if float(candle['close']) > float(order['proboi']):
                         proc = (float(candle['close']) - float(order['old_proboi'])) / (float(order['old_proboi'])/100)
                         return proc
                 if side == 'low':
@@ -336,11 +336,23 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
 def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
-    if order.get('proboi_status') != None:
+    if order.get('proboi_status') == None:
         order['proboi_status'] = 0
     
-    if order.get('proboi_step') != None:
+    if order.get('proboi_step') == None:
         order['proboi_step'] = 0
+
+    if order.get('exit_price_price') == None:
+        order['exit_price_price'] = False
+
+    if order.get('proboi') == None:
+        order['proboi'] = 0
+
+    if order.get('old_proboi') == None:
+        order['old_proboi'] = 0
+
+    if order.get('proboi_line_proc') == None:
+        order['proboi_line_proc'] = 0
 
     side = condition['side']
     check = condition['check']
@@ -348,58 +360,59 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         exit_price_price_main = condition['exit_price_price']
     except:
         exit_price_price_main = 'no'
+
     proc_value_2 = float(condition['exit_price_percent'])
     
     if prev_candle != None:
-        proboi = float(prev_candle[condition['name'] + '-' + condition['side']])
+        order['proboi'] = float(prev_candle[condition['name'] + '-' + condition['side']])
         if order['proboi_status'] == 0:
-            old_proboi = proboi
+            order['old_proboi'] = order['proboi']
     else:
-        proboi = 0
+        order['proboi'] = 0
     
     if condition.get('new_breakdown_sum') == None:
         new_breakdown_sum = 1
     else:
         new_breakdown_sum = int(condition['new_breakdown_sum'])
         
-    if order['proboi_step'] >= new_breakdown_sum and proboi_line_proc >= proc_value_2:
+    if order['proboi_step'] >= new_breakdown_sum and order['proboi_line_proc'] >= proc_value_2:
         order['proboi_status'] = 0
         order['close_time_order'] = prev_candle['time']
-        proboi_line_proc = 0
+        order['proboi_line_proc'] = 0
         order['proboi_step'] = 0
-        old_proboi = 0
-        exit_price_price = False
+        order['old_proboi'] = 0
+        order['exit_price_price'] = False
         return True
     else:
-        if old_proboi != 0 and side == 'high' and proboi < old_proboi:
-            old_proboi = 0
+        if order['old_proboi'] != 0 and side == 'high' and order['proboi'] < order['old_proboi']:
+            order['old_proboi'] = 0
             order['proboi_step'] = 0
-            proboi_line_proc = 0
+            order['proboi_line_proc'] = 0
             order['proboi_status'] = 0
-            exit_price_price = False
+            order['exit_price_price'] = False
             return False
-        if old_proboi != 0 and side == 'low' and proboi > old_proboi:
-            old_proboi = 0
+        if order['old_proboi'] != 0 and side == 'low' and order['proboi'] > order['old_proboi']:
+            order['old_proboi'] = 0
             order['proboi_step'] = 0
-            proboi_line_proc = 0
+            order['proboi_line_proc'] = 0
             order['proboi_status'] = 0
-            exit_price_price = False
+            order['exit_price_price'] = False
             return False
-        if block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price, stat_block):
+        result = check_exit_price_by_step(condition, block, candle, order, prev_candle)
+        if result:
             order['proboi_status'] = 1
-            proboi_line_proc = block_9_1(cc, old_proboi, proboi, direction, 8, side, exit_price_price,
-                                            stat_block)
+            order['proboi_line_proc'] = result
 
             order['proboi_step'] = order['proboi_step'] + 1
             if order['proboi_step'] + 1 == new_breakdown_sum and exit_price_price_main == 'yes':
-                exit_price_price = True
+                order['exit_price_price'] = True
             if order['proboi_step'] >= new_breakdown_sum:
                 if check == 'low':
-                    order['close_price_order'] = float(proboi) - ((float(proboi) / 100) * proc_value_2)
+                    order['close_price_order'] = float(order['proboi']) - ((float(order['proboi']) / 100) * proc_value_2)
                 if check == 'close':
                     order['close_price_order'] = float(candle['close'])
                 if check == 'high':
-                    order['close_price_order'] = float(proboi) + ((float(proboi) / 100) * proc_value_2)
+                    order['close_price_order'] = float(order['proboi']) + ((float(order['proboi']) / 100) * proc_value_2)
                     
             return False
 
@@ -508,7 +521,7 @@ def block_conditions_done(block, candle, order, prev_candle):
                 return False
             else:
                 order['condition_checked_candle'] = prev_candle
-        elif condition['type'] == 'exit_price':
+        elif condition['type'] == 'exit_price' and condition.get('new_breakdown_sum') == None:
             result = check_exit_price(condition, block, candle, order)
             if result == False:
                 condition['done'] = False
@@ -516,6 +529,11 @@ def block_conditions_done(block, candle, order, prev_candle):
             else:
                 order['close_time_order'] = candle['time']
                 order['close_price_order'] = result
+        elif condition['type'] == 'exit_price' and condition.get('new_breakdown_sum') != None:
+            result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
+            if result == False:
+                condition['done'] = False
+                return False
         else:
             condition['done'] = False
             return False
