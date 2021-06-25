@@ -3,6 +3,8 @@ import json
 import os
 import ast
 
+print('=============================================================================')
+
 directory = os.path.dirname(os.path.abspath(__file__))
 with open(directory + '/dbconfig.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
@@ -364,11 +366,13 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     proc_value_2 = float(condition['exit_price_percent'])
     
     if prev_candle != None:
+        old_proboi = order['proboi']
         order['proboi'] = float(prev_candle[condition['name'] + '-' + condition['side']])
         if order['proboi_status'] == 0:
             order['old_proboi'] = order['proboi']
     else:
         order['proboi'] = 0
+        old_proboi = 0
     
     if condition.get('new_breakdown_sum') == None:
         new_breakdown_sum = 1
@@ -384,14 +388,20 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         order['exit_price_price'] = False
         return True
     else:
-        if order['old_proboi'] != 0 and side == 'high' and order['proboi'] < order['old_proboi']:
+        if order['proboi_status'] != 0 and side == 'high' and order['proboi'] < old_proboi:
+            #print('-------------')
+            #print('обнуление')
+            #print('time == ' + str(candle['time']))
             order['old_proboi'] = 0
             order['proboi_step'] = 0
             order['proboi_line_proc'] = 0
             order['proboi_status'] = 0
             order['exit_price_price'] = False
             return False
-        if order['old_proboi'] != 0 and side == 'low' and order['proboi'] > order['old_proboi']:
+        if order['proboi_status'] != 0 and side == 'low' and order['proboi'] > old_proboi:
+            #print('-------------')
+            #print('обнуление')
+            #print('time == ' + str(candle['time']))
             order['old_proboi'] = 0
             order['proboi_step'] = 0
             order['proboi_line_proc'] = 0
@@ -400,6 +410,18 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
             return False
         result = check_exit_price_by_step(condition, block, candle, order, prev_candle)
         if result:
+            #print('-------------')
+            #print('Сработала одна ступень пробоя')
+            
+            #print('proboi work ' + str(order['proboi']))
+            #print('time ' + str(candle['time']))
+            #if prev_candle != None:
+            #    print('price ' + str(prev_candle[condition['name'] + '-' + condition['side']]))
+
+            #print('proc == ' + str(result))
+            #print('proboi stup == ' + str(order['proboi_step']))
+            #print('oldproboi work ' + str(order['old_proboi']))
+
             order['proboi_status'] = 1
             order['proboi_line_proc'] = result
 
@@ -534,6 +556,8 @@ def block_conditions_done(block, candle, order, prev_candle):
             if result == False:
                 condition['done'] = False
                 return False
+            else:
+                order['close_time_order'] = candle['time']
         else:
             condition['done'] = False
             return False
