@@ -109,8 +109,10 @@ def check_value_change(condition, block, candle, order, prev_candle):
     except:
         return False 
 
-    ind_oper = condition['value'].split(' ')[0]
-    ind_value = float(condition['value'].split(' ')[1])
+    if condition.get('value') != None:
+        ind_oper = condition['value'].split(' ')[0]
+        ind_value = float(condition['value'].split(' ')[1])
+
     if condition.get('change'):
         change = condition['change']
     else:
@@ -131,18 +133,20 @@ def check_value_change(condition, block, candle, order, prev_candle):
         if ind_oper == '>=':
             if indicator >= ind_value:
                return True
-        if ind_oper == '<=':
+        elif ind_oper == '<=':
             if indicator <= ind_value:
                 return True
-        if ind_oper == '<':
+        elif ind_oper == '<':
             if indicator < ind_value:
                 return True
-        if ind_oper == '>':
+        elif ind_oper == '>':
             if indicator > ind_value:
                 return True
-        if ind_oper == '=':
+        elif ind_oper == '=':
             if indicator == ind_value:
                 return True
+        else:
+            return True
 
     return False
 
