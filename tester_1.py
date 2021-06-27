@@ -112,6 +112,9 @@ def check_value_change(condition, block, candle, order, prev_candle):
     if condition.get('value') != None:
         ind_oper = condition['value'].split(' ')[0]
         ind_value = float(condition['value'].split(' ')[1])
+    else:
+        ind_oper = ''
+        ind_value = 0
 
     if condition.get('change'):
         change = condition['change']
