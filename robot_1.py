@@ -61,7 +61,7 @@ rows1 = cursor.fetchall()
 
 squeeze = 0
 money_deal = 0
-percent_deal = 0
+percent_position = 0
 equity = 1
 start_balance = 1
 money_day = 0
@@ -75,7 +75,7 @@ profit_sum = 0
 loss_percent = 0
 loss_sum = 0
 id_day = 0
-percent_position = 0
+last_percent_position = 0
 
 block_order = {}
 iter = 0
@@ -88,11 +88,11 @@ rows1 = rows2
 
 def reset_variables():
 
-    global points_deal
+    global points_position
     global fee
     global money_deal
 
-    points_deal = 0
+    points_position = 0
     fee = 0
     money_deal = 0
 
@@ -743,6 +743,7 @@ def close_position(order, block, candle):
     global money_day
     global ids
     global percent_position
+    global last_percent_position
 
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
@@ -767,9 +768,9 @@ def close_position(order, block, candle):
                 res = 'loss'
                 loss_sum = loss_sum + 1
             if order['order_type'] == 'limit':
-                points_deal = order['close_price_order'] - order['price']
+                points_position = order['close_price_order'] - order['price']
             else:
-                points_deal = order['close_price_order'] - order['price'] - squeeze
+                points_position = order['close_price_order'] - order['price'] - squeeze
                 squeeze = squeeze + squeeze
         else:
             if order['price'] >= order['close_price_order']:
@@ -779,14 +780,17 @@ def close_position(order, block, candle):
                 res = 'loss'
                 loss_sum = loss_sum + 1
             if order['order_type'] == 'limit':
-                points_deal = order['price'] - order['close_price_order']
+                points_position = order['price'] - order['close_price_order']
             else:
-                points_deal = order['price'] - order['close_price_order'] - squeeze
+                points_position = order['price'] - order['close_price_order'] - squeeze
                 squeeze = squeeze + squeeze
         fee = 0
-        money_deal = (points_deal / order['close_price_order']) * (order['lot'] / order['price']) - fee
+        money_deal = (points_position / order['close_price_order']) * (order['lot'] / order['price']) - fee
         money_day = money_day + money_deal
-        percent_deal = (money_deal / equity) * 100
+        percent_position = (points_position / order['open_price_order']) * 100 * float(order['leverage'])
+        percent_positions = last_percent_position + percent_position
+        last_percent_position = percent_position
+
         equity = equity + money_deal
         percent_day = (money_day / start_balance) * 100
         min_percent_list.append(percent_day)
@@ -803,7 +807,7 @@ def close_position(order, block, candle):
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_order'], order['close_time_position'], res, points_deal, percent_deal, 0, 0, order['path'], 0)
+            order['close_time_order'], order['close_price_order'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
