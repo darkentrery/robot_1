@@ -60,7 +60,6 @@ except Exception as e:
 rows1 = cursor.fetchall()
 
 squeeze = 0
-ids = 0
 money_deal = 0
 percent_deal = 0
 equity = 1
@@ -76,6 +75,7 @@ profit_sum = 0
 loss_percent = 0
 loss_sum = 0
 id_day = 0
+percent_position = 0
 
 block_order = {}
 iter = 0
@@ -104,6 +104,10 @@ def check_value_change(condition, block, candle, order, prev_candle):
         return False
 
     indicator = prev_candle[condition['name']]
+
+    if back_price_1.index(prev_candle) == 0:
+        return False
+
     try:
         last_ind = back_price_1[back_price_1.index(prev_candle) - 1][condition['name']]
     except:
@@ -738,7 +742,8 @@ def close_position(order, block, candle):
     global id_day
     global money_day
     global ids
-    
+    global percent_position
+
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
         
@@ -793,13 +798,12 @@ def close_position(order, block, candle):
         if str(order['open_time_position']).split(' ')[0].split('-')[2] != str(order['close_time_position']).split(' ')[0].split('-')[2]:
             id_day = id_day - 1
         insert_stmt = (
-            "INSERT INTO {0}(id_day, side, quantity, open_type_order, open_time_order, open_price_order, open_time_position, close_order_type, close_time_order, close_price_order, close_time_position, fee, result_deal, points_deal, money_deal, percent_deal, equity, money_day, percent_day, minimum_equity_percent, minimum_losses_percent, price_deviation, blocks_id)"
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
-            id_day, order['direction'], order['lot'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_order'], order['close_time_position'], fee, res, points_deal, money_deal, percent_deal,
-            equity, money_day, percent_day, min_balance_percent, 0, 0, order['path'])
+            order['direction'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
+            order['close_time_order'], order['close_price_order'], order['close_time_position'], res, points_deal, percent_deal, 0, 0, order['path'], 0)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
@@ -880,11 +884,11 @@ if all_orders > 0:
 
     profit_percent = profit_sum/(all_orders/100)
     loss_percent = loss_sum/(all_orders/100)
-    insert_stmt = ("INSERT INTO {0}(profitability, money_result, profit_percent, profit_average_points, profit_sum, loss_percent, loss_average_points, loss_sum)"
-    "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
+    insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
+    "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (profitability, money_result, profit_percent, 0, profit_sum, loss_percent, 0, loss_sum)
-    cursor.execute(insert_stmt, data)
+    data = (int(profitability), int(money_result), profit_percent, 0, profit_sum, int(loss_percent), 0, int(loss_sum))
+    ##cursor.execute(insert_stmt, data)
 
 cnx.commit()
 cnx.close()

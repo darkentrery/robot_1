@@ -1,9 +1,9 @@
 {
-    "user": "tester",
-    "password": "testerpass",
+    "user": "user",
+    "password": "userpass",
     "host": "95.142.38.22",
-    "database_host": "tester_2",
-    "table_price": "price_1",
+    "database_host": "robot-1",
+    "table_price": "price_15",
     "table_result": "positions",
     "table_result_sum": "positions_sum",
     "table_algorithm": "algorithm_1"
