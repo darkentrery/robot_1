@@ -66,15 +66,12 @@ equity = 1
 start_balance = 1
 money_day = 0
 percent_day = 0
-min_percent_list = []
-min_balance_percent = 0
 rows2 = []
-money_result = 0
+profit_positions_percent = 0
 profit_percent = 0
 profit_sum = 0
 loss_percent = 0
 loss_sum = 0
-id_day = 0
 last_percent_position = 0
 
 block_order = {}
@@ -258,11 +255,9 @@ def check_exit_price(condition, block, candle, order):
             if side == 'high':
                 proc = (float(candle['close']) - float(proboi)) / (float(proboi)/100)
                 candle_check = float(candle['close'])
-                #value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
             if side == 'low':
                 proc = (float(proboi) - float(candle['close'])) / (float(proboi) / 100)
                 candle_check = float(candle['close'])
-                #value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
             value = float(candle['close'])
         if check == 'high':
             proc = (float(candle['high']) - float(proboi)) / (float(proboi)/100)
@@ -400,9 +395,6 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         return True
     else:
         if order['proboi_status'] != 0 and side == 'high' and order['proboi'] < old_proboi:
-            #print('-------------')
-            #print('обнуление')
-            #print('time == ' + str(candle['time']))
             order['old_proboi'] = 0
             order['proboi_step'] = 0
             order['proboi_line_proc'] = 0
@@ -410,9 +402,6 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
             order['exit_price_price'] = False
             return False
         if order['proboi_status'] != 0 and side == 'low' and order['proboi'] > old_proboi:
-            #print('-------------')
-            #print('обнуление')
-            #print('time == ' + str(candle['time']))
             order['old_proboi'] = 0
             order['proboi_step'] = 0
             order['proboi_line_proc'] = 0
@@ -421,17 +410,6 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
             return False
         result = check_exit_price_by_step(condition, block, candle, order, prev_candle)
         if result:
-            #print('-------------')
-            #print('Сработала одна ступень пробоя')
-            
-            #print('proboi work ' + str(order['proboi']))
-            #print('time ' + str(candle['time']))
-            #if prev_candle != None:
-            #    print('price ' + str(prev_candle[condition['name'] + '-' + condition['side']]))
-
-            #print('proc == ' + str(result))
-            #print('proboi stup == ' + str(order['proboi_step']))
-            #print('oldproboi work ' + str(order['old_proboi']))
 
             order['proboi_status'] = 1
             order['proboi_line_proc'] = result
@@ -739,9 +717,7 @@ def close_position(order, block, candle):
     global loss_sum 
     global squeeze
     global equity
-    global id_day
     global money_day
-    global ids
     global percent_position
     global last_percent_position
 
@@ -792,15 +768,10 @@ def close_position(order, block, candle):
         last_percent_position = percent_position
 
         equity = equity + money_deal
-        percent_day = (money_day / start_balance) * 100
-        min_percent_list.append(percent_day)
-        min_balance_percent = min(min_percent_list)
         if order['order_type'] == 'limit':
             order['close_time_position'] = back_price_1[back_price_1.index(candle)+1]['time']
         else:
             order['close_time_position'] = order['close_time_order']
-        if str(order['open_time_position']).split(' ')[0].split('-')[2] != str(order['close_time_position']).split(' ')[0].split('-')[2]:
-            id_day = id_day - 1
         insert_stmt = (
             "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions)"
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
@@ -814,10 +785,7 @@ def close_position(order, block, candle):
         except Exception as e:
             print(e)
 
-        if str(order['open_time_position']).split(' ')[0].split('-')[2] != str(order['close_time_position']).split(' ')[0].split('-')[2]:
-            id_day = id_day + 1
         reset_variables()
-        ids = ids + 1
         return True
 
     return False
@@ -837,20 +805,13 @@ for candle in back_price_1:
     
     # настройка первого дня
     if back_price_1.index(candle) == 0:
-        id_day = 1
         day = str(candle['time']).split(' ')[0].split('-')[2]
-        ids = 1
-    else:
-        ids = ids + 1
-        # настройка дня
 
     if str(candle['time']).split(' ')[0].split('-')[2] > day:
         day = str(candle['time']).split(' ')[0].split('-')[2]
-        money_result = money_result + money_day
+        profit_positions_percent = profit_positions_percent + money_day
         money_day = 0
         percent_day = 0
-        min_percent_list.clear()
-        min_balance_percent = 0
 
 
     while True:
@@ -881,7 +842,7 @@ for candle in back_price_1:
     prev_candle = candle 
 
  
-profitability = (money_result/start_balance) - 1
+percent_positions = (profit_positions_percent/start_balance) - 1
 all_orders = profit_sum + loss_sum
 
 if all_orders > 0:
@@ -891,7 +852,7 @@ if all_orders > 0:
     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (int(profitability), int(money_result), profit_percent, 0, profit_sum, int(loss_percent), 0, int(loss_sum))
+    data = (int(percent_positions), int(profit_positions_percent), profit_percent, 0, profit_sum, int(loss_percent), 0, int(loss_sum))
     ##cursor.execute(insert_stmt, data)
 
 cnx.commit()
