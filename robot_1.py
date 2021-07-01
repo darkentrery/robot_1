@@ -68,6 +68,7 @@ profit_sum = 0
 loss_percent = 0
 loss_sum = 0
 last_percent_position = 0
+percent_positions = 0
 
 block_order = {}
 iter = 0
@@ -699,6 +700,7 @@ def close_position(order, block, candle):
     global squeeze
     global percent_position
     global last_percent_position
+    global percent_positions
 
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
@@ -816,7 +818,6 @@ for candle in back_price_1:
 
  
 profit_positions_percent = 0
-percent_positions = 0
 
 all_orders = profit_sum + loss_sum
 
@@ -827,8 +828,8 @@ if all_orders > 0:
     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (int(percent_positions), int(profit_positions_percent), profit_percent, 0, profit_sum, int(loss_percent), 0, int(loss_sum))
-    ##cursor.execute(insert_stmt, data)
+    data = (int(percent_positions), int(profit_positions_percent), profit_percent, profit_sum, int(loss_percent), 0, int(loss_sum))
+    cursor.execute(insert_stmt, data)
 
 cnx.commit()
 cnx.close()
