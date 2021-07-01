@@ -161,9 +161,9 @@ def check_pnl(condition, block, candle, order):
     ind_oper = condition['value'].split(' ')[0]
     ind_value = float(condition['value'].split(' ')[1])
     if direction == 'short':
-        pnl = order['open_price_order'] - (((order['open_price_order'] / 100) * ind_value))/float(order['leverage'])
+        pnl = order['open_price_position'] - (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
     else:
-        pnl = order['open_price_order'] + (((order['open_price_order'] / 100) * ind_value))/float(order['leverage'])
+        pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
 
     if direction == 'long':
         if ind_oper == '>=':
@@ -419,11 +419,11 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
                 order['exit_price_price'] = True
             if order['proboi_step'] >= new_breakdown_sum:
                 if check == 'low':
-                    order['close_price_order'] = float(order['proboi']) - ((float(order['proboi']) / 100) * proc_value_2)
+                    order['close_price_position'] = float(order['proboi']) - ((float(order['proboi']) / 100) * proc_value_2)
                 if check == 'close':
-                    order['close_price_order'] = float(candle['close'])
+                    order['close_price_position'] = float(candle['close'])
                 if check == 'high':
-                    order['close_price_order'] = float(order['proboi']) + ((float(order['proboi']) / 100) * proc_value_2)
+                    order['close_price_position'] = float(order['proboi']) + ((float(order['proboi']) / 100) * proc_value_2)
                     
             return False
 
@@ -524,7 +524,7 @@ def block_conditions_done(block, candle, order, prev_candle):
                 return False
             else:
                 order['close_time_order'] = candle['time']
-                order['close_price_order'] = result
+                order['close_price_position'] = result
         elif condition['type'] == 'value_change':
             result = check_value_change(condition, block, candle, order, prev_candle)
             if result == False:
@@ -539,7 +539,7 @@ def block_conditions_done(block, candle, order, prev_candle):
                 return False
             else:
                 order['close_time_order'] = candle['time']
-                order['close_price_order'] = result
+                order['close_price_position'] = result
         elif condition['type'] == 'exit_price' and condition.get('new_breakdown_sum') != None:
             result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
             if result == False:
@@ -581,7 +581,7 @@ def execute_block_actions(block, candle):
                 action['done'] = True
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
-                saved_close_price = order['close_price_order']
+                saved_close_price = order['close_price_position']
                 order = get_new_order()
                 candle['was_close'] = True 
                 continue
@@ -599,7 +599,7 @@ def execute_block_actions(block, candle):
                 else:
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
-                    order['open_price_order'] = saved_close_price
+                    order['open_price_position'] = saved_close_price
                     order['price'] = saved_close_price
                 order['state'] = 'order_is_opened'
                 #return False 
@@ -621,8 +621,8 @@ def get_new_order():
     order = {}
     order['leverage'] = 0
 
-    order['open_price_order'] = 0
-    order['close_price_order'] = 0
+    order['open_price_position'] = 0
+    order['close_price_position'] = 0
 
     order['open_time_order'] = 0
     order['open_time_position'] = 0
@@ -652,8 +652,8 @@ def open_position(order, block, candle):
                 price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            if order['open_price_order'] == 0:
-                order['open_price_order'] = price
+            if order['open_price_position'] == 0:
+                order['open_price_position'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
@@ -667,8 +667,8 @@ def open_position(order, block, candle):
                 price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            if order['open_price_order'] == 0:
-                order['open_price_order'] = price
+            if order['open_price_position'] == 0:
+                order['open_price_position'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
@@ -684,8 +684,8 @@ def open_position(order, block, candle):
                 price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            if order['open_price_order'] == 0:
-                order['open_price_order'] = price
+            if order['open_price_position'] == 0:
+                order['open_price_position'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
@@ -700,8 +700,8 @@ def open_position(order, block, candle):
                 price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])
             else:
                 price = float(price_old)
-            if order['open_price_order'] == 0:
-                order['open_price_order'] = price
+            if order['open_price_position'] == 0:
+                order['open_price_position'] = price
             lot = (float(start_balance) * float(price)) * float(order['leverage'])
             lot = int(round(lot, -1))
             order['lot'] = int(round(lot, -1))
@@ -731,39 +731,39 @@ def close_position(order, block, candle):
 
         order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
-        if order['close_price_order'] == 0:
+        if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
-                order['close_price_order'] = float(candle['close'])
+                order['close_price_position'] = float(candle['close'])
             else:
-                order['close_price_order'] = float(order['condition_checked_candle']['close'])
+                order['close_price_position'] = float(order['condition_checked_candle']['close'])
         if order['direction'] == 'long':
-            if order['close_price_order'] >= order['price']:
+            if order['close_price_position'] >= order['price']:
                 res = 'profit'
                 profit_sum = profit_sum + 1
             else:
                 res = 'loss'
                 loss_sum = loss_sum + 1
             if order['order_type'] == 'limit':
-                points_position = order['close_price_order'] - order['price']
+                points_position = order['close_price_position'] - order['price']
             else:
-                points_position = order['close_price_order'] - order['price'] - squeeze
+                points_position = order['close_price_position'] - order['price'] - squeeze
                 squeeze = squeeze + squeeze
         else:
-            if order['price'] >= order['close_price_order']:
+            if order['price'] >= order['close_price_position']:
                 res = 'profit'
                 profit_sum = profit_sum + 1
             else:
                 res = 'loss'
                 loss_sum = loss_sum + 1
             if order['order_type'] == 'limit':
-                points_position = order['price'] - order['close_price_order']
+                points_position = order['price'] - order['close_price_position']
             else:
-                points_position = order['price'] - order['close_price_order'] - squeeze
+                points_position = order['price'] - order['close_price_position'] - squeeze
                 squeeze = squeeze + squeeze
         fee = 0
-        money_deal = (points_position / order['close_price_order']) * (order['lot'] / order['price']) - fee
+        money_deal = (points_position / order['close_price_position']) * (order['lot'] / order['price']) - fee
         money_day = money_day + money_deal
-        percent_position = (points_position / order['open_price_order']) * 100 * float(order['leverage'])
+        percent_position = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
         percent_positions = last_percent_position + percent_position
         last_percent_position = percent_position
 
@@ -777,8 +777,8 @@ def close_position(order, block, candle):
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
-            order['direction'], order['order_type'], order['open_time_order'], order['open_price_order'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_order'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions)
+            order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
