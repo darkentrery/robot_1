@@ -60,12 +60,7 @@ except Exception as e:
 rows1 = cursor.fetchall()
 
 squeeze = 0
-money_deal = 0
 percent_position = 0
-equity = 1
-start_balance = 1
-money_day = 0
-percent_day = 0
 rows2 = []
 profit_positions_percent = 0
 profit_percent = 0
@@ -87,11 +82,9 @@ def reset_variables():
 
     global points_position
     global fee
-    global money_deal
 
     points_position = 0
     fee = 0
-    money_deal = 0
 
 # ---------- conditions -----------------
 
@@ -635,7 +628,6 @@ def get_new_order():
     order['order_type'] = ''
     order['state'] = 'start'
     order['path'] = ''
-    order['lot'] = 0
     order['price'] = 0
 
     order['condition_checked_candle'] = None
@@ -654,8 +646,6 @@ def open_position(order, block, candle):
                 price = float(price_old)
             if order['open_price_position'] == 0:
                 order['open_price_position'] = price
-            lot = (float(start_balance) * float(price)) * float(order['leverage'])
-            order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
@@ -669,9 +659,6 @@ def open_position(order, block, candle):
                 price = float(price_old)
             if order['open_price_position'] == 0:
                 order['open_price_position'] = price
-            lot = (float(start_balance) * float(price)) * float(order['leverage'])
-            lot = int(round(lot, -1))
-            order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
@@ -686,9 +673,6 @@ def open_position(order, block, candle):
                 price = float(price_old)
             if order['open_price_position'] == 0:
                 order['open_price_position'] = price
-            lot = (float(start_balance) * float(price)) * float(order['leverage'])
-            lot = int(round(lot, -1))
-            order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
@@ -702,9 +686,6 @@ def open_position(order, block, candle):
                 price = float(price_old)
             if order['open_price_position'] == 0:
                 order['open_price_position'] = price
-            lot = (float(start_balance) * float(price)) * float(order['leverage'])
-            lot = int(round(lot, -1))
-            order['lot'] = int(round(lot, -1))
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
@@ -716,8 +697,6 @@ def close_position(order, block, candle):
     global profit_sum
     global loss_sum 
     global squeeze
-    global equity
-    global money_day
     global percent_position
     global last_percent_position
 
@@ -761,24 +740,21 @@ def close_position(order, block, candle):
                 points_position = order['price'] - order['close_price_position'] - squeeze
                 squeeze = squeeze + squeeze
         fee = 0
-        money_deal = (points_position / order['close_price_position']) * (order['lot'] / order['price']) - fee
-        money_day = money_day + money_deal
         percent_position = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
         percent_positions = last_percent_position + percent_position
         last_percent_position = percent_position
 
-        equity = equity + money_deal
         if order['order_type'] == 'limit':
             order['close_time_position'] = back_price_1[back_price_1.index(candle)+1]['time']
         else:
             order['close_time_position'] = order['close_time_order']
         insert_stmt = (
-            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions)"
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions, leverage)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions)
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions, 0)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
@@ -809,9 +785,6 @@ for candle in back_price_1:
 
     if str(candle['time']).split(' ')[0].split('-')[2] > day:
         day = str(candle['time']).split(' ')[0].split('-')[2]
-        profit_positions_percent = profit_positions_percent + money_day
-        money_day = 0
-        percent_day = 0
 
 
     while True:
@@ -842,7 +815,9 @@ for candle in back_price_1:
     prev_candle = candle 
 
  
-percent_positions = (profit_positions_percent/start_balance) - 1
+profit_positions_percent = 0
+percent_positions = 0
+
 all_orders = profit_sum + loss_sum
 
 if all_orders > 0:
