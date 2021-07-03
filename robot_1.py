@@ -21,13 +21,21 @@ except Exception as e:
     print('Ошибка подключения, причина :')
     print(e)
 cursor = cnx.cursor()
+
+
+query = ("SELECT algorithm FROM launch")
+cursor.execute(query)
+for posfix_algorithm in cursor:
+    algorithm = 'algorithm_' + str(posfix_algorithm[0])
+    break
+
 table1 = data['table_price']
-algorithm = data['table_algorithm']
 try:
     cursor.execute('SELECT * FROM {0}'.format(table1))
 except Exception as e:
     print('Ошибка получения таблицы с ценами, причина: ')
     print(e)
+    
 
 rows = cursor.fetchall()
 keys_name = cursor.description
@@ -83,6 +91,7 @@ def get_new_statistics():
     stat['percent_position'] = 0
     stat['last_percent_position'] = 0
     stat['percent_positions'] = 0
+    stat['percent_series'] = 0
 
     return stat
 
@@ -747,6 +756,17 @@ def close_position(order, block, candle):
         stat['percent_positions'] = stat['last_percent_position'] + stat['percent_position']
         stat['last_percent_position'] = stat['percent_position']
 
+        if result_position == 'profit': 
+            if stat['percent_series'] <= 0:
+                stat['percent_series'] = stat['percent_position']
+            else:
+                stat['percent_series'] = stat['percent_series'] + stat['percent_position']
+        elif result_position == 'loss':
+            if stat['percent_series'] >= 0:
+                stat['percent_series'] = stat['percent_position']
+            else:
+                stat['percent_series'] = stat['percent_series'] + stat['percent_position']
+
         if order['order_type'] == 'limit':
             order['close_time_position'] = back_price_1[back_price_1.index(candle)+1]['time']
         else:
@@ -757,7 +777,7 @@ def close_position(order, block, candle):
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], 0, 0, order['path'], stat['percent_positions'], 0)
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], 0)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
