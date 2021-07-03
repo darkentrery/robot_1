@@ -59,14 +59,11 @@ except Exception as e:
     print(e)
 rows1 = cursor.fetchall()
 
-squeeze = 0
 percent_position = 0
 rows2 = []
 profit_positions_percent = 0
 profit_percent = 0
-profit_sum = 0
 loss_percent = 0
-loss_sum = 0
 last_percent_position = 0
 percent_positions = 0
 
@@ -79,13 +76,26 @@ for gg in rows1:
     iter = iter + 1
 rows1 = rows2
 
+
+# ---------- statistics -----------------
+
+def get_new_statistics():
+
+    stat = {}
+    stat['profit_points'] = 0
+    stat['loss_points'] = 0
+    stat['loss_sum'] = 0
+    stat['profit_sum'] = 0
+
+    return stat
+
 def reset_variables():
 
     global points_position
-    global fee
 
     points_position = 0
-    fee = 0
+
+stat = get_new_statistics()
 
 # ---------- conditions -----------------
 
@@ -695,9 +705,6 @@ def open_position(order, block, candle):
 
 def close_position(order, block, candle):
     
-    global profit_sum
-    global loss_sum 
-    global squeeze
     global percent_position
     global last_percent_position
     global percent_positions
@@ -719,29 +726,32 @@ def close_position(order, block, candle):
                 order['close_price_position'] = float(order['condition_checked_candle']['close'])
         if order['direction'] == 'long':
             if order['close_price_position'] >= order['price']:
-                res = 'profit'
-                profit_sum = profit_sum + 1
+                result_position = 'profit'
+                stat['profit_sum'] = stat['profit_sum'] + 1
             else:
-                res = 'loss'
-                loss_sum = loss_sum + 1
+                result_position = 'loss'
+                stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
                 points_position = order['close_price_position'] - order['price']
             else:
-                points_position = order['close_price_position'] - order['price'] - squeeze
-                squeeze = squeeze + squeeze
+                points_position = order['close_price_position'] - order['price'] 
         else:
             if order['price'] >= order['close_price_position']:
-                res = 'profit'
-                profit_sum = profit_sum + 1
+                result_position = 'profit'
+                stat['profit_sum'] = stat['profit_sum'] + 1
             else:
-                res = 'loss'
-                loss_sum = loss_sum + 1
+                result_position = 'loss'
+                stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
                 points_position = order['price'] - order['close_price_position']
             else:
-                points_position = order['price'] - order['close_price_position'] - squeeze
-                squeeze = squeeze + squeeze
-        fee = 0
+                points_position = order['price'] - order['close_price_position']
+
+        if result_position == 'profit':
+            stat['profit_points'] = stat['profit_points'] + points_position
+        elif result_position == 'loss':
+            stat['loss_points'] = stat['loss_points'] + points_position            
+
         percent_position = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
         percent_positions = last_percent_position + percent_position
         last_percent_position = percent_position
@@ -756,7 +766,7 @@ def close_position(order, block, candle):
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], res, points_position, percent_position, 0, 0, order['path'], percent_positions, 0)
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, percent_position, 0, 0, order['path'], percent_positions, 0)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
@@ -773,6 +783,7 @@ def close_position(order, block, candle):
 activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
+
 
 strategy_state = 'check_blocks_conditions'
 action_block = None
@@ -817,18 +828,20 @@ for candle in back_price_1:
     prev_candle = candle 
 
  
-profit_positions_percent = 0
-
-all_orders = profit_sum + loss_sum
+all_orders = stat['profit_sum'] + stat['loss_sum']
 
 if all_orders > 0:
 
-    profit_positions_percent = profit_sum/(all_orders/100)
-    loss_positions_percent = loss_sum/(all_orders/100)
+    profit_positions_percent = stat['profit_sum']/(all_orders/100)
+    loss_positions_percent = stat['loss_sum']/(all_orders/100)
+
+    profit_average_points = stat['profit_points'] / stat['profit_sum']
+    loss_average_points = stat['loss_points'] / stat['loss_sum']
+
     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (int(percent_positions), int(profit_positions_percent), 0, profit_sum, int(loss_positions_percent), 0, int(loss_sum))
+    data = (int(percent_positions), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
     cursor.execute(insert_stmt, data)
 
 cnx.commit()
