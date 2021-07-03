@@ -78,7 +78,6 @@ for gg in rows1:
     iter = iter + 1
 rows1 = rows2
 
-
 # ---------- constructors ---------------
 
 def get_new_statistics():
@@ -461,7 +460,6 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
     return False
 
-
 # ---------- engine -----------------
 
 def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_activations):
@@ -614,7 +612,6 @@ def execute_block_actions(block, candle, order):
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
-                candle['was_close'] = True 
                 continue
             else:
                 action['done'] = False
@@ -711,11 +708,6 @@ def close_position(order, block, candle):
 
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
-        
-        # если уже было закрытие в данной свече
-        if candle.get('was_close') != None and candle['was_close'] == True:
-            order['close_time_order'] = 0
-            return False
 
         order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
@@ -801,8 +793,6 @@ prev_candle = None
 
 for candle in back_price_1:
     
-    #while True:
-        
     # проверка условий активных блоков
     if strategy_state == 'check_blocks_conditions':
         action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle)
@@ -814,8 +804,6 @@ for candle in back_price_1:
                 # назначаем только, если он (блок) один и в нем нет условий
                 if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
                     action_block = activation_blocks[0]
-            #else:
-                #break
         
     # исполнение действий блока
     if strategy_state == 'execute_block_actions':
@@ -823,8 +811,6 @@ for candle in back_price_1:
         if result == True:
             activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
             strategy_state = 'check_blocks_conditions'
-            #else:
-                #break
     
     prev_candle = candle 
  
