@@ -59,13 +59,7 @@ except Exception as e:
     print(e)
 rows1 = cursor.fetchall()
 
-percent_position = 0
 rows2 = []
-profit_positions_percent = 0
-profit_percent = 0
-loss_percent = 0
-last_percent_position = 0
-percent_positions = 0
 
 block_order = {}
 iter = 0
@@ -77,7 +71,7 @@ for gg in rows1:
 rows1 = rows2
 
 
-# ---------- statistics -----------------
+# ---------- constructors ---------------
 
 def get_new_statistics():
 
@@ -86,15 +80,40 @@ def get_new_statistics():
     stat['loss_points'] = 0
     stat['loss_sum'] = 0
     stat['profit_sum'] = 0
+    stat['percent_position'] = 0
+    stat['last_percent_position'] = 0
+    stat['percent_positions'] = 0
 
     return stat
 
-def reset_variables():
+def get_new_order(order):
 
-    global points_position
+    if order == None:
+        order = {}
 
-    points_position = 0
+    order['leverage'] = 0
 
+    order['open_price_position'] = 0
+    order['close_price_position'] = 0
+
+    order['open_time_order'] = 0
+    order['open_time_position'] = 0
+    order['close_time_position'] = 0
+    order['close_time_order'] = 0
+
+    order['leverage'] = 1
+    order['price_indent'] = 0
+    order['direction'] = ''
+    order['order_type'] = ''
+    order['state'] = 'start'
+    order['path'] = ''
+    order['price'] = 0
+
+    order['condition_checked_candle'] = None
+
+    return order
+
+order = get_new_order(None)
 stat = get_new_statistics()
 
 # ---------- conditions -----------------
@@ -564,9 +583,8 @@ def block_conditions_done(block, candle, order, prev_candle):
         
     return True
 
-def execute_block_actions(block, candle):
+def execute_block_actions(block, candle, order):
 
-    global order
     saved_close_time = 0
     saved_close_price = 0
 
@@ -586,7 +604,7 @@ def execute_block_actions(block, candle):
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
-                order = get_new_order()
+                order = get_new_order(order)
                 candle['was_close'] = True 
                 continue
             else:
@@ -619,31 +637,6 @@ def execute_block_actions(block, candle):
                 return False
 
     return True
-
-def get_new_order():
-
-    order = {}
-    order['leverage'] = 0
-
-    order['open_price_position'] = 0
-    order['close_price_position'] = 0
-
-    order['open_time_order'] = 0
-    order['open_time_position'] = 0
-    order['close_time_position'] = 0
-    order['close_time_order'] = 0
-
-    order['leverage'] = 1
-    order['price_indent'] = 0
-    order['direction'] = ''
-    order['order_type'] = ''
-    order['state'] = 'start'
-    order['path'] = ''
-    order['price'] = 0
-
-    order['condition_checked_candle'] = None
-
-    return order
 
 def open_position(order, block, candle):
 
@@ -705,9 +698,7 @@ def open_position(order, block, candle):
 
 def close_position(order, block, candle):
     
-    global percent_position
-    global last_percent_position
-    global percent_positions
+    points_position = 0
 
     if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
         (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
@@ -752,9 +743,9 @@ def close_position(order, block, candle):
         elif result_position == 'loss':
             stat['loss_points'] = stat['loss_points'] + points_position            
 
-        percent_position = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
-        percent_positions = last_percent_position + percent_position
-        last_percent_position = percent_position
+        stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
+        stat['percent_positions'] = stat['last_percent_position'] + stat['percent_position']
+        stat['last_percent_position'] = stat['percent_position']
 
         if order['order_type'] == 'limit':
             order['close_time_position'] = back_price_1[back_price_1.index(candle)+1]['time']
@@ -766,14 +757,13 @@ def close_position(order, block, candle):
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, percent_position, 0, 0, order['path'], percent_positions, 0)
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], 0, 0, order['path'], stat['percent_positions'], 0)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
         except Exception as e:
             print(e)
 
-        reset_variables()
         return True
 
     return False
@@ -787,46 +777,36 @@ if len(activation_blocks) == 0:
 
 strategy_state = 'check_blocks_conditions'
 action_block = None
-order = get_new_order()
 prev_candle = None
 
 for candle in back_price_1:
     
-    # настройка первого дня
-    if back_price_1.index(candle) == 0:
-        day = str(candle['time']).split(' ')[0].split('-')[2]
-
-    if str(candle['time']).split(' ')[0].split('-')[2] > day:
-        day = str(candle['time']).split(' ')[0].split('-')[2]
-
-
-    while True:
+    #while True:
         
-        # проверка условий активных блоков
-        if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle)
-            if action_block != None:
-                strategy_state = 'execute_block_actions'
-                # если в блоке нет текущих действий, то активным блоком назначаем следующий
-                if len(action_block['actions']) == 0:
-                    activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
-                    # назначаем только, если он (блок) один и в нем нет условий
-                    if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
-                        action_block = activation_blocks[0]
-            else:
-                break
-        
-        # исполнение действий блока
-        if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, candle)
-            if result == True:
+    # проверка условий активных блоков
+    if strategy_state == 'check_blocks_conditions':
+        action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle)
+        if action_block != None:
+            strategy_state = 'execute_block_actions'
+            # если в блоке нет текущих действий, то активным блоком назначаем следующий
+            if len(action_block['actions']) == 0:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
-                strategy_state = 'check_blocks_conditions'
-            else:
-                break
+                # назначаем только, если он (блок) один и в нем нет условий
+                if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
+                    action_block = activation_blocks[0]
+            #else:
+                #break
+        
+    # исполнение действий блока
+    if strategy_state == 'execute_block_actions':
+        result = execute_block_actions(action_block, candle, order)
+        if result == True:
+            activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+            strategy_state = 'check_blocks_conditions'
+            #else:
+                #break
     
     prev_candle = candle 
-
  
 all_orders = stat['profit_sum'] + stat['loss_sum']
 
@@ -841,7 +821,7 @@ if all_orders > 0:
     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-    data = (int(percent_positions), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
+    data = (int(stat['percent_positions']), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
     cursor.execute(insert_stmt, data)
 
 cnx.commit()
