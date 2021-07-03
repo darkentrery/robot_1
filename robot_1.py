@@ -23,15 +23,15 @@ except Exception as e:
 cursor = cnx.cursor()
 
 
-query = ("SELECT algorithm FROM launch")
+query = ("SELECT algorithm, start_time, end_time FROM launch")
 cursor.execute(query)
-for posfix_algorithm in cursor:
-    algorithm = 'algorithm_' + str(posfix_algorithm[0])
+for (posfix_algorithm, start_time, end_time) in cursor:
+    algorithm = 'algorithm_' + str(posfix_algorithm)
     break
 
 table1 = data['table_price']
 try:
-    cursor.execute('SELECT * FROM {0}'.format(table1))
+    cursor.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(table1), (start_time, end_time))
 except Exception as e:
     print('Ошибка получения таблицы с ценами, причина: ')
     print(e)
