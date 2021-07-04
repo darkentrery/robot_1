@@ -104,6 +104,8 @@ def get_new_order(order):
     order['open_price_position'] = 0
     order['close_price_position'] = 0
 
+    order['open_position_candle'] = None
+
     order['open_time_order'] = 0
     order['open_time_position'] = 0
     order['close_time_position'] = 0
@@ -259,6 +261,26 @@ def check_pnl(condition, block, candle, order):
             if pnl < candle['low']:
                 return pnl
     return False
+
+def check_trailing(condition, block, candle, order):
+
+    direction = order['direction']
+
+    value = int(condition['value'])
+
+    if direction == 'long':
+        if candle['high'] >= order['open_position_candle']['high']:
+            trailing = order['open_price_position'] + (float(order['open_position_candle']['high']) - order['open_price_position']) * (value / 100)
+            if candle['low'] <= trailing:
+                return trailing
+    elif direction == 'short':
+        if candle['low'] <= order['open_position_candle']['low']:
+            trailing = order['open_price_position'] - (order['open_price_position'] - float(order['open_position_candle']['low'])) * (value / 100)
+            if candle['high'] >= trailing:
+                return trailing
+
+    return 0
+
 
 def check_exit_price(condition, block, candle, order):
 
@@ -555,6 +577,14 @@ def block_conditions_done(block, candle, order, prev_candle):
             else:
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
+        elif condition['type'] == 'trailing':
+            result = check_trailing(condition, block, candle, order)
+            if result == 0:
+                condition['done'] = False
+                return False
+            else:
+                order['close_time_order'] = candle['time']
+                order['close_price_position'] = result
         elif condition['type'] == 'value_change':
             result = check_value_change(condition, block, candle, order, prev_candle)
             if result == False:
@@ -660,6 +690,7 @@ def open_position(order, block, candle):
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
+            order['open_position_candle'] = back_price_1[back_price_1.index(candle) + 1]
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -673,6 +704,7 @@ def open_position(order, block, candle):
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
+            order['open_position_candle'] = back_price_1[back_price_1.index(candle) + 1]
             return True
     if order['direction'] == 'short':
         if candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
@@ -687,6 +719,7 @@ def open_position(order, block, candle):
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
+            order['open_position_candle'] = back_price_1[back_price_1.index(candle) + 1]
             return True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
@@ -700,6 +733,7 @@ def open_position(order, block, candle):
             if order['price'] == 0:
                 order['price'] = price
             order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
+            order['open_position_candle'] = back_price_1[back_price_1.index(candle) + 1]
             return True
     return False
 
