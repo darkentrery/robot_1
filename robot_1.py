@@ -671,8 +671,8 @@ def execute_block_actions(block, candle, order, stat):
             if order['state'] == 'start':
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
-                if action.get('leverage') != None:
-                    order['leverage'] = action['leverage']
+                #if action.get('leverage') != None:
+                #    order['leverage'] = action['leverage']
                 if saved_close_time == 0:
                     order['open_time_order'] = candle['time']
                 else:
