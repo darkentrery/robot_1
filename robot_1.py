@@ -104,12 +104,12 @@ def get_new_order(order):
     order['open_price_position'] = 0
     order['close_price_position'] = 0
 
-    order['open_position_candle'] = None
-
     order['open_time_order'] = 0
     order['open_time_position'] = 0
     order['close_time_position'] = 0
     order['close_time_order'] = 0
+
+    order['trailing_stop'] = 0
 
     order['leverage'] = 1
     order['price_indent'] = 0
@@ -262,22 +262,26 @@ def check_pnl(condition, block, candle, order):
                 return pnl
     return False
 
-def check_trailing(condition, block, candle, order):
+def check_trailing(condition, block, candle, order, prev_candle):
 
     direction = order['direction']
 
     value = int(condition['value'])
 
-    if direction == 'long':
-        if candle['high'] >= order['open_position_candle']['high']:
-            trailing = order['open_price_position'] + (float(order['open_position_candle']['high']) - order['open_price_position']) * (value / 100)
-            if candle['low'] <= trailing:
-                return trailing
-    elif direction == 'short':
-        if candle['low'] <= order['open_position_candle']['low']:
-            trailing = order['open_price_position'] - (order['open_price_position'] - float(order['open_position_candle']['low'])) * (value / 100)
-            if candle['high'] >= trailing:
-                return trailing
+    if ((order['trailing_stop'] == 0)
+        or (direction == 'long' and candle['high'] > prev_candle['high'])
+        or (direction == 'short' and candle['low'] < prev_candle['low'])):
+            if direction == 'long':
+                order['trailing_stop'] = order['open_price_position'] + (float(candle['high']) - order['open_price_position']) * (value / 100)
+            elif direction == 'short':
+                order['trailing_stop'] = order['open_price_position'] - (order['open_price_position'] - float(candle['low'])) * (value / 100)
+    else:
+        if direction == 'long':
+            if candle['low'] <= order['trailing_stop']:
+                return order['trailing_stop']
+        elif direction == 'short':
+            if candle['high'] >= order['trailing_stop']:
+                return order['trailing_stop']
 
     return 0
 
@@ -598,7 +602,7 @@ def block_conditions_done(block, candle, order, prev_candle):
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
         elif condition['type'] == 'trailing':
-            result = check_trailing(condition, block, candle, order)
+            result = check_trailing(condition, block, candle, order, prev_candle)
             if result == 0:
                 condition['done'] = False
                 return False
@@ -671,8 +675,6 @@ def execute_block_actions(block, candle, order, stat):
             if order['state'] == 'start':
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
-                #if action.get('leverage') != None:
-                #    order['leverage'] = action['leverage']
                 if saved_close_time == 0:
                     order['open_time_order'] = candle['time']
                 else:
@@ -715,19 +717,18 @@ def open_position(order, block, candle, stat, action):
 
     if result == True:
         price_old = back_price_1[back_price_1.index(candle) - 1]['close']
-        if order['price_indent'] != 0:
-            if order['direction'] == 'long':
-                price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
-            elif order['direction'] == 'short':
-                price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
-        else:
-            price = float(price_old)
+        #if order['price_indent'] != 0:
+        if order['direction'] == 'long':
+            price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
+        elif order['direction'] == 'short':
+            price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
+        #else:
+            #price = float(price_old)
         if order['open_price_position'] == 0:
             order['open_price_position'] = price
         if order['price'] == 0:
             order['price'] = price
         order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
-        order['open_position_candle'] = back_price_1[back_price_1.index(candle) + 1]
         order['leverage'] = round(get_leverage(order, action, stat), 2)
   
     return result
