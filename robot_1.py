@@ -830,7 +830,7 @@ def close_position(order, block, candle, stat, action):
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
         stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
-        stat['percent_positions'] = stat['last_percent_position'] + stat['percent_position']
+        stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
         stat['last_percent_position'] = stat['percent_position']
 
         price_precent = points_position / order['price'] * 100
