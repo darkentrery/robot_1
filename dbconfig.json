@@ -3,8 +3,6 @@
     "password": "userpass",
     "host": "95.142.38.22",
     "database_host": "tester_1",
-    "table_price": "price_1",
     "table_result": "positions",
-    "table_result_sum": "positions_sum",
-    "table_algorithm": "algorithm_1"
+    "table_result_sum": "positions_sum"
 }

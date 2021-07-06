@@ -23,15 +23,14 @@ except Exception as e:
 cursor = cnx.cursor()
 
 
-query = ("SELECT algorithm, start_time, end_time FROM launch")
+query = ("SELECT algorithm, start_time, end_time, timeframe FROM launch")
 cursor.execute(query)
-for (posfix_algorithm, start_time, end_time) in cursor:
+for (posfix_algorithm, start_time, end_time, timeframe) in cursor:
     algorithm = 'algorithm_' + str(posfix_algorithm)
     break
 
-table1 = data['table_price']
 try:
-    cursor.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(table1), (start_time, end_time))
+    cursor.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format('price_' + str(timeframe)), (start_time, end_time))
 except Exception as e:
     print('Ошибка получения таблицы с ценами, причина: ')
     print(e)
@@ -870,8 +869,14 @@ if all_orders > 0:
     profit_positions_percent = stat['profit_sum']/(all_orders/100)
     loss_positions_percent = stat['loss_sum']/(all_orders/100)
 
-    profit_average_points = stat['profit_points'] / stat['profit_sum']
-    loss_average_points = stat['loss_points'] / stat['loss_sum']
+    if stat['profit_sum'] == 0:
+        profit_average_points = 0
+    else:    
+        profit_average_points = stat['profit_points'] / stat['profit_sum']
+    if stat['loss_sum'] == 0:
+        loss_average_points = 0
+    else:    
+        loss_average_points = stat['loss_points'] / stat['loss_sum']
 
     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
