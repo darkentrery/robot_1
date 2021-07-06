@@ -118,6 +118,9 @@ def get_new_order(order):
     order['path'] = ''
     order['price'] = 0
 
+
+    order['leverage_type'] = 1
+
     order['condition_checked_candle'] = None
 
     return order
@@ -486,6 +489,21 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
 # ---------- engine -----------------
 
+def get_common_leveage(order, action, stat):
+    
+    leverage_start = action.get('leverage_start')
+    if leverage_start != None:
+        order['leverage_type'] = 1
+        return get_leverage(order, action, stat)
+
+    leverage_start2 = action.get('leverage_start2')
+    if leverage_start2 != None:
+        order['leverage_type'] = 2
+        order['leverage_start2'] = int(leverage_start2)
+        return get_leverage_2(order, action, stat)
+
+    return float(action.get('leverage', 1))
+
 def get_leverage(order, action, stat):
     
     leverage_start = action.get('leverage_start')
@@ -495,8 +513,8 @@ def get_leverage(order, action, stat):
     if stat['losses_money'] >= 0:
         return float(leverage_start)
 
-    leverage_max = int(action.get('leverage_max'))
-    leverage_take_price_percent = int(action.get('leverage_take_price_percent', '1'))
+    leverage_max = float(action.get('leverage_max'))
+    leverage_take_price_percent = float(action.get('leverage_take_price_percent', '1'))
 
     leverage_take_money = order['price'] / 100 * float(leverage_take_price_percent) * float(leverage_start)
 
@@ -506,6 +524,28 @@ def get_leverage(order, action, stat):
         leverage_compensation = leverage_max
 
     return leverage_compensation
+
+def get_leverage_2(order, action, stat):
+    
+    leverage_start = action.get('leverage_start2')
+    if leverage_start == None:
+        return float(action.get('leverage', 1))
+
+    if stat['losses_money'] >= 0:
+        return float(leverage_start)
+
+    leverage_max = float(action.get('leverage_max2'))
+    leverage_take_price_percent = float(action.get('leverage_take_price_percent2', '1'))
+
+    leverage_take_money = order['price'] / 100 * float(leverage_take_price_percent) * float(leverage_start)
+
+    leverage_compensation = (-stat['losses_money'] + float(leverage_take_money)) / float(leverage_take_money) * float(leverage_start)
+
+    if leverage_max != None and leverage_max < leverage_compensation:
+        leverage_compensation = leverage_max
+
+    return leverage_compensation
+
 
 def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_activations):
 
@@ -658,7 +698,7 @@ def execute_block_actions(block, candle, order, stat):
                 return False   
             if order['close_time_order'] == 0:
                 order['close_time_order'] = candle['time']
-            result = close_position(order, block, candle, stat)
+            result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
                 print('Закрытие позиции: ' + str(order['close_time_position']))
@@ -716,23 +756,20 @@ def open_position(order, block, candle, stat, action):
 
     if result == True:
         price_old = back_price_1[back_price_1.index(candle) - 1]['close']
-        #if order['price_indent'] != 0:
         if order['direction'] == 'long':
             price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
         elif order['direction'] == 'short':
             price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
-        #else:
-            #price = float(price_old)
         if order['open_price_position'] == 0:
             order['open_price_position'] = price
         if order['price'] == 0:
             order['price'] = price
         order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
-        order['leverage'] = round(get_leverage(order, action, stat), 2)
+        order['leverage'] = round(get_common_leveage(order, action, stat), 2)
   
     return result
 
-def close_position(order, block, candle, stat):
+def close_position(order, block, candle, stat, action):
     
     points_position = 0
 
@@ -774,8 +811,14 @@ def close_position(order, block, candle, stat):
             else:
                 points_position = order['price'] - order['close_price_position']
 
-        rpl = points_position * float(order['leverage'])
-
+        if order['leverage_type'] == 1:
+            rpl = points_position * float(order['leverage'])
+        elif order['leverage_type'] == 2:
+            if order['leverage'] > order['leverage_start2']:
+                rpl = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start2']))
+            else:
+                rpl = points_position * float(order['leverage'])    
+        
         if result_position == 'profit':
             stat['profit_points'] = stat['profit_points'] + points_position
             if stat['losses_money'] < 0:
@@ -789,6 +832,8 @@ def close_position(order, block, candle, stat):
         stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
         stat['percent_positions'] = stat['last_percent_position'] + stat['percent_position']
         stat['last_percent_position'] = stat['percent_position']
+
+        price_precent = points_position / order['price'] * 100
 
         if result_position == 'profit': 
             if stat['percent_series'] <= 0:
@@ -806,12 +851,13 @@ def close_position(order, block, candle, stat):
         else:
             order['close_time_position'] = order['close_time_order']
         insert_stmt = (
-            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions, leverage, rpl, losses_money)"
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions, leverage, rpl, losses_money, price_precent)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], order['leverage'], rpl, stat['losses_money'])
+            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], 
+            stat['percent_series'], 0, order['path'], stat['percent_positions'], order['leverage'], rpl, stat['losses_money'], price_precent)
         try:
             cursor.execute(insert_stmt, data)
             cnx.commit()
