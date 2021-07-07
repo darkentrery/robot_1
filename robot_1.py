@@ -118,9 +118,6 @@ def get_new_order(order):
     order['path'] = ''
     order['price'] = 0
 
-
-    order['leverage_type'] = 1
-
     order['condition_checked_candle'] = None
 
     return order
@@ -489,27 +486,14 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
 # ---------- engine -----------------
 
-def get_common_leveage(order, action, stat):
-    
-    leverage_start = action.get('leverage_start')
-    if leverage_start != None:
-        order['leverage_type'] = 1
-        return get_leverage(order, action, stat)
-
-    leverage_start2 = action.get('leverage_start2')
-    if leverage_start2 != None:
-        order['leverage_type'] = 2
-        order['leverage_start2'] = int(leverage_start2)
-        return get_leverage_2(order, action, stat)
-
-    return float(action.get('leverage', 1))
-
 def get_leverage(order, action, stat):
     
     leverage_start = action.get('leverage_start')
     if leverage_start == None:
         return float(action.get('leverage', 1))
 
+    order['leverage_start'] = float(leverage_start)
+    
     if stat['losses_money'] >= 0:
         return float(leverage_start)
 
@@ -524,28 +508,6 @@ def get_leverage(order, action, stat):
         leverage_compensation = leverage_max
 
     return leverage_compensation
-
-def get_leverage_2(order, action, stat):
-    
-    leverage_start = action.get('leverage_start2')
-    if leverage_start == None:
-        return float(action.get('leverage', 1))
-
-    if stat['losses_money'] >= 0:
-        return float(leverage_start)
-
-    leverage_max = float(action.get('leverage_max2'))
-    leverage_take_price_percent = float(action.get('leverage_take_price_percent2', '1'))
-
-    leverage_take_money = order['price'] / 100 * float(leverage_take_price_percent) * float(leverage_start)
-
-    leverage_compensation = (-stat['losses_money'] + float(leverage_take_money)) / float(leverage_take_money) * float(leverage_start)
-
-    if leverage_max != None and leverage_max < leverage_compensation:
-        leverage_compensation = leverage_max
-
-    return leverage_compensation
-
 
 def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_activations):
 
@@ -765,7 +727,7 @@ def open_position(order, block, candle, stat, action):
         if order['price'] == 0:
             order['price'] = price
         order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
-        order['leverage'] = round(get_common_leveage(order, action, stat), 2)
+        order['leverage'] = round(get_leverage(order, action, stat), 2)
   
     return result
 
@@ -811,13 +773,10 @@ def close_position(order, block, candle, stat, action):
             else:
                 points_position = order['price'] - order['close_price_position']
 
-        if order['leverage_type'] == 1:
-            rpl = points_position * float(order['leverage'])
-        elif order['leverage_type'] == 2:
-            if order['leverage'] > order['leverage_start2']:
-                rpl = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start2']))
-            else:
-                rpl = points_position * float(order['leverage'])    
+        if order.get('leverage_start') != None and order['leverage'] > order['leverage_start']:
+            rpl = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start']))
+        else:
+            rpl = points_position * float(order['leverage'])    
         
         if result_position == 'profit':
             stat['profit_points'] = stat['profit_points'] + points_position
