@@ -773,18 +773,19 @@ def close_position(order, block, candle, stat, action):
             else:
                 points_position = order['price'] - order['close_price_position']
 
-        if order.get('leverage_start') != None and order['leverage'] > order['leverage_start']:
-            rpl = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start']))
+        rpl = points_position * float(order['leverage'])
+        if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
+            rpl_comp = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start']))
         else:
-            rpl = points_position * float(order['leverage'])    
-        
+            rpl_comp = rpl
+
         if result_position == 'profit':
             stat['profit_points'] = stat['profit_points'] + points_position
             if stat['losses_money'] < 0:
-                stat['losses_money'] = stat['losses_money'] + rpl    
+                stat['losses_money'] = stat['losses_money'] + rpl_comp    
         elif result_position == 'loss':
             stat['loss_points'] = stat['loss_points'] + points_position
-            stat['losses_money'] = stat['losses_money'] + rpl
+            stat['losses_money'] = stat['losses_money'] + rpl_comp
         
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
