@@ -300,23 +300,23 @@ def check_exit_price(condition, block, candle, order):
         exit_price_price = condition['exit_price_price']
     except:
         exit_price_price = False
-    candle_check = 0
+    #candle_check = 0
     try:
         if check == 'low':
             proc = (float(proboi) - float(candle['low'])) / (float(proboi) / 100)
-            candle_check = float(candle['low'])
+            #candle_check = float(candle['low'])
             value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
         if check == 'close':
             if side == 'high':
                 proc = (float(candle['close']) - float(proboi)) / (float(proboi)/100)
-                candle_check = float(candle['close'])
+                #candle_check = float(candle['close'])
             if side == 'low':
                 proc = (float(proboi) - float(candle['close'])) / (float(proboi) / 100)
-                candle_check = float(candle['close'])
+                #candle_check = float(candle['close'])
             value = float(candle['close'])
         if check == 'high':
             proc = (float(candle['high']) - float(proboi)) / (float(proboi)/100)
-            candle_check = float(candle['high'])
+            #candle_check = float(candle['high'])
             value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
 
     except:
