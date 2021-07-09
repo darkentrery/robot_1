@@ -38,15 +38,12 @@ except Exception as e:
     print('Ошибка получения таблицы с ценами, причина: ')
     print(e)
     
-
-#rows = cursor_candles.fetchall()
 keys_name = cursor_candles.description
 keys = []
 
 back_price_1 = []
 for row in keys_name:
     keys.append(row[0])
-#print(len(rows))
 
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
@@ -293,23 +290,18 @@ def check_exit_price(condition, block, candle, order, prev_candle):
         exit_price_price = condition['exit_price_price']
     except:
         exit_price_price = False
-    #candle_check = 0
     try:
         if check == 'low':
             proc = (float(proboi) - float(candle['low'])) / (float(proboi) / 100)
-            #candle_check = float(candle['low'])
             value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
         if check == 'close':
             if side == 'high':
                 proc = (float(candle['close']) - float(proboi)) / (float(proboi)/100)
-                #candle_check = float(candle['close'])
             if side == 'low':
                 proc = (float(proboi) - float(candle['close'])) / (float(proboi) / 100)
-                #candle_check = float(candle['close'])
             value = float(candle['close'])
         if check == 'high':
             proc = (float(candle['high']) - float(proboi)) / (float(proboi)/100)
-            #candle_check = float(candle['high'])
             value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
 
     except:
@@ -638,7 +630,6 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
         cur_condition_number = condition['number']
 
         cur_conditions_group.append(condition)
-        #condition['done'] = True
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
