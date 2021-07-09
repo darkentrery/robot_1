@@ -50,6 +50,9 @@ for row in rows:
         dict1[ss] = row[keys.index(ss)]
     back_price_1.append(dict1)
 print(len(back_price_1))
+
+
+
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
 try:
@@ -300,23 +303,23 @@ def check_exit_price(condition, block, candle, order):
         exit_price_price = condition['exit_price_price']
     except:
         exit_price_price = False
-    candle_check = 0
+    #candle_check = 0
     try:
         if check == 'low':
             proc = (float(proboi) - float(candle['low'])) / (float(proboi) / 100)
-            candle_check = float(candle['low'])
+            #candle_check = float(candle['low'])
             value = float(proboi) - ((float(proboi) / 100) * proc_value_2)
         if check == 'close':
             if side == 'high':
                 proc = (float(candle['close']) - float(proboi)) / (float(proboi)/100)
-                candle_check = float(candle['close'])
+                #candle_check = float(candle['close'])
             if side == 'low':
                 proc = (float(proboi) - float(candle['close'])) / (float(proboi) / 100)
-                candle_check = float(candle['close'])
+                #candle_check = float(candle['close'])
             value = float(candle['close'])
         if check == 'high':
             proc = (float(candle['high']) - float(proboi)) / (float(proboi)/100)
-            candle_check = float(candle['high'])
+            #candle_check = float(candle['high'])
             value = float(proboi) + ((float(proboi) / 100) * proc_value_2)
 
     except:
@@ -579,20 +582,26 @@ def check_blocks_condition(blocks, candle, order, prev_candle):
     
     return None
 
+def set_done_conditions_group(conditions_group):
+    for condition in conditions_group:
+        condition['done'] = True    
+
 def block_conditions_done(block, candle, order, prev_candle):
 
     cur_condition_number = None
+    cur_conditions_group = []
 
     for condition in block['conditions']:
         
+        if cur_condition_number != None and condition['number'] != cur_condition_number:
+            set_done_conditions_group(cur_conditions_group)
+            return False
+
         if condition.get('done') == None:
             condition['done'] = False
 
         if condition['done']:
             continue
-
-        if cur_condition_number != None and condition['number'] != cur_condition_number:
-            return False
         
         if condition['type'] == 'pnl':
             result = check_pnl(condition, block, candle, order)
@@ -638,11 +647,15 @@ def block_conditions_done(block, candle, order, prev_candle):
 
         cur_condition_number = condition['number']
 
-        condition['done'] = True
+        cur_conditions_group.append(condition)
+        #condition['done'] = True
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
         
+    if len(block['conditions']) == len(cur_conditions_group):
+        set_done_conditions_group(cur_conditions_group)
+    
     return True
 
 def execute_block_actions(block, candle, order, stat):
@@ -773,18 +786,19 @@ def close_position(order, block, candle, stat, action):
             else:
                 points_position = order['price'] - order['close_price_position']
 
-        if order.get('leverage_start') != None and order['leverage'] > order['leverage_start']:
-            rpl = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start']))
+        rpl = points_position * float(order['leverage'])
+        if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
+            rpl_comp = (points_position * float(order['leverage'])) - (points_position * float(order['leverage_start']))
         else:
-            rpl = points_position * float(order['leverage'])    
-        
+            rpl_comp = rpl
+
         if result_position == 'profit':
             stat['profit_points'] = stat['profit_points'] + points_position
             if stat['losses_money'] < 0:
-                stat['losses_money'] = stat['losses_money'] + rpl    
+                stat['losses_money'] = stat['losses_money'] + rpl_comp    
         elif result_position == 'loss':
             stat['loss_points'] = stat['loss_points'] + points_position
-            stat['losses_money'] = stat['losses_money'] + rpl
+            stat['losses_money'] = stat['losses_money'] + rpl_comp
         
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
