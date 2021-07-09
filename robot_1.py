@@ -828,7 +828,7 @@ prev_candle = None
 prev_prev_candle = None
 
 
-while True:
+while True: #цикл по свечам
 
     row = cursor_candles.fetchone()
     if row == None:
@@ -838,7 +838,7 @@ while True:
     for ss in keys:
         candle[ss] = row[keys.index(ss)]
 
-    while True:
+    while True: #цикл по блокам
         
         # проверка условий активных блоков
         if strategy_state == 'check_blocks_conditions':
