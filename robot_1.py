@@ -44,6 +44,8 @@ back_price_1 = []
 for row in keys_name:
     keys.append(row[0])
 print(len(rows))
+
+
 for row in rows:
     dict1 = {}
     for ss in keys:
@@ -130,20 +132,17 @@ stat = get_new_statistics()
 
 # ---------- conditions -----------------
 
-def check_value_change(condition, block, candle, order, prev_candle):
+def check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle):
 
     if prev_candle == None:
         return False
 
-    indicator = prev_candle[condition['name']]
-
-    if back_price_1.index(prev_candle) == 0:
+    if prev_prev_candle == None:
         return False
 
-    try:
-        last_ind = back_price_1[back_price_1.index(prev_candle) - 1][condition['name']]
-    except:
-        return False 
+    indicator = prev_candle[condition['name']]
+
+    last_ind = prev_prev_candle[condition['name']]
 
     if condition.get('value') != None:
         ind_oper = condition['value'].split(' ')[0]
@@ -287,13 +286,13 @@ def check_trailing(condition, block, candle, order, prev_candle):
 
     return 0
 
-def check_exit_price(condition, block, candle, order):
+def check_exit_price(condition, block, candle, order, prev_candle):
 
     indicator_name = condition['name']
     side = condition['side']
 
     try:
-        proboi = float(back_price_1[back_price_1.index(candle) - 1][indicator_name + '-' + side])
+        proboi = float(prev_candle[indicator_name + '-' + side])
     except:
         proboi = 0
 
@@ -574,10 +573,10 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     
     return blocks
 
-def check_blocks_condition(blocks, candle, order, prev_candle):
+def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle):
 
     for block in blocks:
-        if block_conditions_done(block, candle, order, prev_candle):
+        if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
             return block
     
     return None
@@ -586,7 +585,7 @@ def set_done_conditions_group(conditions_group):
     for condition in conditions_group:
         condition['done'] = True    
 
-def block_conditions_done(block, candle, order, prev_candle):
+def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
 
     cur_condition_number = None
     cur_conditions_group = []
@@ -620,7 +619,7 @@ def block_conditions_done(block, candle, order, prev_candle):
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
         elif condition['type'] == 'value_change':
-            result = check_value_change(condition, block, candle, order, prev_candle)
+            result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle)
             if result == False:
                 condition['done'] = False
                 return False
@@ -698,7 +697,7 @@ def execute_block_actions(block, candle, order, stat):
                     order['price'] = saved_close_price
                 order['state'] = 'order_is_opened'
             if order['state'] == 'order_is_opened':
-                result = open_position(order, block, candle, stat, action)
+                result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
                     print('Открытие позиции: ' + str(order['open_time_position']))
@@ -710,27 +709,21 @@ def execute_block_actions(block, candle, order, stat):
 
     return True
 
-def open_position(order, block, candle, stat, action):
+def open_position(order, block, candle, stat, action, prev_candle):
 
     result = False
 
     if order['direction'] == 'long':
-        if candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
-            order['open_time_position'] = back_price_1[back_price_1.index(candle) + 1]['time']
-            result = True
-        elif order['order_type'] == 'market':
+        if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
             result = True
     elif order['direction'] == 'short':
-        if candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit':
-            order['open_time_position'] = back_price_1[back_price_1.index(candle) + 1]['time']
-            result = True
         if order['order_type'] == 'market':
             order['open_time_position'] = order['open_time_order']
             result = True
 
     if result == True:
-        price_old = back_price_1[back_price_1.index(candle) - 1]['close']
+        price_old = prev_candle['close']
         if order['direction'] == 'long':
             price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
         elif order['direction'] == 'short':
@@ -748,8 +741,8 @@ def close_position(order, block, candle, stat, action):
     
     points_position = 0
 
-    if ((candle['low'] <= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'long' or order['direction'] == 'long' and order['order_type'] == 'market') or
-        (candle['high'] >= back_price_1[back_price_1.index(candle) - 1]['close'] and order['order_type'] == 'limit' and order['direction'] == 'short' or order['direction'] == 'short' and order['order_type'] == 'market')):
+    if ((order['direction'] == 'long' and order['order_type'] == 'market') or
+        (order['direction'] == 'short' and order['order_type'] == 'market')):
         
         # если уже было закрытие в данной свече
         if candle.get('was_close') != None and candle['was_close'] == True:
@@ -819,10 +812,9 @@ def close_position(order, block, candle, stat, action):
             else:
                 stat['percent_series'] = stat['percent_series'] + stat['percent_position']
 
-        if order['order_type'] == 'limit':
-            order['close_time_position'] = back_price_1[back_price_1.index(candle)+1]['time']
-        else:
+        if order['order_type'] == 'market':
             order['close_time_position'] = order['close_time_order']
+        
         insert_stmt = (
             "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions, leverage, rpl, losses_money, price_precent)"
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
@@ -851,6 +843,8 @@ if len(activation_blocks) == 0:
 strategy_state = 'check_blocks_conditions'
 action_block = None
 prev_candle = None
+prev_prev_candle = None
+
 
 for candle in back_price_1:
     
@@ -858,7 +852,7 @@ for candle in back_price_1:
         
         # проверка условий активных блоков
         if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle)
+            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle, prev_prev_candle)
             if action_block != None:
                 strategy_state = 'execute_block_actions'
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
@@ -879,6 +873,7 @@ for candle in back_price_1:
             else:
                     break
     
+    prev_prev_candle = prev_candle
     prev_candle = candle 
  
 all_orders = stat['profit_sum'] + stat['loss_sum']
