@@ -50,6 +50,9 @@ for row in rows:
         dict1[ss] = row[keys.index(ss)]
     back_price_1.append(dict1)
 print(len(back_price_1))
+
+
+
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
 try:
@@ -579,20 +582,26 @@ def check_blocks_condition(blocks, candle, order, prev_candle):
     
     return None
 
+def set_done_conditions_group(conditions_group):
+    for condition in conditions_group:
+        condition['done'] = True    
+
 def block_conditions_done(block, candle, order, prev_candle):
 
     cur_condition_number = None
+    cur_conditions_group = []
 
     for condition in block['conditions']:
         
+        if cur_condition_number != None and condition['number'] != cur_condition_number:
+            set_done_conditions_group(cur_conditions_group)
+            return False
+
         if condition.get('done') == None:
             condition['done'] = False
 
         if condition['done']:
             continue
-
-        if cur_condition_number != None and condition['number'] != cur_condition_number:
-            return False
         
         if condition['type'] == 'pnl':
             result = check_pnl(condition, block, candle, order)
@@ -638,11 +647,15 @@ def block_conditions_done(block, candle, order, prev_candle):
 
         cur_condition_number = condition['number']
 
-        condition['done'] = True
+        cur_conditions_group.append(condition)
+        #condition['done'] = True
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
         
+    if len(block['conditions']) == len(cur_conditions_group):
+        set_done_conditions_group(cur_conditions_group)
+    
     return True
 
 def execute_block_actions(block, candle, order, stat):
