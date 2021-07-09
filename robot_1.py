@@ -12,16 +12,19 @@ user = data['user']
 password = data['password']
 host = data['host']
 database_host = data['database_host']
-try:
-    cnx = mysql.connector.connect(user=user, password=password,
-                                  host=host,
-                                  database=database_host)
-    print('Успешно подключились к базе')
-except Exception as e:
-    print('Ошибка подключения, причина :')
-    print(e)
-cursor = cnx.cursor()
 
+def get_db_connection(user, password, host, database_host):
+    cnx = mysql.connector.connect(user=user, password=password,
+                                host=host,
+                                database=database_host)
+    print('Успешно подключились к базе')
+    return cnx
+
+cnx = get_db_connection(user, password, host, database_host)
+cursor_candles = cnx.cursor()
+
+cnx2 = get_db_connection(user, password, host, database_host)
+cursor = cnx2.cursor()
 
 query = ("SELECT algorithm, start_time, end_time, timeframe FROM launch")
 cursor.execute(query)
@@ -30,30 +33,20 @@ for (posfix_algorithm, start_time, end_time, timeframe) in cursor:
     break
 
 try:
-    cursor.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format('price_' + str(timeframe)), (start_time, end_time))
+    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format('price_' + str(timeframe)), (start_time, end_time))
 except Exception as e:
     print('Ошибка получения таблицы с ценами, причина: ')
     print(e)
     
 
-rows = cursor.fetchall()
-keys_name = cursor.description
+#rows = cursor_candles.fetchall()
+keys_name = cursor_candles.description
 keys = []
 
 back_price_1 = []
 for row in keys_name:
     keys.append(row[0])
-print(len(rows))
-
-
-for row in rows:
-    dict1 = {}
-    for ss in keys:
-        dict1[ss] = row[keys.index(ss)]
-    back_price_1.append(dict1)
-print(len(back_price_1))
-
-
+#print(len(rows))
 
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
@@ -71,8 +64,6 @@ except Exception as e:
     print(e)
 rows1 = cursor.fetchall()
 
-rows2 = []
-
 block_order = {}
 iter = 0
 
@@ -80,7 +71,7 @@ blocks_data = rows1
 for gg in rows1:
     block_order[str(gg[0])] = iter
     iter = iter + 1
-rows1 = rows2
+
 
 # ---------- constructors ---------------
 
@@ -825,7 +816,7 @@ def close_position(order, block, candle, stat, action):
             stat['percent_series'], 0, order['path'], stat['percent_positions'], order['leverage'], rpl, stat['losses_money'], price_precent)
         try:
             cursor.execute(insert_stmt, data)
-            cnx.commit()
+            cnx2.commit()
         except Exception as e:
             print(e)
 
@@ -846,8 +837,16 @@ prev_candle = None
 prev_prev_candle = None
 
 
-for candle in back_price_1:
+while True:
+
+    row = cursor_candles.fetchone()
+    if row == None:
+        break
     
+    candle = {}
+    for ss in keys:
+        candle[ss] = row[keys.index(ss)]
+
     while True:
         
         # проверка условий активных блоков
@@ -875,7 +874,9 @@ for candle in back_price_1:
     
     prev_prev_candle = prev_candle
     prev_candle = candle 
- 
+
+cnx.close()
+
 all_orders = stat['profit_sum'] + stat['loss_sum']
 
 if all_orders > 0:
@@ -898,5 +899,6 @@ if all_orders > 0:
     data = (int(stat['percent_positions']), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
     cursor.execute(insert_stmt, data)
 
-cnx.commit()
-cnx.close()
+cnx2.commit()
+cnx2.close()
+
