@@ -4,7 +4,7 @@ import os
 import ast
 import datetime
 import time
-import random
+import http.client
 
 print('=============================================================================')
 
@@ -90,8 +90,18 @@ def get_candle(mode, keys, cursor, indicators, price_table_name):
             candle[ss] = row[keys.index(ss)]
 
     else:
-        inds = get_indicators(indicators, price_table_name)
-        candle = None
+        candle = get_indicators(indicators, price_table_name)
+        if candle != None:
+            price = get_deribit_price()
+            if price != None:
+               candle['open'] = price
+               candle['close'] = price
+               candle['low'] = price
+               candle['high'] = price
+            else:
+                candle = None
+        else:
+            candle = None
 
     return candle
 
@@ -134,16 +144,30 @@ def get_indicators(indicators, table_name):
 
     global cur_minute
 
-    while True:
+    cur_time = datetime.datetime.utcnow()
+    if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
+        result = select_candle(cur_time, indicators, table_name)
+        if result != None:
+            print("indicators = " + str(result))
+            cur_minute = cur_time.minute
+            return result
+    time.sleep(5)    
 
-        cur_time = datetime.datetime.utcnow()
-        if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
-            result = select_candle(cur_time, indicators, table_name)
-            if result != None:
-                print(result)
-                cur_minute = cur_time.minute
-                return result
-        time.sleep(5)    
+def get_deribit_price():
+
+    connection = http.client.HTTPSConnection("www.deribit.com")
+    connection.request("GET", "/api/v2/public/get_last_trades_by_currency?count=1&currency=BTC")
+    response = json.loads(connection.getresponse().read().decode())
+
+    connection.close()
+
+    if response.get('result') != None and response['result'].get('trades') != None and len(response['result']['trades']) > 0:
+        price = response['result']['trades'][0]['price'] 
+        print("deribit price = " + str(price))
+        return price
+    else:
+        return None
+
 
 # ---------- constructors ---------------
 
