@@ -2,6 +2,9 @@ import mysql.connector
 import json
 import os
 import ast
+import datetime
+import time
+import random
 
 print('=============================================================================')
 
@@ -13,37 +16,39 @@ password = data['password']
 host = data['host']
 database_host = data['database_host']
 
+
+
 def get_db_connection(user, password, host, database_host):
     cnx = mysql.connector.connect(user=user, password=password,
                                 host=host,
                                 database=database_host)
-    print('Успешно подключились к базе')
     return cnx
 
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
 
+
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
 
-query = ("SELECT algorithm, start_time, end_time, timeframe FROM launch")
+query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, indicators FROM launch")
 cursor.execute(query)
-for (posfix_algorithm, start_time, end_time, timeframe) in cursor:
+for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, indicators) in cursor:
     algorithm = 'algorithm_' + str(posfix_algorithm)
     break
 
-try:
-    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format('price_' + str(timeframe)), (start_time, end_time))
-except Exception as e:
-    print('Ошибка получения таблицы с ценами, причина: ')
-    print(e)
-    
-keys_name = cursor_candles.description
-keys = []
+price_table_name = 'price_' + str(time_frame)
 
-back_price_1 = []
-for row in keys_name:
-    keys.append(row[0])
+cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(seconds=60)).minute
+
+keys = []
+if mode == 'tester':
+    # ---- таблица свечей
+    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(price_table_name), (start_time, end_time))
+    keys_name = cursor_candles.description
+    for row in keys_name:
+        keys.append(row[0])
+
 
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
@@ -69,6 +74,76 @@ for gg in rows1:
     block_order[str(gg[0])] = iter
     iter = iter + 1
 
+
+# ---------- mode ---------------
+
+def get_candle(mode, keys, cursor, indicators, price_table_name):
+
+    candle = {}
+
+    if mode == 'tester':
+        row = cursor.fetchone()
+        if row == None:
+            return None
+        
+        for ss in keys:
+            candle[ss] = row[keys.index(ss)]
+
+    else:
+        inds = get_indicators(indicators, price_table_name)
+        candle = None
+
+    return candle
+
+def select_candle(date_time, indicators, table_name):
+    
+    cnx = get_db_connection(user, password, host, database_host)
+
+    cursor = cnx.cursor()
+
+    insert_stmt = ("select {0} from {1} "
+    "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format(indicators, table_name))
+
+    data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
+    cursor.execute(insert_stmt, data)
+
+    keys = []
+    keys_name = cursor.description
+    for row in keys_name:
+        keys.append(row[0]) 
+    
+    candle = {}
+
+    isNone = False
+
+    for row in cursor:
+        for ss in keys:
+            candle[ss] = row[keys.index(ss)]
+            if candle[ss] == None:
+                isNone = True
+
+    cnx.commit()
+    cnx.close()
+
+    if bool(candle) and not isNone:
+        return candle
+    else:
+        return None
+
+def get_indicators(indicators, table_name):
+
+    global cur_minute
+
+    while True:
+
+        cur_time = datetime.datetime.utcnow()
+        if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
+            result = select_candle(cur_time, indicators, table_name)
+            if result != None:
+                print(result)
+                cur_minute = cur_time.minute
+                return result
+        time.sleep(5)    
 
 # ---------- constructors ---------------
 
@@ -830,13 +905,12 @@ prev_prev_candle = None
 
 while True: #цикл по свечам
 
-    row = cursor_candles.fetchone()
-    if row == None:
-        break
-    
-    candle = {}
-    for ss in keys:
-        candle[ss] = row[keys.index(ss)]
+    candle = get_candle(mode, keys, cursor_candles, indicators, price_table_name)
+    if candle == None:
+        if mode == 'tester':
+            break
+        else:
+            continue
 
     while True: #цикл по блокам
         
@@ -892,4 +966,3 @@ if all_orders > 0:
 
 cnx2.commit()
 cnx2.close()
-
