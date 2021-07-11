@@ -39,7 +39,7 @@ for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, indicator
 
 price_table_name = 'price_' + str(time_frame)
 
-cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(seconds=60)).minute
+cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(seconds=120)).minute
 
 keys = []
 if mode == 'tester':
@@ -94,10 +94,7 @@ def get_candle(mode, keys, cursor, indicators, price_table_name):
         if candle != None:
             price = get_deribit_price()
             if price != None:
-               candle['open'] = price
-               candle['close'] = price
-               candle['low'] = price
-               candle['high'] = price
+                candle['price'] = price
             else:
                 candle = None
         else:
@@ -112,7 +109,7 @@ def select_candle(date_time, indicators, table_name):
     cursor = cnx.cursor()
 
     insert_stmt = ("select {0} from {1} "
-    "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format(indicators, table_name))
+    "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
 
     data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
     cursor.execute(insert_stmt, data)
@@ -144,14 +141,14 @@ def get_indicators(indicators, table_name):
 
     global cur_minute
 
-    cur_time = datetime.datetime.utcnow()
+    cur_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
     if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
         result = select_candle(cur_time, indicators, table_name)
         if result != None:
             print("indicators = " + str(result))
             cur_minute = cur_time.minute
             return result
-    time.sleep(5)    
+    time.sleep(1)    
 
 def get_deribit_price():
 
