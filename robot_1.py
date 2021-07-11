@@ -23,7 +23,10 @@ def get_db_connection(user, password, host, database_host):
                                 database=database_host)
     return cnx
 
-def send_signal_rmq(action, side, leverage):
+def send_signal_rmq(action, side, leverage, mode):
+
+    if mode != 'robot':
+        return
 
     try:
         msg = {}
@@ -32,7 +35,7 @@ def send_signal_rmq(action, side, leverage):
         msg['leverage'] = leverage
 
         credentials = pika.PlainCredentials('user', 'userpass')
-        connection = pika.BlockingConnection(pika.ConnectionParameters('167.99.18.82', 5672, '/', credentials))
+        connection = pika.BlockingConnection(pika.ConnectionParameters('167.99.18.82', 56720, '/', credentials))
         channel = connection.channel()
         channel.basic_publish(exchange='system_algo_trader_robot_test',
                         routing_key='',
@@ -40,7 +43,6 @@ def send_signal_rmq(action, side, leverage):
         connection.close()
     except Exception as e:
         print(e)
-
 
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
@@ -750,7 +752,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
     
     return True
 
-def execute_block_actions(block, candle, order, stat):
+def execute_block_actions(block, candle, order, stat, mode):
 
     saved_close_time = 0
     saved_close_price = 0
@@ -768,7 +770,7 @@ def execute_block_actions(block, candle, order, stat):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'])
+                send_signal_rmq('close', order['direction'], order['leverage'], mode)
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
@@ -794,7 +796,7 @@ def execute_block_actions(block, candle, order, stat):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'])
+                    send_signal_rmq('open', order['direction'], order['leverage'], mode)
                     print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
@@ -970,7 +972,7 @@ while True: #цикл по свечам
             
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, candle, order, stat)
+            result = execute_block_actions(action_block, candle, order, stat, mode)
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
