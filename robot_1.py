@@ -5,6 +5,7 @@ import ast
 import datetime
 import time
 import http.client
+import pika 
 
 print('=============================================================================')
 
@@ -16,24 +17,40 @@ password = data['password']
 host = data['host']
 database_host = data['database_host']
 
-
-
 def get_db_connection(user, password, host, database_host):
     cnx = mysql.connector.connect(user=user, password=password,
                                 host=host,
                                 database=database_host)
     return cnx
 
+def send_signal_rmq(action, side, leverage):
+
+    try:
+        msg = {}
+        msg['action'] = action
+        msg['side'] = side
+        msg['leverage'] = leverage
+
+        credentials = pika.PlainCredentials('user', 'userpass')
+        connection = pika.BlockingConnection(pika.ConnectionParameters('167.99.18.82', 5672, '/', credentials))
+        channel = connection.channel()
+        channel.basic_publish(exchange='system_algo_trader_robot_test',
+                        routing_key='',
+                        body=json.dumps(msg))
+        connection.close()
+    except Exception as e:
+        print(e)
+
+
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
-
 
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
 
-query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, indicators FROM launch")
+query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status FROM launch")
 cursor.execute(query)
-for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, indicators) in cursor:
+for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, trading_status) in cursor:
     algorithm = 'algorithm_' + str(posfix_algorithm)
     break
 
@@ -74,10 +91,9 @@ for gg in rows1:
     block_order[str(gg[0])] = iter
     iter = iter + 1
 
-
 # ---------- mode ---------------
 
-def get_candle(mode, keys, cursor, indicators, price_table_name):
+def get_candle(mode, keys, cursor, price_table_name):
 
     candle = {}
 
@@ -90,7 +106,7 @@ def get_candle(mode, keys, cursor, indicators, price_table_name):
             candle[ss] = row[keys.index(ss)]
 
     else:
-        candle = get_indicators(indicators, price_table_name)
+        candle = get_indicators(price_table_name)
         if candle != None:
             price = get_deribit_price()
             if price != None:
@@ -102,7 +118,7 @@ def get_candle(mode, keys, cursor, indicators, price_table_name):
 
     return candle
 
-def select_candle(date_time, indicators, table_name):
+def select_candle(date_time, table_name):
     
     cnx = get_db_connection(user, password, host, database_host)
 
@@ -137,13 +153,13 @@ def select_candle(date_time, indicators, table_name):
     else:
         return None
 
-def get_indicators(indicators, table_name):
+def get_indicators(table_name):
 
     global cur_minute
 
     cur_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
     if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
-        result = select_candle(cur_time, indicators, table_name)
+        result = select_candle(cur_time, table_name)
         if result != None:
             print("indicators = " + str(result))
             cur_minute = cur_time.minute
@@ -164,7 +180,6 @@ def get_deribit_price():
         return price
     else:
         return None
-
 
 # ---------- constructors ---------------
 
@@ -753,6 +768,7 @@ def execute_block_actions(block, candle, order, stat):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
+                send_signal_rmq('close', order['direction'], order['leverage'])
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
@@ -778,6 +794,7 @@ def execute_block_actions(block, candle, order, stat):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
+                    send_signal_rmq('open', order['direction'], order['leverage'])
                     print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
@@ -917,16 +934,18 @@ activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
 
-
 strategy_state = 'check_blocks_conditions'
 action_block = None
 prev_candle = None
 prev_prev_candle = None
 
-
 while True: #цикл по свечам
 
-    candle = get_candle(mode, keys, cursor_candles, indicators, price_table_name)
+    if trading_status == 'off':
+        time.sleep(2)
+        continue
+
+    candle = get_candle(mode, keys, cursor_candles, price_table_name)
     if candle == None:
         if mode == 'tester':
             break
