@@ -6,6 +6,7 @@ import datetime
 import time
 import http.client
 import pika 
+import uuid
 
 print('=============================================================================')
 
@@ -23,16 +24,17 @@ def get_db_connection(user, password, host, database_host):
                                 database=database_host)
     return cnx
 
-def send_signal_rmq(action, side, leverage, mode):
+def send_signal_rmq(action, side, leverage, uuid, mode):
 
-    if mode != 'robot':
-        return
+    #if mode != 'robot':
+    #    return
 
     try:
         msg = {}
         msg['action'] = action
         msg['side'] = side
         msg['leverage'] = leverage
+        msg['uuid'] = uuid
 
         credentials = pika.PlainCredentials('user', 'userpass')
         connection = pika.BlockingConnection(pika.ConnectionParameters('167.99.18.82', 56720, '/', credentials))
@@ -215,6 +217,7 @@ def get_new_order(order):
     order['close_time_order'] = 0
 
     order['trailing_stop'] = 0
+    order['uuid'] = str(uuid.uuid4())
 
     order['leverage'] = 1
     order['price_indent'] = 0
@@ -770,7 +773,7 @@ def execute_block_actions(block, candle, order, stat, mode):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'], mode)
+                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], mode)
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
@@ -796,7 +799,7 @@ def execute_block_actions(block, candle, order, stat, mode):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'], mode)
+                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], mode)
                     print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
@@ -831,6 +834,7 @@ def open_position(order, block, candle, stat, action, prev_candle):
             order['price'] = price
         order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
         order['leverage'] = round(get_leverage(order, action, stat), 2)
+        db_open_position(order)
   
     return result
 
@@ -912,23 +916,43 @@ def close_position(order, block, candle, stat, action):
         if order['order_type'] == 'market':
             order['close_time_position'] = order['close_time_order']
         
-        insert_stmt = (
-            "INSERT INTO {0}(side, open_type_order, open_time_order, open_price_position, open_time_position, close_order_type, close_time_order, close_price_position, close_time_position, result_position, points_position, percent_position, percent_series, percent_price_deviation, blocks_id, percent_positions, leverage, rpl, losses_money, price_precent)"
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
-        )
-        data = (
-            order['direction'], order['order_type'], order['open_time_order'], order['open_price_position'], order['open_time_position'], order['order_type'],
-            order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, stat['percent_position'], 
-            stat['percent_series'], 0, order['path'], stat['percent_positions'], order['leverage'], rpl, stat['losses_money'], price_precent)
-        try:
-            cursor.execute(insert_stmt, data)
-            cnx2.commit()
-        except Exception as e:
-            print(e)
+        db_close_position(order, result_position, points_position, rpl, price_precent)
 
         return True
 
     return False
+
+# ---------- database ----------------------
+
+def db_open_position(order):
+
+    insert_stmt = (
+        "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id)"
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+    )
+    data = (
+        order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
+        order['open_price_position'], order['open_time_position'], order['leverage'], order['path'])
+    try:
+        cursor.execute(insert_stmt, data)
+        cnx2.commit()
+    except Exception as e:
+        print(e)
+
+def db_close_position(order, result_position, points_position, rpl, price_precent):
+
+    insert_stmt = (
+        "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_precent = %s"
+        " where id_position = %s".format(table_result)
+    )
+    data = (
+        order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
+        stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_precent, order['uuid'])
+    try:
+        cursor.execute(insert_stmt, data)
+        cnx2.commit()
+    except Exception as e:
+        print(e)
 
 # ---------- main programm -----------------
 
