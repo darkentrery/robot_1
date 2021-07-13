@@ -24,7 +24,7 @@ def get_db_connection(user, password, host, database_host):
                                 database=database_host)
     return cnx
 
-def send_signal_rmq(action, side, leverage, uuid, mode):
+def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 
     #if mode != 'robot':
     #    return
@@ -36,10 +36,10 @@ def send_signal_rmq(action, side, leverage, uuid, mode):
         msg['leverage'] = leverage
         msg['uuid'] = uuid
 
-        credentials = pika.PlainCredentials('user', 'userpass')
-        connection = pika.BlockingConnection(pika.ConnectionParameters('167.99.18.82', 56720, '/', credentials))
+        credentials = pika.PlainCredentials(rmq_metadata['user'], rmq_metadata['password'])
+        connection = pika.BlockingConnection(pika.ConnectionParameters(rmq_metadata['ip'], rmq_metadata['port'], rmq_metadata['vhost'], credentials))
         channel = connection.channel()
-        channel.basic_publish(exchange='system_algo_trader_robot_test',
+        channel.basic_publish(exchange=rmq_metadata['exchange'],
                         routing_key='',
                         body=json.dumps(msg))
         connection.close()
@@ -52,11 +52,14 @@ cursor_candles = cnx.cursor()
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
 
-query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status FROM launch")
+query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
 cursor.execute(query)
-for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, trading_status) in cursor:
+for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, trading_status, rmq_metadata, deribit_metadata) in cursor:
     algorithm = 'algorithm_' + str(posfix_algorithm)
     break
+
+rmq_metadata = json.loads(rmq_metadata)
+deribit_metadata = json.loads(deribit_metadata)
 
 price_table_name = 'price_' + str(time_frame)
 
@@ -112,7 +115,7 @@ def get_candle(mode, keys, cursor, price_table_name):
     else:
         candle = get_indicators(price_table_name)
         if candle != None:
-            price = get_deribit_price()
+            price = get_deribit_price(deribit_metadata)
             if price != None:
                 candle['price'] = price
             else:
@@ -170,9 +173,9 @@ def get_indicators(table_name):
             return result
     time.sleep(1)    
 
-def get_deribit_price():
+def get_deribit_price(deribit_metadata):
 
-    connection = http.client.HTTPSConnection("www.deribit.com")
+    connection = http.client.HTTPSConnection(deribit_metadata['host'])
     connection.request("GET", "/api/v2/public/get_last_trades_by_currency?count=1&currency=BTC")
     response = json.loads(connection.getresponse().read().decode())
 
@@ -773,7 +776,7 @@ def execute_block_actions(block, candle, order, stat, mode):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], mode)
+                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], mode, rmq_metadata)
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
@@ -799,7 +802,7 @@ def execute_block_actions(block, candle, order, stat, mode):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], mode)
+                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], mode, rmq_metadata)
                     print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
