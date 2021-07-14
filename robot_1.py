@@ -26,8 +26,8 @@ def get_db_connection(user, password, host, database_host):
 
 def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 
-    #if mode != 'robot':
-    #    return
+    if mode != 'robot':
+        return
 
     try:
         msg = {}
@@ -35,6 +35,7 @@ def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
         msg['side'] = side
         msg['leverage'] = leverage
         msg['uuid'] = uuid
+        msg['time_stamp'] = str(datetime.datetime.utcnow())
 
         credentials = pika.PlainCredentials(rmq_metadata['user'], rmq_metadata['password'])
         connection = pika.BlockingConnection(pika.ConnectionParameters(rmq_metadata['ip'], rmq_metadata['port'], rmq_metadata['vhost'], credentials))
@@ -52,23 +53,26 @@ cursor_candles = cnx.cursor()
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
 
+launch = {}
+
 query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
 cursor.execute(query)
-for (posfix_algorithm, start_time, end_time, time_frame, symbol, mode, trading_status, rmq_metadata, deribit_metadata) in cursor:
-    algorithm = 'algorithm_' + str(posfix_algorithm)
+for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['time_frame'], 
+launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata']) in cursor:
+    launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
     break
 
-rmq_metadata = json.loads(rmq_metadata)
-deribit_metadata = json.loads(deribit_metadata)
+rmq_metadata = json.loads(launch['rmq_metadata'])
+deribit_metadata = json.loads(launch['deribit_metadata'])
 
-price_table_name = 'price_' + str(time_frame)
+price_table_name = 'price_' + str(launch['time_frame'])
 
 cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(seconds=120)).minute
 
 keys = []
-if mode == 'tester':
+if launch['mode'] == 'tester':
     # ---- таблица свечей
-    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(price_table_name), (start_time, end_time))
+    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(price_table_name), (launch['start_time'], launch['end_time']))
     keys_name = cursor_candles.description
     for row in keys_name:
         keys.append(row[0])
@@ -84,7 +88,7 @@ except Exception as e:
     print(e)
 
 try:
-    cursor.execute('SELECT * FROM {0}'.format(algorithm))
+    cursor.execute('SELECT * FROM {0}'.format(launch['algorithm']))
 except Exception as e:
     print('Ошибка получения таблицы с настройками, причина: ')
     print(e)
@@ -165,7 +169,7 @@ def get_indicators(table_name):
     global cur_minute
 
     cur_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
-    if (cur_time.minute % time_frame) == 0 and cur_minute != cur_time.minute:
+    if (cur_time.minute % launch['time_frame']) == 0 and cur_minute != cur_time.minute:
         result = select_candle(cur_time, table_name)
         if result != None:
             print("indicators = " + str(result))
@@ -248,8 +252,12 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
         return False
 
     indicator = prev_candle[condition['name']]
+    if indicator == None:
+        return False
 
     last_ind = prev_prev_candle[condition['name']]
+    if last_ind == None:
+        return False
 
     if condition.get('value') != None:
         ind_oper = condition['value'].split(' ')[0]
@@ -295,7 +303,7 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
 
     return False
 
-def check_pnl(condition, block, candle, order):
+def check_pnl(condition, block, candle, order, launch):
     
     direction = order['direction']
 
@@ -305,6 +313,29 @@ def check_pnl(condition, block, candle, order):
         pnl = order['open_price_position'] - (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
     else:
         pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
+
+    if launch['mode'] == 'robot':
+        
+        if direction == 'long':
+            left_value = candle['price']
+            right_value = pnl
+        else:
+            left_value = pnl
+            right_value = candle['price']
+
+        if ind_oper == '>=' and left_value >= right_value:
+            return pnl
+        elif ind_oper == '<=' and left_value <= right_value:
+            return pnl
+        elif ind_oper == '=' and left_value == right_value:
+            return pnl
+        elif ind_oper == '>' and left_value > right_value:
+            return pnl
+        elif ind_oper == '<' and left_value < right_value:
+            return pnl
+        else:
+            return False
+    
 
     if direction == 'long':
         if ind_oper == '>=':
@@ -675,10 +706,10 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     
     return blocks
 
-def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle):
+def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle, launch):
 
     for block in blocks:
-        if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
+        if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
             return block
     
     return None
@@ -687,7 +718,7 @@ def set_done_conditions_group(conditions_group):
     for condition in conditions_group:
         condition['done'] = True    
 
-def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
+def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
 
     cur_condition_number = None
     cur_conditions_group = []
@@ -705,7 +736,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle):
             continue
         
         if condition['type'] == 'pnl':
-            result = check_pnl(condition, block, candle, order)
+            result = check_pnl(condition, block, candle, order, launch)
             if result == False:
                 condition['done'] = False
                 return False
@@ -970,13 +1001,13 @@ prev_prev_candle = None
 
 while True: #цикл по свечам
 
-    if trading_status == 'off':
+    if launch['trading_status'] == 'off':
         time.sleep(2)
         continue
 
-    candle = get_candle(mode, keys, cursor_candles, price_table_name)
+    candle = get_candle(launch['mode'], keys, cursor_candles, price_table_name)
     if candle == None:
-        if mode == 'tester':
+        if launch['mode'] == 'tester':
             break
         else:
             continue
@@ -985,7 +1016,7 @@ while True: #цикл по свечам
         
         # проверка условий активных блоков
         if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle, prev_prev_candle)
+            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle, prev_prev_candle, launch)
             if action_block != None:
                 strategy_state = 'execute_block_actions'
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
@@ -999,7 +1030,7 @@ while True: #цикл по свечам
             
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, candle, order, stat, mode)
+            result = execute_block_actions(action_block, candle, order, stat, launch['mode'])
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
