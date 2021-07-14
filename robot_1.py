@@ -60,7 +60,6 @@ def get_trading_status():
     cnx_ts.close()
     return False
 
-
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
 
