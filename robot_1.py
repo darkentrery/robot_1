@@ -47,6 +47,20 @@ def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
     except Exception as e:
         print(e)
 
+def get_trading_status():
+    cnx_ts = get_db_connection(user, password, host, database_host)
+    cursor_ts = cnx_ts.cursor()
+    query = ("SELECT trading_status FROM launch")
+    cursor_ts.execute(query)
+    for (trading_status) in cursor_ts:
+        if trading_status[0] == 'on':
+            cnx_ts.close()
+            return True
+    
+    cnx_ts.close()
+    return False
+
+
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
 
@@ -1001,7 +1015,7 @@ prev_prev_candle = None
 
 while True: #цикл по свечам
 
-    if launch['trading_status'] == 'off':
+    if get_trading_status() == False:
         time.sleep(2)
         continue
 
