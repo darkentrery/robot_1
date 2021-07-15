@@ -55,10 +55,10 @@ def get_trading_status():
     for (trading_status) in cursor_ts:
         if trading_status[0] == 'on':
             cnx_ts.close()
-            return True
+            return trading_status[0]
     
     cnx_ts.close()
-    return False
+    return 'off'
 
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
@@ -802,7 +802,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
     
     return True
 
-def execute_block_actions(block, candle, order, stat, mode):
+def execute_block_actions(block, candle, order, stat, launch):
 
     saved_close_time = 0
     saved_close_price = 0
@@ -820,13 +820,16 @@ def execute_block_actions(block, candle, order, stat, mode):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], mode, rmq_metadata)
+                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
                 print('Закрытие позиции: ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
-                candle['was_close'] = True 
-                continue
+                candle['was_close'] = True
+                if launch['trading_status'] == 'on': 
+                    continue
+                else:
+                    return False    
             else:
                 action['done'] = False
                 return False
@@ -846,7 +849,7 @@ def execute_block_actions(block, candle, order, stat, mode):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], mode, rmq_metadata)
+                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
                     print('Открытие позиции: ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
@@ -1011,12 +1014,23 @@ strategy_state = 'check_blocks_conditions'
 action_block = None
 prev_candle = None
 prev_prev_candle = None
+last_trading_status = 'off'
 
 while True: #цикл по свечам
 
-    if get_trading_status() == False:
+    launch['trading_status'] = get_trading_status()
+    if last_trading_status != 'on' and launch['trading_status'] == 'on':
+        print('Робот запущен')
+
+    if (launch['trading_status'] == 'off'
+    or (launch['trading_status'] == 'off_after_close' and order['open_time_position'] == 0)):
+        if last_trading_status == 'on':
+            last_trading_status = launch['trading_status']
+            print('Робот остановлен')
         time.sleep(2)
         continue
+
+    last_trading_status = launch['trading_status']
 
     candle = get_candle(launch['mode'], keys, cursor_candles, price_table_name)
     if candle == None:
@@ -1043,12 +1057,12 @@ while True: #цикл по свечам
             
         # исполнение действий блока
         if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, candle, order, stat, launch['mode'])
+            result = execute_block_actions(action_block, candle, order, stat, launch)
             if result == True:
                 activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
                 strategy_state = 'check_blocks_conditions'
             else:
-                    break
+                break
     
     prev_prev_candle = prev_candle
     prev_candle = candle 
