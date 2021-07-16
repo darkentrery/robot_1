@@ -337,15 +337,15 @@ def check_pnl(condition, block, candle, order, launch):
             right_value = candle['price']
 
         if ind_oper == '>=' and left_value >= right_value:
-            return pnl
+            return candle['price']
         elif ind_oper == '<=' and left_value <= right_value:
-            return pnl
+            return candle['price']
         elif ind_oper == '=' and left_value == right_value:
-            return pnl
+            return candle['price']
         elif ind_oper == '>' and left_value > right_value:
-            return pnl
+            return candle['price']
         elif ind_oper == '<' and left_value < right_value:
-            return pnl
+            return candle['price']
         else:
             return False
     
