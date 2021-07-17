@@ -19,9 +19,16 @@ host = data['host']
 database_host = data['database_host']
 
 def get_db_connection(user, password, host, database_host):
-    cnx = mysql.connector.connect(user=user, password=password,
-                                host=host,
-                                database=database_host)
+
+    while True:
+        try:
+            cnx = mysql.connector.connect(user=user, password=password,
+                                        host=host,
+                                        database=database_host)
+            break
+        except Exception as e:
+            print(e)
+
     return cnx
 
 def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
