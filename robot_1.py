@@ -76,7 +76,7 @@ launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata
     break
 
 rmq_metadata = json.loads(launch['rmq_metadata'])
-deribit_metadata = json.loads(launch['deribit_metadata'])
+launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
@@ -132,7 +132,7 @@ def get_candle(mode, keys, cursor, price_table_name):
     else:
         candle = get_indicators(price_table_name)
         if candle != None:
-            price = get_deribit_price(deribit_metadata)
+            price = get_deribit_price(launch)
             if price != None:
                 candle['price'] = price
             else:
@@ -190,10 +190,10 @@ def get_indicators(table_name):
             return result
     time.sleep(1)    
 
-def get_deribit_price(deribit_metadata):
+def get_deribit_price(launch):
 
-    connection = http.client.HTTPSConnection(deribit_metadata['host'])
-    connection.request("GET", "/api/v2/public/get_last_trades_by_currency?count=1&currency=BTC")
+    connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'])
+    connection.request("GET", "/api/v2/public/get_last_trades_by_instrument?count=1&instrument_name={0}".format(launch['symbol']))
     response = json.loads(connection.getresponse().read().decode())
 
     connection.close()
