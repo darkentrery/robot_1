@@ -821,7 +821,7 @@ def execute_block_actions(block, candle, order, stat, launch):
             if result:
                 action['done'] = True
                 send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
-                print('Закрытие позиции: ' +  +  str(stat['percent_position']) + ', ' + str(order['close_time_position']))
+                print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
