@@ -850,7 +850,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 if result:
                     action['done'] = True
                     send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
-                    print('Открытие позиции: ' + str(order['open_time_position']))
+                    print('Открытие позиции: ' + order['direction'] + ', ' + str(order['leverage']) + ', ' + str(order['open_time_position']))
                 else:
                     action['done'] = False
                     return False
