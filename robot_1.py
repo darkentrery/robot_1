@@ -122,32 +122,32 @@ for gg in rows1:
     block_order[str(gg[0])] = iter
     iter = iter + 1
 
+strategy_state = 'check_blocks_conditions'
+action_block = None
+prev_candle = {}
+prev_prev_candle = {}
+last_trading_status = 'off'
+
 # ---------- mode ---------------
 
-def get_candle(mode, keys, cursor, price_table_name):
+def set_candle(mode, keys, cursor, price_table_name, candle):
 
-    candle = {}
+    global prev_candle
 
     if mode == 'tester':
         row = cursor.fetchone()
-        if row == None:
-            return None
-        
-        for ss in keys:
-            candle[ss] = row[keys.index(ss)]
+        if row != None:
+            for ss in keys:
+                candle[ss] = row[keys.index(ss)]
 
     else:
-        candle = get_indicators(price_table_name)
-        if candle != None:
+        
+        prev_candle = get_indicators(price_table_name)
+        if prev_candle != {}:
             price = get_deribit_price(launch)
             if price != None:
                 candle['price'] = price
-            else:
-                candle = None
-        else:
-            candle = None
-
-    return candle
+                candle['time'] = datetime.datetime.utcnow()
 
 def select_candle(date_time, table_name):
     
@@ -195,7 +195,9 @@ def get_indicators(table_name):
             print("indicators = " + str(result))
             cur_minute = cur_time.minute
             return result
-    time.sleep(1)    
+
+    time.sleep(1)
+    return {}    
 
 def get_deribit_price(launch):
 
@@ -263,13 +265,13 @@ stat = get_new_statistics()
 
 # ---------- conditions -----------------
 
-def check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle):
+def check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
-    if prev_candle == None:
+    if prev_candle == {}:
         return False
 
-    if prev_prev_candle == None:
-        return False
+    if prev_prev_candle == {}:
+        return False    
 
     indicator = prev_candle[condition['name']]
     if indicator == None:
@@ -772,7 +774,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
         elif condition['type'] == 'value_change':
-            result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle)
+            result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
                 condition['done'] = False
                 return False
@@ -1017,12 +1019,6 @@ activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
 
-strategy_state = 'check_blocks_conditions'
-action_block = None
-prev_candle = None
-prev_prev_candle = None
-last_trading_status = 'off'
-
 while True: #цикл по свечам
 
     launch['trading_status'] = get_trading_status()
@@ -1039,8 +1035,9 @@ while True: #цикл по свечам
 
     last_trading_status = launch['trading_status']
 
-    candle = get_candle(launch['mode'], keys, cursor_candles, price_table_name)
-    if candle == None:
+    candle = {}
+    set_candle(launch['mode'], keys, cursor_candles, price_table_name, candle)
+    if candle == {}:
         if launch['mode'] == 'tester':
             break
         else:
