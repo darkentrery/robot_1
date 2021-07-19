@@ -142,12 +142,14 @@ def set_candle(mode, keys, cursor, price_table_name, candle):
 
     else:
         
-        prev_candle = get_indicators(price_table_name)
-        if prev_candle != {}:
-            price = get_deribit_price(launch)
-            if price != None:
-                candle['price'] = price
-                candle['time'] = datetime.datetime.utcnow()
+        prev_candle_prom = get_indicators(price_table_name)
+        if prev_candle_prom != {}:
+            prev_candle = prev_candle_prom
+
+        price = get_deribit_price(launch)
+        if price != None:
+            candle['price'] = price
+            candle['time'] = datetime.datetime.utcnow()
 
 def select_candle(date_time, table_name):
     
@@ -273,11 +275,11 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
     if prev_prev_candle == {}:
         return False    
 
-    indicator = prev_candle[condition['name']]
+    indicator = prev_candle.get(condition['name'])
     if indicator == None:
         return False
 
-    last_ind = prev_prev_candle[condition['name']]
+    last_ind = prev_prev_candle.get(condition['name'])
     if last_ind == None:
         return False
 
@@ -1072,7 +1074,10 @@ while True: #цикл по свечам
                 break
     
     prev_prev_candle = prev_candle
-    prev_candle = candle 
+    if launch['mode'] == 'tester':
+        prev_candle = candle 
+    else:
+        prev_candle['price'] = candle['price']
 
 cnx.close()
 
