@@ -789,7 +789,10 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
         elif condition['type'] == 'exit_price' and condition.get('new_breakdown_sum') != None:
-            result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
+            if launch['mode'] == 'tester':
+                result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
+            else:
+                result = check_exit_price_by_steps(condition, block, prev_candle, order, prev_prev_candle)
             if result == False:
                 condition['done'] = False
                 return False
