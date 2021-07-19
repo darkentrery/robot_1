@@ -959,7 +959,7 @@ def close_position(order, block, candle, stat, action):
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
         stat['last_percent_position'] = stat['percent_position']
 
-        price_precent = points_position / order['price'] * 100
+        price_perecent = points_position / order['price'] * 100
 
         if result_position == 'profit': 
             if stat['percent_series'] <= 0:
@@ -975,7 +975,7 @@ def close_position(order, block, candle, stat, action):
         if order['order_type'] == 'market':
             order['close_time_position'] = order['close_time_order']
         
-        db_close_position(order, result_position, points_position, rpl, price_precent)
+        db_close_position(order, result_position, points_position, rpl, price_perecent)
 
         return True
 
@@ -998,15 +998,15 @@ def db_open_position(order):
     except Exception as e:
         print(e)
 
-def db_close_position(order, result_position, points_position, rpl, price_precent):
+def db_close_position(order, result_position, points_position, rpl, price_perecent):
 
     insert_stmt = (
-        "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_precent = %s"
+        "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
         " where id_position = %s".format(table_result)
     )
     data = (
         order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-        stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_precent, order['uuid'])
+        stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
     try:
         cursor.execute(insert_stmt, data)
         cnx2.commit()
