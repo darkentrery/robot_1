@@ -87,7 +87,7 @@ launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
-cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(seconds=120)).minute
+cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2 * launch['time_frame'])).minute
 
 keys = []
 if launch['mode'] == 'tester':
