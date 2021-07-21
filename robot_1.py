@@ -517,11 +517,11 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
             if check == 'close':
                 if side == 'high':
                     if float(candle['close']) > float(order['proboi']):
-                        proc = (float(candle['close']) - float(order['old_proboi'])) / (float(order['old_proboi'])/100)
+                        proc = (float(candle['close']) - float(order['proboi'])) / (float(order['proboi'])/100)
                         return proc
                 if side == 'low':
                     if float(order['proboi']) > float(candle['close']):
-                        proc = (float(order['old_proboi']) - float(candle['close'])) / (float(order['old_proboi']) / 100)
+                        proc = (float(order['proboi']) - float(candle['close'])) / (float(order['proboi']) / 100)
                         return proc
             if check == 'high':
                 if float(candle['high']) > float(order['proboi']):
