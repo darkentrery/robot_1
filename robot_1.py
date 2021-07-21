@@ -1035,7 +1035,6 @@ while True: #цикл по свечам
         if last_trading_status == 'on':
             last_trading_status = launch['trading_status']
             print('Робот остановлен')
-        time.sleep(2)
         continue
 
     last_trading_status = launch['trading_status']
