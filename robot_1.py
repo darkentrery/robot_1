@@ -133,6 +133,7 @@ last_trading_status = 'off'
 def set_candle(mode, keys, cursor, price_table_name, candle):
 
     global prev_candle
+    global prev_prev_candle
 
     if mode == 'tester':
         row = cursor.fetchone()
@@ -142,9 +143,22 @@ def set_candle(mode, keys, cursor, price_table_name, candle):
 
     else:
         
-        prev_candle_prom = get_indicators(price_table_name)
+        cur_time = datetime.datetime.utcnow()
+
+        prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
+        prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
         if prev_candle_prom != {}:
+            if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
+                print("prev_candle: " + str(prev_candle_prom))
             prev_candle = prev_candle_prom
+            
+        
+        prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
+        prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
+        if prev_prev_candle_prom != {}:
+            if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
+                print("prev_prev_candle: " + str(prev_prev_candle_prom))
+            prev_prev_candle = prev_prev_candle_prom
 
         price = get_deribit_price(launch)
         if price != None:
@@ -186,16 +200,14 @@ def select_candle(date_time, table_name):
     else:
         return None
 
-def get_indicators(table_name):
+def get_indicators(candle_time, table_name):
 
     global cur_minute
 
-    cur_time = datetime.datetime.utcnow() - datetime.timedelta(seconds=60)
-    if (cur_time.minute % launch['time_frame']) == 0 and cur_minute != cur_time.minute:
-        result = select_candle(cur_time, table_name)
+    if (candle_time.minute % launch['time_frame']) == 0 and cur_minute != candle_time.minute:
+        result = select_candle(candle_time, table_name)
         if result != None:
-            print("indicators = " + str(result))
-            cur_minute = cur_time.minute
+            cur_minute = candle_time.minute
             return result
 
     time.sleep(1)
@@ -1072,9 +1084,9 @@ while True: #цикл по свечам
             else:
                 break
     
-    prev_prev_candle = prev_candle
     if launch['mode'] == 'tester':
         prev_candle = candle 
+        prev_prev_candle = prev_candle
     else:
         prev_candle['price'] = candle['price']
 
