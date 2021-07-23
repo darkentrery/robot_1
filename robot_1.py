@@ -24,7 +24,8 @@ def get_db_connection(user, password, host, database_host):
         try:
             cnx = mysql.connector.connect(user=user, password=password,
                                         host=host,
-                                        database=database_host)
+                                        database=database_host,
+                                        connection_timeout=2)
             break
         except Exception as e:
             print(e)
@@ -189,16 +190,16 @@ def select_candle(date_time, table_name):
     for row in cursor:
         for ss in keys:
             candle[ss] = row[keys.index(ss)]
-            if candle[ss] == None:
-                isNone = True
+            #if candle[ss] == None:
+            #    isNone = True
 
     cnx.commit()
     cnx.close()
 
-    if bool(candle) and not isNone:
-        return candle
-    else:
-        return None
+    #if bool(candle) and not isNone:
+    return candle
+    #else:
+    #    return None
 
 def get_indicators(candle_time, table_name):
 
@@ -273,6 +274,17 @@ def get_new_order(order):
     order['condition_checked_candle'] = None
 
     return order
+
+def check_ohlc(candle):
+
+    if (candle.get('open') == None
+        or candle.get('close') == None
+        or candle.get('high') == None
+        or candle.get('low') == None):
+
+        return False
+
+    return True
 
 order = get_new_order(None)
 stat = get_new_statistics()
@@ -352,6 +364,9 @@ def check_pnl(condition, block, candle, order, launch):
 
     if launch['mode'] == 'robot':
         
+        if candle.get('price') == None:
+            return False
+
         if direction == 'long':
             left_value = candle['price']
             right_value = pnl
@@ -372,7 +387,6 @@ def check_pnl(condition, block, candle, order, launch):
         else:
             return False
     
-
     if direction == 'long':
         if ind_oper == '>=':
             if candle['high'] >= pnl:
@@ -516,6 +530,9 @@ def check_exit_price(condition, block, candle, order, prev_candle):
 
 def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
+    if check_ohlc(candle) == False:
+        return False
+
     side = condition['side']
     check = condition['check']
 
@@ -599,7 +616,8 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     
     if prev_candle != None:
         old_proboi = order['proboi']
-        order['proboi'] = float(prev_candle[condition['name'] + '-' + condition['side']])
+        proboi = float(prev_candle.get(condition['name'] + '-' + condition['side'], 0))
+        order['proboi'] = proboi
         if order['proboi_status'] == 0:
             order['old_proboi'] = order['proboi']
     else:
