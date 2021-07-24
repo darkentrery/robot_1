@@ -34,7 +34,7 @@ def get_db_connection(user, password, host, database_host):
 
 def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 
-    if mode != 'robot':
+    if mode == 'tester':
         return
 
     try:
@@ -88,7 +88,7 @@ launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
-cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes=2 * launch['time_frame'])).minute
+cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
 
 keys = []
 if launch['mode'] == 'tester':
@@ -131,12 +131,15 @@ last_trading_status = 'off'
 
 # ---------- mode ---------------
 
-def set_candle(mode, keys, cursor, price_table_name, candle):
+def get_cur_time():
+    return datetime.datetime.utcnow()
+
+def set_candle(launch, keys, cursor, price_table_name, candle):
 
     global prev_candle
     global prev_prev_candle
 
-    if mode == 'tester':
+    if launch['mode'] == 'tester':
         row = cursor.fetchone()
         if row != None:
             for ss in keys:
@@ -144,7 +147,18 @@ def set_candle(mode, keys, cursor, price_table_name, candle):
 
     else:
         
-        cur_time = datetime.datetime.utcnow()
+        if launch['mode'] == 'robot_debug':
+            get_tick_from_table(launch, candle, 0)
+            if candle == {}:
+                return
+            cur_time = candle['time']
+            price = candle['price']
+        else:
+            cur_time = get_cur_time()
+            price = get_deribit_price(launch)
+            if price != None:
+                candle['price'] = price
+                candle['time'] = cur_time
 
         prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
         prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
@@ -161,10 +175,7 @@ def set_candle(mode, keys, cursor, price_table_name, candle):
                 print("prev_prev_candle: " + str(prev_prev_candle_prom))
             prev_prev_candle = prev_prev_candle_prom
 
-        price = get_deribit_price(launch)
-        if price != None:
-            candle['price'] = price
-            candle['time'] = datetime.datetime.utcnow()
+        
 
 def select_candle(date_time, table_name):
     
@@ -228,6 +239,39 @@ def get_deribit_price(launch):
         return price
     else:
         return None
+
+def get_tick_from_table(launch, candle, last_id):
+
+    tick_table_name = 'price_tick'
+
+    if launch.get('ticks') == None:
+        launch['ticks'] = {}
+        ticks = launch['ticks']
+        ticks['connection'] = get_db_connection(user, password, host, database_host)
+        ticks['cursor'] = ticks['connection'].cursor()
+        query = ("select * from {0} where id > {1}".format(tick_table_name, last_id))
+        ticks['cursor'].execute(query)
+
+        ticks['keys'] = []
+        keys_name = ticks['cursor'].description
+        for row in keys_name:
+            ticks['keys'].append(row[0]) 
+
+    try:
+        row = launch['ticks']['cursor'].fetchone()
+    except:
+        id = launch['ticks']['last_id']
+        launch.pop(launch['ticks'])
+        get_tick_from_table(launch, candle, id)
+        return
+
+    launch['ticks']['last_id'] = row[0]
+    if row == None:
+        launch['ticks']['connection'].close()
+    else:
+        for ss in launch['ticks']['keys']:
+            candle[ss] = row[launch['ticks']['keys'].index(ss)]
+
 
 # ---------- constructors ---------------
 
@@ -366,7 +410,7 @@ def check_pnl(condition, block, candle, order, launch):
     else:
         pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
 
-    if launch['mode'] == 'robot':
+    if launch['mode'] != 'tester':
         
         if candle.get('price') == None:
             return False
@@ -1080,12 +1124,13 @@ while True: #цикл по свечам
     last_trading_status = launch['trading_status']
 
     candle = {}
-    set_candle(launch['mode'], keys, cursor_candles, price_table_name, candle)
+    set_candle(launch, keys, cursor_candles, price_table_name, candle)
     if candle == {}:
-        if launch['mode'] == 'tester':
-            break
-        else:
+        if launch['mode'] != 'robot':
             continue
+        else:
+            break
+            
 
     while True: #цикл по блокам
         
@@ -1115,8 +1160,8 @@ while True: #цикл по свечам
     if launch['mode'] == 'tester':
         prev_candle = candle 
         prev_prev_candle = prev_candle
-    else:
-        prev_candle['price'] = candle['price']
+    #else:
+    #    prev_candle['price'] = candle['price']
 
 cnx.close()
 
