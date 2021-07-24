@@ -651,7 +651,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
     pid = get_proboi_id(block, condition)
 
-    order['proboi'][pid] = {}
+    order['proboi'].setdefault(pid, {})
 
     order['proboi'].get(pid).setdefault('status', 0)
     order['proboi'].get(pid).setdefault('step', 0)
