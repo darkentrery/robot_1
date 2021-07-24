@@ -596,6 +596,11 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
                     proc = (float(order['old_proboi' + pp]) - float(candle['low' + pp])) / (float(order['old_proboi' + pp]) / 100)
                     return proc
             if check == 'close':
+
+                # если уже было закрытие в данной свече
+                if launch.get('was_close') != None and launch['was_close'] == True:
+                    return False
+
                 if side == 'high':
                     if float(candle['close']) > float(order['proboi' + pp]):
                         proc = (float(candle['close']) - float(order['proboi' + pp])) / (float(order['proboi' + pp])/100)
