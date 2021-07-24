@@ -151,6 +151,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
             get_tick_from_table(launch, candle, 0)
             if candle == {}:
                 return
+            candle['price'] = float(candle['price'])
             cur_time = candle['time']
             price = candle['price']
         else:
@@ -936,9 +937,11 @@ def execute_block_actions(block, candle, order, stat, launch):
                 return False
         if action['order'] == "open":
             if order['state'] == 'start':
+                
                 # если уже было закрытие в данной свече
                 if launch.get('was_close') != None and launch['was_close'] == True:
                     return False
+                
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
                 if saved_close_time == 0:
@@ -1023,7 +1026,7 @@ def close_position(order, block, candle, stat, action):
             if order['order_type'] == 'limit':
                 points_position = order['close_price_position'] - order['price']
             else:
-                points_position = order['close_price_position'] - order['price'] 
+                points_position = order['close_price_position'] - order['price']
         else:
             if order['price'] >= order['close_price_position']:
                 result_position = 'profit'
@@ -1032,9 +1035,9 @@ def close_position(order, block, candle, stat, action):
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
-                points_position = order['price'] - float(order['close_price_position'])
+                points_position = order['price'] - order['close_price_position']
             else:
-                points_position = order['price'] - float(order['close_price_position'])
+                points_position = order['price'] - order['close_price_position']
 
         rpl = points_position * float(order['leverage'])
         if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
