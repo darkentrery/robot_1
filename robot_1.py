@@ -318,6 +318,8 @@ def get_new_order(order):
     order['path'] = ''
     order['price'] = 0
 
+    order['proboi'] = {}
+
     order['condition_checked_candle'] = None
 
     return order
@@ -333,9 +335,9 @@ def check_ohlc(candle):
 
     return True
 
-def get_proboi_postfix(block, condition):
+def get_proboi_id(block, condition):
 
-    return '_' + block['alg_number'] + '_' + condition['number']  + '_' + condition['name']
+    return block['alg_number'] + '_' + condition['number']  + '_' + condition['name']
 
 order = get_new_order(None)
 stat = get_new_statistics()
@@ -584,17 +586,17 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
     if check_ohlc(candle) == False:
         return False
 
-    pp = get_proboi_postfix(block, condition)
+    pid = get_proboi_id(block, condition)
     
     side = condition['side']
     check = condition['check']
 
-    if order['exit_price_price' + pp] == False:
+    if order['proboi'].get(pid)['exit_price_price'] == False:
         
         try:
             if check == 'low':
-                if float(candle['low']) < float(order['proboi' + pp]):
-                    proc = (float(order['old_proboi' + pp]) - float(candle['low' + pp])) / (float(order['old_proboi' + pp]) / 100)
+                if float(candle['low']) < float(order['proboi'].get(pid)['proboi']):
+                    proc = (float(order['proboi'].get(pid)['old_proboi']) - float(candle['low'])) / (float(order['proboi'].get(pid)['old_proboi']) / 100)
                     return proc
             if check == 'close':
 
@@ -603,14 +605,14 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
                     return False
 
                 if side == 'high':
-                    if float(candle['close']) > float(order['proboi' + pp]):
-                        proc = (float(candle['close']) - float(order['proboi' + pp])) / (float(order['proboi' + pp])/100)
-                        print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi' + pp]) +  ', name=' + str(condition['name']))
+                    if float(candle['close']) > float(order['proboi'].get(pid)['proboi']):
+                        proc = (float(candle['close']) - float(order['proboi'].get(pid)['proboi'])) / (float(order['proboi'].get(pid)['proboi'])/100)
+                        print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                         return proc
                 if side == 'low':
-                    if float(order['proboi' + pp]) > float(candle['close']):
-                        proc = (float(order['proboi' + pp]) - float(candle['close' + pp])) / (float(order['proboi' + pp]) / 100)
-                        print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi' + pp]) +  ', name=' + str(condition['name']))
+                    if float(order['proboi'].get(pid)['proboi']) > float(candle['close']):
+                        proc = (float(order['proboi'].get(pid)['proboi']) - float(candle['close'])) / (float(order['proboi'].get(pid)['proboi']) / 100)
+                        print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                         return proc
             if check == 'high':
                 if float(candle['high']) > float(order['proboi' + pp]):
@@ -647,25 +649,16 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
 def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
-    pp = get_proboi_postfix(block, condition)
+    pid = get_proboi_id(block, condition)
 
-    if order.get('proboi_status' + pp) == None:
-        order['proboi_status' + pp] = 0
-    
-    if order.get('proboi_step' + pp) == None:
-        order['proboi_step' + pp] = 0
+    order['proboi'][pid] = {}
 
-    if order.get('exit_price_price' + pp) == None:
-        order['exit_price_price' + pp] = False
-
-    if order.get('proboi' + pp) == None:
-        order['proboi' + pp] = 0
-
-    if order.get('old_proboi' + pp) == None:
-        order['old_proboi' + pp] = 0
-
-    if order.get('proboi_line_proc' + pp) == None:
-        order['proboi_line_proc' + pp] = 0
+    order['proboi'].get(pid).setdefault('status', 0)
+    order['proboi'].get(pid).setdefault('step', 0)
+    order['proboi'].get(pid).setdefault('exit_price_price', False)
+    order['proboi'].get(pid).setdefault('proboi', 0)
+    order['proboi'].get(pid).setdefault('old_proboi', 0)
+    order['proboi'].get(pid).setdefault('proboi_line_proc', 0)
 
     side = condition['side']
     check = condition['check']
@@ -677,13 +670,13 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     proc_value_2 = float(condition['exit_price_percent'])
 
     if prev_candle != None:
-        old_proboi = order['proboi' + pp]
+        old_proboi = order['proboi'].get(pid)['proboi']
         proboi = float(prev_candle.get(condition['name'] + '-' + condition['side'], 0))
-        order['proboi' + pp] = proboi
-        if order['proboi_status' + pp] == 0:
-            order['old_proboi' + pp] = order['proboi' + pp]
+        order['proboi'].get(pid)['proboi'] = proboi
+        if order['proboi'].get(pid)['status'] == 0:
+            order['proboi'].get(pid)['old_proboi'] = order['proboi'].get(pid)['proboi']
     else:
-        order['proboi' + pp] = 0
+        order['proboi'].get(pid)['proboi'] = 0
         old_proboi = 0
     
     if condition.get('new_breakdown_sum') == None:
@@ -691,45 +684,31 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     else:
         new_breakdown_sum = int(condition['new_breakdown_sum'])
         
-    if order['proboi_step' + pp] >= new_breakdown_sum and order['proboi_line_proc' + pp] >= proc_value_2:
-        order['proboi_status' + pp] = 0
-        order['close_time_order' + pp] = prev_candle['time']
-        order['proboi_line_proc' + pp] = 0
-        order['proboi_step' + pp] = 0
-        order['old_proboi' + pp] = 0
-        order['exit_price_price' + pp] = False
+    if order['proboi'].get(pid)['step'] >= new_breakdown_sum and order['proboi'].get(pid)['proboi_line_proc'] >= proc_value_2:
         return True
     else:
-        if order['proboi_status' + pp] != 0 and side == 'high' and order['proboi' + pp] < old_proboi:
-            order['old_proboi' + pp] = 0
-            order['proboi_step' + pp] = 0
-            order['proboi_line_proc' + pp] = 0
-            order['proboi_status' + pp] = 0
-            order['exit_price_price' + pp] = False
+        if order['proboi'].get(pid)['status'] != 0 and side == 'high' and order['proboi'].get(pid)['proboi'] < old_proboi:
+            order['proboi'][pid] = {}
             return False
-        if order['proboi_status' + pp] != 0 and side == 'low' and order['proboi' + pp] > old_proboi:
-            order['old_proboi' + pp] = 0
-            order['proboi_step' + pp] = 0
-            order['proboi_line_proc' + pp] = 0
-            order['proboi_status' + pp] = 0
-            order['exit_price_price' + pp] = False
+        if order['proboi'].get(pid)['status'] != 0 and side == 'low' and order['proboi'].get(pid)['proboi'] > old_proboi:
+            order['proboi'][pid] = {}
             return False
         result = check_exit_price_by_step(condition, block, candle, order, prev_candle)
         if result:
 
-            order['proboi_status' + pp] = 1
-            order['proboi_line_proc' + pp] = result
+            order['proboi'].get(pid)['status'] = 1
+            order['proboi'].get(pid)['line_proc'] = result
 
-            order['proboi_step' + pp] = order['proboi_step' + pp] + 1
-            if order['proboi_step' + pp] + 1 == new_breakdown_sum and exit_price_price_main == 'yes':
-                order['exit_price_price' + pp] = True
-            if order['proboi_step' + pp] >= new_breakdown_sum:
+            order['proboi'].get(pid)['step'] = order['proboi'].get(pid)['step'] + 1
+            if order['proboi'].get(pid)['step'] + 1 == new_breakdown_sum and exit_price_price_main == 'yes':
+                order['proboi'].get(pid)['exit_price_price'] = True
+            if order['proboi'].get(pid)['step'] >= new_breakdown_sum:
                 if check == 'low':
-                    order['close_price_position'] = float(order['proboi' + pp]) - ((float(order['proboi' + pp]) / 100) * proc_value_2)
+                    order['close_price_position'] = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * proc_value_2)
                 if check == 'close':
                     order['close_price_position'] = float(candle['close'])
                 if check == 'high':
-                    order['close_price_position'] = float(order['proboi' + pp]) + ((float(order['proboi' + pp]) / 100) * proc_value_2)
+                    order['close_price_position'] = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * proc_value_2)
                     
             return False
 
