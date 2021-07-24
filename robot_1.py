@@ -906,6 +906,8 @@ def execute_block_actions(block, candle, order, stat, launch):
     saved_close_time = 0
     saved_close_price = 0
 
+    was_close = False
+
     for action in block['actions']:
 
         if action.get('done') and action['done'] == True:
@@ -924,7 +926,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
-                launch['was_close'] = True
+                was_close = True
                 if launch['trading_status'] == 'on': 
                     continue
                 else:
@@ -934,6 +936,9 @@ def execute_block_actions(block, candle, order, stat, launch):
                 return False
         if action['order'] == "open":
             if order['state'] == 'start':
+                # если уже было закрытие в данной свече
+                if launch.get('was_close') != None and launch['was_close'] == True:
+                    return False
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
                 if saved_close_time == 0:
@@ -955,6 +960,8 @@ def execute_block_actions(block, candle, order, stat, launch):
                     return False
             else:
                 return False
+
+    launch['was_close'] = was_close
 
     return True
 
