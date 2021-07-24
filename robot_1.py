@@ -598,7 +598,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
                     return proc
             if check == 'close':
 
-                # если уже было открытие в данной свече
+                # если уже было закрытие в данной свече
                 if launch.get('was_open') != None and launch['was_open'] == True:
                     return False
 
@@ -943,6 +943,11 @@ def execute_block_actions(block, candle, order, stat, launch):
                 return False
         if action['order'] == "open":
             if order['state'] == 'start':
+                
+                # если уже было закрытие в данной свече
+                if launch.get('was_close') != None and launch['was_close'] == True:
+                    return False
+
                 order['order_type'] = action['order_type']
                 order['direction'] = action['direction']
                 if saved_close_time == 0:
