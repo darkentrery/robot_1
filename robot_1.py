@@ -166,6 +166,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
         if prev_candle_prom != {}:
             if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
                 launch['was_close'] = False
+                launch['was_open'] = False
                 print("prev_candle: " + str(prev_candle_prom))
             prev_candle = prev_candle_prom
             
@@ -943,8 +944,8 @@ def execute_block_actions(block, candle, order, stat, launch):
         if action['order'] == "open":
             if order['state'] == 'start':
                 
-                # если уже было закрытие в данной свече
-                if launch.get('was_close') != None and launch['was_close'] == True:
+                # если уже было открытие в данной свече
+                if launch.get('was_open') != None and launch['was_open'] == True:
                     return False
                 
                 order['order_type'] = action['order_type']
@@ -963,6 +964,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                     action['done'] = True
                     send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
                     print('Открытие позиции: ' + order['direction'] + ', ' + str(order['leverage']) + ', ' + str(order['open_time_position']))
+                    launch['was_open'] = True
                 else:
                     action['done'] = False
                     return False
