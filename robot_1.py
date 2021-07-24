@@ -164,6 +164,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
         prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
         if prev_candle_prom != {}:
             if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
+                launch['was_close'] = False
                 print("prev_candle: " + str(prev_candle_prom))
             prev_candle = prev_candle_prom
             
@@ -923,7 +924,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
-                candle['was_close'] = True
+                launch['was_close'] = True
                 if launch['trading_status'] == 'on': 
                     continue
                 else:
@@ -994,7 +995,7 @@ def close_position(order, block, candle, stat, action):
         (order['direction'] == 'short' and order['order_type'] == 'market')):
         
         # если уже было закрытие в данной свече
-        if candle.get('was_close') != None and candle['was_close'] == True:
+        if launch.get('was_close') != None and launch['was_close'] == True:
             order['close_time_order'] = 0
             return False
 
