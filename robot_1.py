@@ -1024,9 +1024,9 @@ def close_position(order, block, candle, stat, action):
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
-                points_position = order['price'] - order['close_price_position']
+                points_position = order['price'] - float(order['close_price_position'])
             else:
-                points_position = order['price'] - order['close_price_position']
+                points_position = order['price'] - float(order['close_price_position'])
 
         rpl = points_position * float(order['leverage'])
         if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
