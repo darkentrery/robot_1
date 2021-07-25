@@ -615,8 +615,8 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
                         print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                         return proc
             if check == 'high':
-                if float(candle['high']) > float(order['proboi' + pp]):
-                    proc = (float(candle['high']) - float(order['old_proboi' + pp])) / (float(order['old_proboi' + pp])/100)
+                if float(candle['high']) > float(order['proboi'][pid]['proboi']):
+                    proc = (float(candle['high']) - float(order['proboi'][pid]['old_proboi'])) / (float(order['proboi'][pid]['old_proboi'])/100)
                     return proc
         except:
             return False
@@ -625,23 +625,23 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
         try:
             if check == 'low':
-                if float(candle['low']) < float(order['proboi' + pp]):
-                    if float(candle['close']) <= float(order['proboi' + pp]):
-                        proc = (float(order['old_proboi' + pp]) - float(candle['low'])) / (float(order['old_proboi' + pp]) / 100)
+                if float(candle['low']) < float(order['proboi'][pid]['proboi']):
+                    if float(candle['close']) <= float(order['proboi'][pid]['proboi']):
+                        proc = (float(order['proboi'][pid]['old_proboi']) - float(candle['low'])) / (float(order['proboi'][pid]['old_proboi']) / 100)
                         return proc
             if check == 'close':
                 if side == 'high':
-                    if float(candle['close']) > float(order['proboi' + pp]):
-                        proc = (float(candle['close']) - float(order['old_proboi' + pp])) / (float(order['old_proboi' + pp])/100)
+                    if float(candle['close']) > float(order['proboi'][pid]['proboi']):
+                        proc = (float(candle['close']) - float(order['proboi'][pid]['old_proboi'])) / (float(order['proboi'][pid]['old_proboi'])/100)
                         return proc
                 if side == 'low':
-                    if float(order['proboi' + pp]) > float(candle['close']):
-                        proc = (float(order['old_proboi' + pp]) - float(candle['close'])) / (float(order['old_proboi' + pp]) / 100)
+                    if float(order['proboi'][pid]['proboi']) > float(candle['close']):
+                        proc = (float(order['proboi'][pid]['old_proboi']) - float(candle['close'])) / (float(order['proboi'][pid]['old_proboi']) / 100)
                         return proc
             if check == 'high':
-                if float(candle['high']) > float(order['proboi' + pp]):
-                    if float(candle['close']) >= float(order['proboi' + pp]):
-                        proc = (float(candle['high']) - float(order['old_proboi' + pp])) / (float(order['old_proboi' + pp])/100)
+                if float(candle['high']) > float(order['proboi'][pid]['proboi']):
+                    if float(candle['close']) >= float(order['proboi'][pid]['proboi']):
+                        proc = (float(candle['high']) - float(order['proboi'][pid]['old_proboi'])) / (float(order['proboi'][pid]['old_proboi'])/100)
                         return proc
         except:
             return False
