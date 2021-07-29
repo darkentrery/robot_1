@@ -1112,7 +1112,12 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по свечам
 
-    launch['trading_status'] = get_trading_status()
+    try:
+        launch['trading_status'] = get_trading_status()
+    except Exception as e:
+        print(e)
+        continue
+
     if last_trading_status != 'on' and launch['trading_status'] == 'on':
         print('Робот запущен')
 
