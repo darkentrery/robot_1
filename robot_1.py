@@ -61,7 +61,7 @@ def get_trading_status():
     query = ("SELECT trading_status FROM launch")
     cursor_ts.execute(query)
     for (trading_status) in cursor_ts:
-        if trading_status[0] == 'on':
+        if trading_status[0] == 'on' or trading_status[0] == 'off_now_close':
             cnx_ts.close()
             return trading_status[0]
     
@@ -992,7 +992,10 @@ def close_position(order, block, candle, stat, action):
             order['close_time_order'] = 0
             return False
 
-        order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
+        if type(block)  == str:
+            order['path'] = order['path'] + ', ' + block
+        else:
+            order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
         if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
@@ -1123,7 +1126,7 @@ while True: #цикл по свечам
         print('Робот запущен')
 
     if (launch['trading_status'] == 'off'
-    or (launch['trading_status'] == 'off_after_close' and order['open_time_position'] == 0)):
+    or (launch['trading_status'].startswith('off') and order['open_time_position'] == 0)):
         if last_trading_status == 'on':
             last_trading_status = launch['trading_status']
             print('Робот остановлен')
@@ -1143,7 +1146,18 @@ while True: #цикл по свечам
             continue
         else:
             break
-            
+
+    if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
+        order['close_time_position'] = candle['time']
+        order['close_time_order'] = candle['time']
+        order['close_price_position'] = candle['price']
+        if close_position(order, launch['trading_status'], candle, stat, None):
+            send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
+            print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
+            order = get_new_order(order)
+            activation_blocks = get_activation_blocks('0', blocks_data, block_order)
+            continue
+
 
     while True: #цикл по блокам
         
