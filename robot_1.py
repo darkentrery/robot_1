@@ -129,6 +129,8 @@ prev_candle = {}
 prev_prev_candle = {}
 last_trading_status = 'off'
 
+cnx2.close()
+
 # ---------- mode ---------------
 
 def get_cur_time():
@@ -199,21 +201,14 @@ def select_candle(date_time, table_name):
     
     candle = {}
 
-    isNone = False
-
     for row in cursor:
         for ss in keys:
             candle[ss] = row[keys.index(ss)]
-            #if candle[ss] == None:
-            #    isNone = True
 
     cnx.commit()
     cnx.close()
 
-    #if bool(candle) and not isNone:
     return candle
-    #else:
-    #    return None
 
 def get_indicators(candle_time, table_name):
 
@@ -264,13 +259,14 @@ def get_tick_from_table(launch, candle, last_id):
         row = launch['ticks']['cursor'].fetchone()
     except:
         id = launch['ticks']['last_id']
-        launch.pop(launch['ticks'])
+        launch['ticks'] = None
         get_tick_from_table(launch, candle, id)
         return
 
     launch['ticks']['last_id'] = row[0]
     if row == None:
         launch['ticks']['connection'].close()
+
     else:
         for ss in launch['ticks']['keys']:
             candle[ss] = row[launch['ticks']['keys'].index(ss)]
@@ -1070,34 +1066,43 @@ def close_position(order, block, candle, stat, action):
 # ---------- database ----------------------
 
 def db_open_position(order):
-
-    insert_stmt = (
-        "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id)"
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
-    )
-    data = (
-        order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
-        order['open_price_position'], order['open_time_position'], order['leverage'], order['path'])
+    
     try:
+        cnx2 = get_db_connection(user, password, host, database_host)
+        cursor = cnx2.cursor()
+
+        insert_stmt = (
+            "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id)"
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+        )
+        data = (
+            order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
+            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'])
+    
         cursor.execute(insert_stmt, data)
         cnx2.commit()
     except Exception as e:
         print(e)
+        db_open_position(order)
 
 def db_close_position(order, result_position, points_position, rpl, price_perecent):
 
-    insert_stmt = (
-        "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
-        " where id_position = %s".format(table_result)
-    )
-    data = (
-        order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-        stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
     try:
+        cnx2 = get_db_connection(user, password, host, database_host)
+        cursor = cnx2.cursor()
+
+        insert_stmt = (
+            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
+            " where id_position = %s".format(table_result)
+        )
+        data = (
+            order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
+            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
         cursor.execute(insert_stmt, data)
         cnx2.commit()
     except Exception as e:
         print(e)
+        db_close_position(order, result_position, points_position, rpl, price_perecent)
 
 # ---------- main programm -----------------
 
@@ -1121,7 +1126,12 @@ while True: #цикл по свечам
     last_trading_status = launch['trading_status']
 
     candle = {}
-    set_candle(launch, keys, cursor_candles, price_table_name, candle)
+    try:
+        set_candle(launch, keys, cursor_candles, price_table_name, candle)
+    except Exception as e:
+        print(e)
+        continue
+
     if candle == {}:
         if launch['mode'] != 'robot':
             continue
@@ -1157,32 +1167,31 @@ while True: #цикл по свечам
     if launch['mode'] == 'tester':
         prev_candle = candle 
         prev_prev_candle = prev_candle
-    #else:
-    #    prev_candle['price'] = candle['price']
 
 cnx.close()
 
-all_orders = stat['profit_sum'] + stat['loss_sum']
 
-if all_orders > 0:
+# all_orders = stat['profit_sum'] + stat['loss_sum']
 
-    profit_positions_percent = stat['profit_sum']/(all_orders/100)
-    loss_positions_percent = stat['loss_sum']/(all_orders/100)
+# if all_orders > 0:
 
-    if stat['profit_sum'] == 0:
-        profit_average_points = 0
-    else:    
-        profit_average_points = stat['profit_points'] / stat['profit_sum']
-    if stat['loss_sum'] == 0:
-        loss_average_points = 0
-    else:    
-        loss_average_points = stat['loss_points'] / stat['loss_sum']
+#     profit_positions_percent = stat['profit_sum']/(all_orders/100)
+#     loss_positions_percent = stat['loss_sum']/(all_orders/100)
 
-    insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
-    "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
+#     if stat['profit_sum'] == 0:
+#         profit_average_points = 0
+#     else:    
+#         profit_average_points = stat['profit_points'] / stat['profit_sum']
+#     if stat['loss_sum'] == 0:
+#         loss_average_points = 0
+#     else:    
+#         loss_average_points = stat['loss_points'] / stat['loss_sum']
 
-    data = (int(stat['percent_positions']), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
-    cursor.execute(insert_stmt, data)
+#     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
+#     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
 
-cnx2.commit()
-cnx2.close()
+#     data = (int(stat['percent_positions']), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
+#     cursor.execute(insert_stmt, data)
+
+# cnx2.commit()
+# cnx2.close()
