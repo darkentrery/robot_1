@@ -681,7 +681,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         new_breakdown_sum = int(condition['new_breakdown_sum'])
         
     if order['proboi'].get(pid)['step'] >= new_breakdown_sum and order['proboi'].get(pid)['proboi_line_proc'] >= proc_value_2:
-        order['proboi'].setdefault(pid, {})
+        order['proboi'][pid] = {}
         return True
     else:
         if order['proboi'].get(pid)['status'] != 0 and side == 'high' and order['proboi'].get(pid)['proboi'] < old_proboi:
