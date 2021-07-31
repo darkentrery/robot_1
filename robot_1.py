@@ -74,6 +74,8 @@ cursor_candles = cnx.cursor()
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
 
+cn_db = get_db_connection(user, password, host, database_host)
+
 launch = {}
 
 query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
@@ -169,7 +171,8 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
             if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
                 launch['was_close'] = False
                 launch['was_open'] = False
-                print("prev_candle: " + str(prev_candle_prom))
+                if launch['mode'] == 'robot':
+                    print("prev_candle: " + str(prev_candle_prom))
             prev_candle = prev_candle_prom
             
         
@@ -177,38 +180,46 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
         prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
         if prev_prev_candle_prom != {}:
             if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
-                print("prev_prev_candle: " + str(prev_prev_candle_prom))
+                if launch['mode'] == 'robot':
+                    print("prev_prev_candle: " + str(prev_prev_candle_prom))
             prev_prev_candle = prev_prev_candle_prom
 
         
 
 def select_candle(date_time, table_name):
     
-    cnx = get_db_connection(user, password, host, database_host)
+    global cn_db
 
-    cursor = cnx.cursor()
+    try: 
 
-    insert_stmt = ("select {0} from {1} "
-    "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
+        cursor = cn_db.cursor()
 
-    data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
-    cursor.execute(insert_stmt, data)
+        insert_stmt = ("select {0} from {1} "
+        "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
 
-    keys = []
-    keys_name = cursor.description
-    for row in keys_name:
-        keys.append(row[0]) 
-    
-    candle = {}
+        data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
+        cursor.execute(insert_stmt, data)
 
-    for row in cursor:
-        for ss in keys:
-            candle[ss] = row[keys.index(ss)]
+        keys = []
+        keys_name = cursor.description
+        for row in keys_name:
+            keys.append(row[0]) 
+        
+        candle = {}
 
-    cnx.commit()
-    cnx.close()
+        for row in cursor:
+            for ss in keys:
+                candle[ss] = row[keys.index(ss)]
 
-    return candle
+        cnx.close()
+
+        return candle
+
+    except Exception as e:
+        print(e)
+        cn_db = get_db_connection(user, password, host, database_host)
+        select_candle(date_time, table_name)
+
 
 def get_indicators(candle_time, table_name):
 
@@ -1072,8 +1083,7 @@ def close_position(order, block, candle, stat, action):
 def db_open_position(order):
     
     try:
-        cnx2 = get_db_connection(user, password, host, database_host)
-        cursor = cnx2.cursor()
+        cursor = cn_db.cursor()
 
         insert_stmt = (
             "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id)"
@@ -1084,7 +1094,7 @@ def db_open_position(order):
             order['open_price_position'], order['open_time_position'], order['leverage'], order['path'])
     
         cursor.execute(insert_stmt, data)
-        cnx2.commit()
+        cn_db.commit()
     except Exception as e:
         print(e)
         db_open_position(order)
@@ -1092,8 +1102,7 @@ def db_open_position(order):
 def db_close_position(order, result_position, points_position, rpl, price_perecent):
 
     try:
-        cnx2 = get_db_connection(user, password, host, database_host)
-        cursor = cnx2.cursor()
+        cursor = cn_db.cursor()
 
         insert_stmt = (
             "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
@@ -1103,7 +1112,7 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
             stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
         cursor.execute(insert_stmt, data)
-        cnx2.commit()
+        cn_db.commit()
     except Exception as e:
         print(e)
         db_close_position(order, result_position, points_position, rpl, price_perecent)
