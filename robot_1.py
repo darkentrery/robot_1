@@ -39,7 +39,6 @@ def get_db_connection(user, password, host, database_host):
 
 
 cn_db = get_db_connection(user, password, host, database_host)
-cn_db.autocommit = True
 cursor_db = cn_db.cursor()
 
 keys_candle_table = []
@@ -161,28 +160,21 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
     global prev_candle
     global prev_prev_candle
 
-    if launch['mode'] == 'tester':
-        row = cursor.fetchone()
-        if row != None:
-            for ss in keys:
-                candle[ss] = row[keys.index(ss)]
-
+    if launch['mode'] == 'robot_debug':
+        get_tick_from_table(launch, candle, 0)
+        if candle == {}:
+            return
+        candle['price'] = float(candle['price'])
+        cur_time = candle['time']
+        price = candle['price']
     else:
-        
-        if launch['mode'] == 'robot_debug':
-            get_tick_from_table(launch, candle, 0)
-            if candle == {}:
-                return
-            candle['price'] = float(candle['price'])
-            cur_time = candle['time']
-            price = candle['price']
-        else:
-            cur_time = get_cur_time()
-            price = get_deribit_price(launch)
-            if price != None:
-                candle['price'] = price
-                candle['time'] = cur_time
+        cur_time = get_cur_time()
+        price = get_deribit_price(launch)
+        if price != None:
+            candle['price'] = price
+            candle['time'] = cur_time
 
+    if launch['mode'] == 'robot':
         prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
         prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
         if prev_candle_prom != {}:
@@ -210,11 +202,13 @@ def select_candle(date_time, table_name):
 
     try: 
 
-        insert_stmt = ("select {0} from {1} "
-        "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
+        #insert_stmt = ("select {0} from {1} "
+        #"where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
 
-        data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
-        cursor_db.execute(insert_stmt, data)
+        date_time.replace(second=0)
+        insert_stmt = ("select {0} from {1} where time = '{2}'".format("*", table_name, date_time))
+
+        cursor_db.execute(insert_stmt)
 
         if len(keys_candle_table) == 0:
             keys_name = cursor_db.description
@@ -234,6 +228,52 @@ def select_candle(date_time, table_name):
         cn_db = get_db_connection(user, password, host, database_host)
         cursor_db = cn_db.cursor()
         select_candle(date_time, table_name)
+
+def select_cur_candle(table_name, launch):
+
+    global cn_db
+    global cursor_db
+    global keys_candle_table
+
+
+    if launch.get('ticks') == None:
+        launch['ticks'] = {}
+        ticks = launch['ticks']
+        ticks['connection'] = get_db_connection(user, password, host, database_host)
+        ticks['cursor'] = ticks['connection'].cursor()
+        query = ("select * from {0} where id > {1}".format(tick_table_name, last_id))
+        ticks['cursor'].execute(query)
+
+
+    try: 
+
+        #insert_stmt = ("select {0} from {1} "
+        #"where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
+
+        date_time.replace(second=0)
+        insert_stmt = ("select {0} from {1} where time = '{2}'".format("*", table_name, date_time))
+
+        cursor_db.execute(insert_stmt)
+
+        if len(keys_candle_table) == 0:
+            keys_name = cursor_db.description
+            for row in keys_name:
+                keys_candle_table.append(row[0]) 
+        
+        candle = {}
+
+        for row in cursor_db:
+            for ss in keys_candle_table:
+                candle[ss] = row[keys_candle_table.index(ss)]
+
+        return candle
+
+    except Exception as e:
+        print(e)
+        cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor()
+        select_candle(date_time, table_name)
+
 
 def get_indicators(candle_time, table_name):
 
@@ -264,12 +304,12 @@ def get_deribit_price(launch):
 
 def get_tick_from_table(launch, candle, last_id):
 
-    tick_table_name = 'price_tick_' + str(launch['time_frame'])
+    tick_table_name = 'price_' + str(launch['time_frame'])
 
     if launch.get('ticks') == None:
         launch['ticks'] = {}
         ticks = launch['ticks']
-        ticks['connection'] = get_db_connection(user, password, host, database_host)
+        ticks['connection'] = cn_db
         ticks['cursor'] = ticks['connection'].cursor()
         query = ("select * from {0} where id > {1}".format(tick_table_name, last_id))
         ticks['cursor'].execute(query)
@@ -290,10 +330,10 @@ def get_tick_from_table(launch, candle, last_id):
     launch['ticks']['last_id'] = row[0]
     if row == None:
         launch['ticks']['connection'].close()
-
     else:
         for ss in launch['ticks']['keys']:
-            candle[ss] = row[launch['ticks']['keys'].index(ss)]
+             candle[ss] = row[launch['ticks']['keys'].index(ss)]
+        candle['price'] = candle['open']
 
 
 # ---------- constructors ---------------
@@ -343,6 +383,13 @@ def get_new_order(order):
     order['condition_checked_candle'] = None
 
     return order
+
+def get_new_tick(price, time):
+    tick = {}
+    tick['price'] = float(price)
+    tick['time'] = time
+
+    return tick
 
 def check_ohlc(candle):
 
@@ -969,7 +1016,8 @@ def open_position(order, block, candle, stat, action, prev_candle):
             order['price'] = price
         order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
         order['leverage'] = round(get_leverage(order, action, stat), 2)
-        db_open_position(order)
+        if launch['mode'] == 'robot':
+            db_open_position(order)
   
     return result
 
@@ -1053,8 +1101,11 @@ def close_position(order, block, candle, stat, action):
 
         if order['order_type'] == 'market':
             order['close_time_position'] = order['close_time_order']
-        
-        db_close_position(order, result_position, points_position, rpl, price_perecent)
+
+        if launch['mode'] == 'robot':
+            db_close_position(order, result_position, points_position, rpl, price_perecent)
+        else:
+            db_insert_position(order, result_position, points_position, rpl, price_perecent)
 
         return True
 
@@ -1105,6 +1156,32 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
         cursor_db = cn_db.cursor()
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
+def db_insert_position(order, result_position, points_position, rpl, price_perecent):
+
+    global cn_db
+    global cursor_db
+
+    try:
+        insert_stmt = (
+            "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id,"
+            "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+        )
+        data = (
+            order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
+            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'],
+            order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
+            stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent)
+    
+        cursor_db.execute(insert_stmt, data)
+        cn_db.commit()
+    except Exception as e:
+        print(e)
+        cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor()
+        db_open_position(order)
+
+
 # ---------- main programm -----------------
 
 activation_blocks = get_activation_blocks('0', blocks_data, block_order)
@@ -1119,23 +1196,24 @@ while True: #цикл по свечам
         print('Скрипт остановлен!')
         break
 
-    try:
-        launch['trading_status'] = get_trading_status()
-    except Exception as e:
-        print(e)
-        continue
+    if launch['mode'] == 'robot':
+        try:
+            launch['trading_status'] = get_trading_status()
+        except Exception as e:
+            print(e)
+            continue
 
-    if last_trading_status != 'on' and launch['trading_status'] == 'on':
-        print('Робот запущен')
+        if last_trading_status != 'on' and launch['trading_status'] == 'on':
+            print('Робот запущен')
 
-    if (launch['trading_status'] == 'off'
-    or (launch['trading_status'].startswith('off') and order['open_time_position'] == 0)):
-        if last_trading_status == 'on':
-            last_trading_status = launch['trading_status']
-            print('Робот остановлен')
-        continue
+        if (launch['trading_status'] == 'off'
+        or (launch['trading_status'].startswith('off') and order['open_time_position'] == 0)):
+            if last_trading_status == 'on':
+                last_trading_status = launch['trading_status']
+                print('Робот остановлен')
+            continue
 
-    last_trading_status = launch['trading_status']
+        last_trading_status = launch['trading_status']
 
     candle = {}
     try:
@@ -1160,7 +1238,6 @@ while True: #цикл по свечам
             order = get_new_order(order)
             activation_blocks = get_activation_blocks('0', blocks_data, block_order)
             continue
-
 
     while True: #цикл по блокам
         
@@ -1187,9 +1264,12 @@ while True: #цикл по свечам
             else:
                 break
     
-    if launch['mode'] == 'tester':
-        prev_candle = candle 
+    if launch['mode'] != 'robot':
         prev_prev_candle = prev_candle
+        prev_candle = candle
+        launch['was_close'] = False
+        launch['was_open'] = False
+        
 
 if cn_db:
     cn_db.close()
