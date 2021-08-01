@@ -32,6 +32,12 @@ def get_db_connection(user, password, host, database_host):
 
     return cnx
 
+
+cn_db = get_db_connection(user, password, host, database_host)
+cursor_db = cn_db.cursor()
+
+keys_candle_table = []
+
 def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 
     if mode == 'tester':
@@ -56,25 +62,31 @@ def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
         print(e)
 
 def get_trading_status():
-    cnx_ts = get_db_connection(user, password, host, database_host)
-    cursor_ts = cnx_ts.cursor()
-    query = ("SELECT trading_status FROM launch")
-    cursor_ts.execute(query)
-    for (trading_status) in cursor_ts:
-        if trading_status[0] == 'on' or trading_status[0] == 'off_now_close':
-            cnx_ts.close()
-            return trading_status[0]
     
-    cnx_ts.close()
-    return 'off'
+    global cn_db
+    global cursor_db
+
+    try:
+
+        query = ("SELECT trading_status FROM launch")
+        cursor_db.execute(query)
+        for (trading_status) in cursor_db:
+            if trading_status[0] == 'on' or trading_status[0] == 'off_now_close':
+                return trading_status[0]
+        
+        return 'off'
+    except:
+        
+        cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor()
+        return get_trading_status()
+
 
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
 
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
-
-cn_db = get_db_connection(user, password, host, database_host)
 
 launch = {}
 
@@ -184,42 +196,38 @@ def set_candle(launch, keys, cursor, price_table_name, candle):
                     print("prev_prev_candle: " + str(prev_prev_candle_prom))
             prev_prev_candle = prev_prev_candle_prom
 
-        
-
 def select_candle(date_time, table_name):
     
     global cn_db
+    global cursor_db
+    global keys_candle_table
 
     try: 
-
-        cursor = cn_db.cursor()
 
         insert_stmt = ("select {0} from {1} "
         "where MINUTE(time) = %s and HOUR(time) = %s and DAY(time) = %s and MONTH(time) = %s and YEAR(time) = %s".format("*", table_name))
 
         data = (date_time.minute, date_time.hour, date_time.day, date_time.month, date_time.year)
-        cursor.execute(insert_stmt, data)
+        cursor_db.execute(insert_stmt, data)
 
-        keys = []
-        keys_name = cursor.description
-        for row in keys_name:
-            keys.append(row[0]) 
+        if len(keys_candle_table) == 0:
+            keys_name = cursor_db.description
+            for row in keys_name:
+                keys_candle_table.append(row[0]) 
         
         candle = {}
 
-        for row in cursor:
-            for ss in keys:
-                candle[ss] = row[keys.index(ss)]
-
-        cnx.close()
+        for row in cursor_db:
+            for ss in keys_candle_table:
+                candle[ss] = row[keys_candle_table.index(ss)]
 
         return candle
 
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor
         select_candle(date_time, table_name)
-
 
 def get_indicators(candle_time, table_name):
 
@@ -231,7 +239,6 @@ def get_indicators(candle_time, table_name):
             cur_minute = candle_time.minute
             return result
 
-    time.sleep(1)
     return {}    
 
 def get_deribit_price(launch):
@@ -510,29 +517,6 @@ def check_pnl(condition, block, candle, order, launch):
             if pnl < candle['low']:
                 return pnl
     return False
-
-def check_trailing(condition, block, candle, order, prev_candle):
-
-    direction = order['direction']
-
-    value = int(condition['value'])
-
-    if ((order['trailing_stop'] == 0)
-        or (direction == 'long' and candle['high'] > prev_candle['high'])
-        or (direction == 'short' and candle['low'] < prev_candle['low'])):
-            if direction == 'long':
-                order['trailing_stop'] = order['open_price_position'] + (float(candle['high']) - order['open_price_position']) * (value / 100)
-            elif direction == 'short':
-                order['trailing_stop'] = order['open_price_position'] - (order['open_price_position'] - float(candle['low'])) * (value / 100)
-    else:
-        if direction == 'long':
-            if candle['low'] <= order['trailing_stop']:
-                return order['trailing_stop']
-        elif direction == 'short':
-            if candle['high'] >= order['trailing_stop']:
-                return order['trailing_stop']
-
-    return 0
 
 def check_exit_price(condition, block, candle, order, prev_candle):
 
@@ -846,14 +830,6 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             else:
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
-        elif condition['type'] == 'trailing':
-            result = check_trailing(condition, block, candle, order, prev_candle)
-            if result == 0:
-                condition['done'] = False
-                return False
-            else:
-                order['close_time_order'] = candle['time']
-                order['close_price_position'] = result
         elif condition['type'] == 'value_change':
             result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
@@ -1082,9 +1058,10 @@ def close_position(order, block, candle, stat, action):
 
 def db_open_position(order):
     
-    try:
-        cursor = cn_db.cursor()
+    global cn_db
+    global cursor_db
 
+    try:
         insert_stmt = (
             "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id)"
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
@@ -1093,17 +1070,20 @@ def db_open_position(order):
             order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
             order['open_price_position'], order['open_time_position'], order['leverage'], order['path'])
     
-        cursor.execute(insert_stmt, data)
+        cursor_db.execute(insert_stmt, data)
         cn_db.commit()
     except Exception as e:
         print(e)
+        cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor
         db_open_position(order)
 
 def db_close_position(order, result_position, points_position, rpl, price_perecent):
 
-    try:
-        cursor = cn_db.cursor()
+    global cn_db
+    global cursor_db
 
+    try:
         insert_stmt = (
             "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
             " where id_position = %s".format(table_result)
@@ -1111,10 +1091,12 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
         data = (
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
             stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
-        cursor.execute(insert_stmt, data)
+        cursor_db.execute(insert_stmt, data)
         cn_db.commit()
     except Exception as e:
         print(e)
+        cn_db = get_db_connection(user, password, host, database_host)
+        cursor_db = cn_db.cursor
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
 # ---------- main programm -----------------
