@@ -27,6 +27,7 @@ def get_db_connection(user, password, host, database_host):
                                         host=host,
                                         database=database_host,
                                         connection_timeout=2)
+            cnx.autocommit = True
             break
         except Exception as e:
             time.sleep(5)
@@ -1179,7 +1180,7 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
         cursor_db = cn_db.cursor()
-        db_open_position(order)
+        db_insert_position(order, result_position, points_position, rpl, price_perecent)
 
 
 # ---------- main programm -----------------
