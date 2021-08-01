@@ -29,12 +29,17 @@ def get_db_connection(user, password, host, database_host):
                                         connection_timeout=2)
             break
         except Exception as e:
+            time.sleep(5)
+            if keyboard.is_pressed('s'):
+                print('Скрипт остановлен!')
+                break
             print(e)
 
     return cnx
 
 
 cn_db = get_db_connection(user, password, host, database_host)
+cn_db.autocommit = True
 cursor_db = cn_db.cursor()
 
 keys_candle_table = []
@@ -71,7 +76,6 @@ def get_trading_status():
         cursor_local = cn_db.cursor()
         query = ("SELECT trading_status FROM launch")
         cursor_local.execute(query)
-        cn_db.commit()        
         result = cursor_local.fetchone()
         for (trading_status) in result:
             if trading_status == 'on' or trading_status == 'off_now_close':
