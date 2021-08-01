@@ -7,6 +7,7 @@ import time
 import http.client
 import pika 
 import uuid
+import keyboard
 
 print('=============================================================================')
 
@@ -64,21 +65,22 @@ def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 def get_trading_status():
     
     global cn_db
-    global cursor_db
 
     try:
 
+        cursor_local = cn_db.cursor()
         query = ("SELECT trading_status FROM launch")
-        cursor_db.execute(query)
-        for (trading_status) in cursor_db:
-            if trading_status[0] == 'on' or trading_status[0] == 'off_now_close':
-                return trading_status[0]
+        cursor_local.execute(query)
+        cn_db.commit()        
+        result = cursor_local.fetchone()
+        for (trading_status) in result:
+            if trading_status == 'on' or trading_status == 'off_now_close':
+                return trading_status
         
         return 'off'
     except:
         
         cn_db = get_db_connection(user, password, host, database_host)
-        cursor_db = cn_db.cursor()
         return get_trading_status()
 
 
@@ -1105,7 +1107,13 @@ activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
 
+
+
 while True: #цикл по свечам
+
+    if keyboard.is_pressed('s'):
+        print('Stop!!!!!')
+        break
 
     try:
         launch['trading_status'] = get_trading_status()
@@ -1179,7 +1187,11 @@ while True: #цикл по свечам
         prev_candle = candle 
         prev_prev_candle = prev_candle
 
-cnx.close()
+if cn_db:
+    cn_db.close()
+
+if cnx:  
+    cnx.close()
 
 
 # all_orders = stat['profit_sum'] + stat['loss_sum']
