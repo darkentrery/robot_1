@@ -226,7 +226,7 @@ def select_candle(date_time, table_name):
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
-        cursor_db = cn_db.cursor
+        cursor_db = cn_db.cursor()
         select_candle(date_time, table_name)
 
 def get_indicators(candle_time, table_name):
@@ -1075,7 +1075,7 @@ def db_open_position(order):
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
-        cursor_db = cn_db.cursor
+        cursor_db = cn_db.cursor()
         db_open_position(order)
 
 def db_close_position(order, result_position, points_position, rpl, price_perecent):
@@ -1096,7 +1096,7 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
-        cursor_db = cn_db.cursor
+        cursor_db = cn_db.cursor()
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
 # ---------- main programm -----------------
