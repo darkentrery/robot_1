@@ -900,10 +900,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
         elif condition['type'] == 'exit_price' and condition.get('new_breakdown_sum') != None:
-            if launch['mode'] == 'tester':
-                result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
-            else:
-                result = check_exit_price_by_steps(condition, block, prev_candle, order, prev_prev_candle)
+            result = check_exit_price_by_steps(condition, block, prev_candle, order, prev_prev_candle)
             if result == False:
                 condition['done'] = False
                 return False
@@ -923,6 +920,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
     if len(block['conditions']) == len(cur_conditions_group):
         set_done_conditions_group(cur_conditions_group)
     
+    order['last_condition'] = condition['type']
     return True
 
 def execute_block_actions(block, candle, order, stat, launch):
@@ -950,7 +948,8 @@ def execute_block_actions(block, candle, order, stat, launch):
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
                 order = get_new_order(order)
-                was_close = True
+                if order['last_condition'] == 'pnl':
+                    was_close = True
                 if launch['trading_status'] == 'on': 
                     continue
                 else:
