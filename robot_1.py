@@ -82,8 +82,8 @@ def get_trading_status():
                 return trading_status
         
         return 'off'
-    except:
-        
+    except Exception as e:
+        print(e)
         cn_db = get_db_connection(user, password, host, database_host)
         return get_trading_status()
 
@@ -93,6 +93,8 @@ cursor_candles = cnx.cursor()
 
 cnx2 = get_db_connection(user, password, host, database_host)
 cursor = cnx2.cursor()
+
+cn_pos = get_db_connection(user, password, host, database_host)
 
 launch = {}
 
@@ -1123,8 +1125,8 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
 
 def db_insert_position(order, result_position, points_position, rpl, price_perecent):
 
-    global cn_db
-    global cursor_db
+    global cn_pos
+    cursor_local = cn_pos.cursor()
 
     try:
         insert_stmt = (
@@ -1138,13 +1140,13 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
             stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent)
     
-        cursor_db.execute(insert_stmt, data)
-        cn_db.commit()
+        cursor_local.execute(insert_stmt, data)
+        cn_pos.commit()
+        cursor_local.close()
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database_host)
-        cursor_db = cn_db.cursor()
-        db_insert_position(order, result_position, points_position, rpl, price_perecent)
+        cn_pos = get_db_connection(user, password, host, database_host)
+        db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
 
 
 # ---------- main programm -----------------
@@ -1186,9 +1188,6 @@ while True: #цикл по свечам
         continue
 
     if candle == {}:
-        # if launch['mode'] != 'robot':
-        #     continue
-        # else:
         break
 
     if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
@@ -1240,6 +1239,8 @@ if cn_db:
 if cnx:  
     cnx.close()
 
+if cn_pos:  
+    cn_pos.close()
 
 # all_orders = stat['profit_sum'] + stat['loss_sum']
 
