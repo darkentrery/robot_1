@@ -73,7 +73,7 @@ def get_trading_status():
 
     try:
 
-        cursor_local = cn_db.cursor()
+        cursor_local = cn_db.cursor(buffered=True)
         query = ("SELECT trading_status FROM launch")
         cursor_local.execute(query)
         result = cursor_local.fetchone()
@@ -280,7 +280,7 @@ def get_tick_from_table(launch, candle, last_id):
         ticks = launch['ticks']
         ticks['last_ohlc'] = 'close'
         ticks['connection'] = cn_db
-        ticks['cursor'] = ticks['connection'].cursor()
+        ticks['cursor'] = ticks['connection'].cursor(buffered=True)
         query = ("select * from {0} where id > {1}".format(tick_table_name, last_id))
         ticks['cursor'].execute(query)
 
