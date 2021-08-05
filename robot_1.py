@@ -38,7 +38,6 @@ def get_db_connection(user, password, host, database_host):
 
     return cnx
 
-
 cn_db = get_db_connection(user, password, host, database_host)
 cursor_db = cn_db.cursor()
 
@@ -86,7 +85,6 @@ def get_trading_status():
         print(e)
         cn_db = get_db_connection(user, password, host, database_host)
         return get_trading_status()
-
 
 cnx = get_db_connection(user, password, host, database_host)
 cursor_candles = cnx.cursor()
