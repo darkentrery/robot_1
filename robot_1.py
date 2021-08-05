@@ -334,6 +334,7 @@ def get_new_statistics():
 
     stat['cur_month'] = 0
     stat['month_percent'] = 0
+    stat['last_month_percent'] = 0
 
     return stat
 
@@ -1064,10 +1065,11 @@ def close_position(order, block, candle, stat, action):
             order['close_time_position'] = order['close_time_order']
 
         if order['open_time_position'].month == stat['cur_month']:
-            stat['month_percent'] = stat['last_percent_position'] + stat['percent_position']
+            stat['month_percent'] = stat['last_month_percent'] + stat['percent_position']
         else:
             stat['month_percent'] = stat['percent_position']
             stat['cur_month'] = order['open_time_position'].month
+        stat['last_month_percent'] = stat['month_percent']
 
 
         if launch['mode'] == 'robot':
