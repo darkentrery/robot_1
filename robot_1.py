@@ -114,12 +114,14 @@ keys = []
 
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
-try:
-    cursor.execute("TRUNCATE TABLE {0}".format(table_result))
-    cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
-except Exception as e:
-    print('Ошибка получения таблицы с результами, причина: ')
-    print(e)
+
+if launch['mode'] != 'robot':
+    try:
+        cursor.execute("TRUNCATE TABLE {0}".format(table_result))
+        cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
+    except Exception as e:
+        print('Ошибка получения таблицы с результами, причина: ')
+        print(e)
 
 try:
     cursor.execute('SELECT * FROM {0}'.format(launch['algorithm']))
@@ -171,8 +173,10 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             prev_candle.update(save_candle)
             launch['was_close'] = False
             launch['was_open'] = False
+        
 
-    else:
+    if launch['mode'] == 'robot':
+        
         candle.clear()
         cur_time = get_cur_time()
         price = get_deribit_price(launch)
@@ -180,7 +184,6 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             candle['price'] = price
             candle['time'] = cur_time
 
-    if launch['mode'] == 'robot':
         prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
         prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
         if prev_candle_prom != {}:
@@ -382,6 +385,7 @@ def check_ohlc(candle):
 def get_proboi_id(block, condition):
 
     return block['alg_number'] + '_' + condition['number']  + '_' + condition['name']
+    
 
 order = get_new_order(None)
 stat = get_new_statistics()
