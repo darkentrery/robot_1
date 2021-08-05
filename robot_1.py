@@ -46,7 +46,7 @@ keys_candle_table = []
 
 def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
 
-    if mode == 'tester':
+    if mode != 'robot':
         return
 
     try:
@@ -113,13 +113,6 @@ price_table_name = 'price_' + str(launch['time_frame'])
 cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
 
 keys = []
-if launch['mode'] == 'tester':
-    # ---- таблица свечей
-    cursor_candles.execute('SELECT * FROM {0} WHERE time BETWEEN %s AND %s'.format(price_table_name), (launch['start_time'], launch['end_time']))
-    keys_name = cursor_candles.description
-    for row in keys_name:
-        keys.append(row[0])
-
 
 table_result = data['table_result']
 table_result_sum = data['table_result_sum']
