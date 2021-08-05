@@ -161,10 +161,6 @@ def get_cur_time():
 
 def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
 
-    # global prev_candle
-    # global prev_prev_candle
-    # global candle
-
     if launch['mode'] == 'robot_debug':
         if candle.get('time') != None:
             save_tick_time = candle['time']
@@ -283,8 +279,8 @@ def get_tick_from_table(launch, candle, last_id):
         ticks['last_ohlc'] = 'close'
         ticks['connection'] = cn_db
         ticks['cursor'] = ticks['connection'].cursor(buffered=True)
-        query = ("select * from {0} where id > {1}".format(tick_table_name, last_id))
-        ticks['cursor'].execute(query)
+        query = ("select * from {0} where id > {1} and time BETWEEN %s AND %s".format(tick_table_name, last_id))
+        ticks['cursor'].execute(query, (launch['start_time'], launch['end_time']))
 
         ticks['keys'] = []
         keys_name = ticks['cursor'].description
@@ -1158,7 +1154,7 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по свечам
 
-    if keyboard.is_pressed('s'):
+    if keyboard.is_pressed('`'):
         print('Скрипт остановлен!')
         break
 
