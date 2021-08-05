@@ -1154,7 +1154,7 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по свечам
 
-    if keyboard.is_pressed('`'):
+    if keyboard.is_pressed('s'):
         print('Скрипт остановлен!')
         break
 
