@@ -332,6 +332,9 @@ def get_new_statistics():
 
     stat['losses_money'] = 0
 
+    stat['cur_month'] = 0
+    stat['month_percent'] = 0
+
     return stat
 
 def get_new_order(order):
@@ -1042,7 +1045,7 @@ def close_position(order, block, candle, stat, action):
 
         stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
-        stat['last_percent_position'] = stat['percent_position']
+        
 
         price_perecent = points_position / order['price'] * 100
 
@@ -1060,10 +1063,19 @@ def close_position(order, block, candle, stat, action):
         if order['order_type'] == 'market':
             order['close_time_position'] = order['close_time_order']
 
-        if launch['mode'] == 'robot':
-            db_close_position(order, result_position, points_position, rpl, price_perecent)
+        if order['open_time_position'].month == stat['cur_month']:
+            stat['month_percent'] = stat['last_percent_position'] + stat['percent_position']
         else:
-            db_insert_position(order, result_position, points_position, rpl, price_perecent)
+            stat['month_percent'] = stat['percent_position']
+            stat['cur_month'] = order['open_time_position'].month
+
+
+        if launch['mode'] == 'robot':
+            db_close_position(order, result_position, points_position, rpl, price_perecent, stat)
+        else:
+            db_insert_position(order, result_position, points_position, rpl, price_perecent, stat)
+
+        stat['last_percent_position'] = stat['percent_position']
 
         return True
 
@@ -1093,19 +1105,19 @@ def db_open_position(order):
         cursor_db = cn_db.cursor()
         db_open_position(order)
 
-def db_close_position(order, result_position, points_position, rpl, price_perecent):
+def db_close_position(order, result_position, points_position, rpl, price_perecent, stat):
 
     global cn_db
     global cursor_db
 
     try:
         insert_stmt = (
-            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s"
+            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s, month_percent = %s"
             " where id_position = %s".format(table_result)
         )
         data = (
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, order['uuid'])
+            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['month_percent'], order['uuid'])
         cursor_db.execute(insert_stmt, data)
         cn_db.commit()
     except Exception as e:
@@ -1114,20 +1126,20 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
         cursor_db = cn_db.cursor()
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
-def db_insert_position(order, result_position, points_position, rpl, price_perecent):
+def db_insert_position(order, result_position, points_position, rpl, price_perecent, stat):
 
     global cn_pos
     cursor_local = cn_pos.cursor()
 
     try:
         insert_stmt = (
-            "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id,"
+            "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id, month_percent,"
             "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
-            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'],
+            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'], stat['month_percent'],
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
             stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent)
     
@@ -1147,7 +1159,7 @@ if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
 
 
-while True: #цикл по свечам
+while True: #цикл по тикам
 
     if keyboard.is_pressed('s'):
         print('Скрипт остановлен!')
@@ -1177,6 +1189,7 @@ while True: #цикл по свечам
     except Exception as e:
         print(e)
         continue
+
 
     if candle == {}:
         break
@@ -1216,12 +1229,6 @@ while True: #цикл по свечам
                 strategy_state = 'check_blocks_conditions'
             else:
                 break
-    
-    # if launch['mode'] != 'robot':
-    #     prev_prev_candle = prev_candle
-    #     prev_candle = candle
-    #     launch['was_close'] = False
-    #     launch['was_open'] = False
         
 
 if cn_db:
