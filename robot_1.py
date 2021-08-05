@@ -17,15 +17,15 @@ with open(directory + '/dbconfig.json', 'r', encoding='utf-8') as f:
 user = data['user']
 password = data['password']
 host = data['host']
-database_host = data['database_host']
+database = data['database']
 
-def get_db_connection(user, password, host, database_host):
+def get_db_connection(user, password, host, database):
 
     while True:
         try:
             cnx = mysql.connector.connect(user=user, password=password,
                                         host=host,
-                                        database=database_host,
+                                        database=database,
                                         connection_timeout=2)
             cnx.autocommit = True
             break
@@ -38,7 +38,7 @@ def get_db_connection(user, password, host, database_host):
 
     return cnx
 
-cn_db = get_db_connection(user, password, host, database_host)
+cn_db = get_db_connection(user, password, host, database)
 cursor_db = cn_db.cursor()
 
 keys_candle_table = []
@@ -83,16 +83,16 @@ def get_trading_status():
         return 'off'
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database_host)
+        cn_db = get_db_connection(user, password, host, database)
         return get_trading_status()
 
-cnx = get_db_connection(user, password, host, database_host)
+cnx = get_db_connection(user, password, host, database)
 cursor_candles = cnx.cursor()
 
-cnx2 = get_db_connection(user, password, host, database_host)
+cnx2 = get_db_connection(user, password, host, database)
 cursor = cnx2.cursor()
 
-cn_pos = get_db_connection(user, password, host, database_host)
+cn_pos = get_db_connection(user, password, host, database)
 
 launch = {}
 
@@ -154,7 +154,7 @@ def get_cur_time():
 
 def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
 
-    if launch['mode'] == 'robot_debug':
+    if launch['mode'] == 'tester':
         if candle.get('time') != None:
             save_tick_time = candle['time']
             save_candle = candle.copy()
@@ -231,7 +231,7 @@ def select_candle(date_time, table_name):
 
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database_host)
+        cn_db = get_db_connection(user, password, host, database)
         cursor_db = cn_db.cursor()
         select_candle(date_time, table_name)
 
@@ -1101,7 +1101,7 @@ def db_open_position(order):
         cn_db.commit()
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database_host)
+        cn_db = get_db_connection(user, password, host, database)
         cursor_db = cn_db.cursor()
         db_open_position(order)
 
@@ -1122,7 +1122,7 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
         cn_db.commit()
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database_host)
+        cn_db = get_db_connection(user, password, host, database)
         cursor_db = cn_db.cursor()
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
@@ -1148,7 +1148,7 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         cursor_local.close()
     except Exception as e:
         print(e)
-        cn_pos = get_db_connection(user, password, host, database_host)
+        cn_pos = get_db_connection(user, password, host, database)
         db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
 
 
