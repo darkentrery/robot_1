@@ -192,7 +192,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
                 launch['was_open'] = False
                 if launch['mode'] == 'robot':
                     print("prev_candle: " + str(prev_candle_prom))
-            prev_candle = prev_candle_prom
+            prev_candle.update(prev_candle_prom)
             
         
         prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
@@ -201,7 +201,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
                 if launch['mode'] == 'robot':
                     print("prev_prev_candle: " + str(prev_prev_candle_prom))
-            prev_prev_candle = prev_prev_candle_prom
+            prev_prev_candle.update(prev_prev_candle_prom)
 
 def select_candle(date_time, table_name):
     
@@ -211,7 +211,8 @@ def select_candle(date_time, table_name):
 
     try: 
 
-        date_time.replace(second=0)
+        date_time = date_time.replace(second=0)
+        date_time = date_time.replace(microsecond=0)
         insert_stmt = ("select {0} from {1} where time = '{2}'".format("*", table_name, date_time))
 
         cursor_db.execute(insert_stmt)
@@ -451,6 +452,8 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
         elif ind_oper == '=':
             if indicator == ind_value:
                 return True
+        elif ind_oper == '':
+            return True
         else:
             return True
 
@@ -1128,7 +1131,7 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по тикам
 
-    if keyboard.is_pressed('s'):
+    if keyboard.is_pressed("shift+`"):
         print('Скрипт остановлен!')
         break
 
