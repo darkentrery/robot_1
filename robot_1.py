@@ -470,94 +470,36 @@ def check_pnl(condition, block, candle, order, launch):
     else:
         pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
 
-    if launch['mode'] == 'robot':
+    # if launch['mode'] == 'robot':
         
-        if candle.get('price') == None:
-            return False
+    if candle.get('price') == None:
+        return False
 
-        if direction == 'long':
-            left_value = candle['price']
-            right_value = pnl
-        else:
-            left_value = pnl
-            right_value = candle['price']
-
-        if ind_oper == '>=' and left_value >= right_value:
-            return candle['price']
-        elif ind_oper == '<=' and left_value <= right_value:
-            return candle['price']
-        elif ind_oper == '=' and left_value == right_value:
-            return candle['price']
-        elif ind_oper == '>' and left_value > right_value:
-            return candle['price']
-        elif ind_oper == '<' and left_value < right_value:
-            return candle['price']
-        else:
-            return False
-    
     if direction == 'long':
-        if ind_oper == '>=':
-            if candle['high'] >= pnl:
-                return pnl
-        if ind_oper == '<=':
-            if candle['high'] <= pnl:
-                return pnl
-        if ind_oper == '=':
-            if candle['high'] == pnl:
-                return pnl
-        if ind_oper == '>':
-            if candle['high'] > pnl:
-                return pnl
-        if ind_oper == '<':
-            if candle['high'] < pnl:
-                return pnl
-        if ind_oper == '>=':
-            if candle['low'] >= pnl:
-                return pnl
-        if ind_oper == '<=':
-            if candle['low'] <= pnl:
-                return pnl
-        if ind_oper == '=':
-            if candle['low'] == pnl:
-                return pnl
-        if ind_oper == '>':
-            if candle['low'] > pnl:
-                return pnl
-        if ind_oper == '<':
-            if candle['low'] < pnl:
-                return pnl
+        left_value = candle['price']
+        right_value = pnl
     else:
-        if ind_oper == '>=':
-            if pnl >= candle['high']:
-                return pnl
-        if ind_oper == '<=':
-            if pnl <= candle['high']:
-                return pnl
-        if ind_oper == '=':
-            if pnl == candle['high']:
-                return pnl
-        if ind_oper == '>':
-            if pnl > candle['high']:
-                return pnl
-        if ind_oper == '<':
-            if pnl < candle['high']:
-                return pnl
-        if ind_oper == '>=':
-            if pnl >= candle['low']:
-                return pnl
-        if ind_oper == '<=':
-            if pnl <= candle['low']:
-                return pnl
-        if ind_oper == '=':
-            if pnl == candle['low']:
-                return pnl
-        if ind_oper == '>':
-            if pnl > candle['low']:
-                return pnl
-        if ind_oper == '<':
-            if pnl < candle['low']:
-                return pnl
-    return False
+        left_value = pnl
+        right_value = candle['price']
+
+    if ind_oper == '>=' and left_value >= right_value:
+        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+        return candle['price']
+    elif ind_oper == '<=' and left_value <= right_value:
+        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+        return candle['price']
+    elif ind_oper == '=' and left_value == right_value:
+        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+        return candle['price']
+    elif ind_oper == '>' and left_value > right_value:
+        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+        return candle['price']
+    elif ind_oper == '<' and left_value < right_value:
+        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+        return candle['price']
+    else:
+        return False
+   
 
 def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
