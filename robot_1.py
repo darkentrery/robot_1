@@ -30,10 +30,7 @@ def get_db_connection(user, password, host, database):
             cnx.autocommit = True
             break
         except Exception as e:
-            time.sleep(5)
-            if keyboard.is_pressed('s'):
-                print('Скрипт остановлен!')
-                break
+            time.sleep(2)
             print(e)
 
     return cnx
@@ -106,6 +103,9 @@ launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata
 rmq_metadata = json.loads(launch['rmq_metadata'])
 launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
+launch['id_candle'] = 0
+launch['cur_conditions_group'] = []
+
 price_table_name = 'price_' + str(launch['time_frame'])
 
 cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
@@ -152,6 +152,9 @@ cnx2.close()
 def get_cur_time():
     return datetime.datetime.utcnow()
 
+def update_candle(launch):
+    launch['id_candle'] = launch['id_candle'] + 1
+
 def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
 
     if launch['mode'] == 'tester':
@@ -173,6 +176,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             prev_candle.update(save_candle)
             launch['was_close'] = False
             launch['was_open'] = False
+            update_candle(launch)
         
 
     if launch['mode'] == 'robot':
@@ -190,8 +194,8 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
                 launch['was_close'] = False
                 launch['was_open'] = False
-                if launch['mode'] == 'robot':
-                    print("prev_candle: " + str(prev_candle_prom))
+                update_candle(launch)
+                print("prev_candle: " + str(prev_candle_prom))
             prev_candle.update(prev_candle_prom)
             
         
@@ -199,8 +203,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
         prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
         if prev_prev_candle_prom != {}:
             if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
-                if launch['mode'] == 'robot':
-                    print("prev_prev_candle: " + str(prev_prev_candle_prom))
+                print("prev_prev_candle: " + str(prev_prev_candle_prom))
             prev_prev_candle.update(prev_prev_candle_prom)
 
 def select_candle(date_time, table_name):
@@ -376,21 +379,9 @@ def get_new_tick(price, time):
 
     return tick
 
-def check_ohlc(candle):
-
-    if (candle.get('open') == None
-        or candle.get('close') == None
-        or candle.get('high') == None
-        or candle.get('low') == None):
-
-        return False
-
-    return True
-
 def get_proboi_id(block, condition):
 
     return block['alg_number'] + '_' + condition['number']  + '_' + condition['name']
-    
 
 order = get_new_order(None)
 stat = get_new_statistics()
@@ -727,26 +718,45 @@ def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle,
     return None
 
 def set_done_conditions_group(conditions_group):
+
+    result = True
+    id_candle = conditions_group[0]['id_candle']
     for condition in conditions_group:
-        condition['done'] = True    
+        if condition['id_candle'] != id_candle:
+            result = False
+    
+    for condition in conditions_group:
+        condition['done'] = result
+        if result == False:
+            condition['id_candle'] = None
+
+
 
 def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
 
     cur_condition_number = None
-    cur_conditions_group = []
+    cond_done_id_candle = None
 
     for condition in block['conditions']:
         
+        if condition.get('id_candle') != None and condition['id_candle'] == launch['id_candle']:
+            cond_done_id_candle = condition['id_candle']
+            continue
+
         if cur_condition_number != None and condition['number'] != cur_condition_number:
-            set_done_conditions_group(cur_conditions_group)
+            set_done_conditions_group(launch['cur_conditions_group'])
+            launch['cur_conditions_group'].clear()
             return False
 
-        if condition.get('done') == None:
-            condition['done'] = False
-
-        if condition['done']:
-            continue
+        condition.setdefault('done', False)
         
+        if condition['done'] == True:
+            cond_done_id_candle = condition['id_candle']
+            continue
+
+        if cond_done_id_candle != None and cond_done_id_candle == launch['id_candle']:
+            return False
+
         if condition['type'] == 'pnl':
             result = check_pnl(condition, block, candle, order, launch)
             if result == False:
@@ -783,15 +793,17 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             condition['done'] = False
             return False
 
+        # если условие выполнилось
+        condition['id_candle'] = launch['id_candle']
         cur_condition_number = condition['number']
 
-        cur_conditions_group.append(condition)
+        launch['cur_conditions_group'].append(condition)
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
         
-    if len(block['conditions']) == len(cur_conditions_group):
-        set_done_conditions_group(cur_conditions_group)
+    set_done_conditions_group(launch['cur_conditions_group'])
+    launch['cur_conditions_group'].clear()
     
     return True
 
@@ -1073,9 +1085,9 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по тикам
 
-    if keyboard.is_pressed("shift+`"):
-        print('Скрипт остановлен!')
-        break
+    # if keyboard.is_pressed("shift+`"):
+    #     print('Скрипт остановлен!')
+    #     break
 
     if launch['mode'] == 'robot':
         try:
