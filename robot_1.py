@@ -305,19 +305,32 @@ def get_tick_from_table(launch, candle, last_id):
         for ss in launch['ticks']['keys']:
              candle[ss] = row[launch['ticks']['keys'].index(ss)]
 
-        if launch['ticks']['last_ohlc'] == 'close':
-            candle['price'] = candle['open']
-            launch['ticks']['last_ohlc'] = 'open'
-        elif launch['ticks']['last_ohlc'] == 'open':
-            candle['price'] = candle['high']
-            launch['ticks']['last_ohlc'] = 'high'
-        elif launch['ticks']['last_ohlc'] == 'high':
-            candle['price'] = candle['low']
-            launch['ticks']['last_ohlc'] = 'low'
-        elif launch['ticks']['last_ohlc'] == 'low':
-            candle['price'] = candle['close']
-            launch['ticks']['last_ohlc'] = 'close'
-        
+        if candle['open'] > candle['close']:
+            if launch['ticks']['last_ohlc'] == 'close':
+                candle['price'] = candle['open']
+                launch['ticks']['last_ohlc'] = 'open'
+            elif launch['ticks']['last_ohlc'] == 'open':
+                candle['price'] = candle['high']
+                launch['ticks']['last_ohlc'] = 'high'
+            elif launch['ticks']['last_ohlc'] == 'high':
+                candle['price'] = candle['low']
+                launch['ticks']['last_ohlc'] = 'low'
+            elif launch['ticks']['last_ohlc'] == 'low':
+                candle['price'] = candle['close']
+                launch['ticks']['last_ohlc'] = 'close'
+        else:
+            if launch['ticks']['last_ohlc'] == 'close':
+                candle['price'] = candle['open']
+                launch['ticks']['last_ohlc'] = 'open'
+            elif launch['ticks']['last_ohlc'] == 'open':
+                candle['price'] = candle['low']
+                launch['ticks']['last_ohlc'] = 'low'
+            elif launch['ticks']['last_ohlc'] == 'low':
+                candle['price'] = candle['high']
+                launch['ticks']['last_ohlc'] = 'high'
+            elif launch['ticks']['last_ohlc'] == 'high':
+                candle['price'] = candle['close']
+                launch['ticks']['last_ohlc'] = 'close'
 
 
 # ---------- constructors ---------------
@@ -461,8 +474,6 @@ def check_pnl(condition, block, candle, order, launch):
     else:
         pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
 
-    # if launch['mode'] == 'robot':
-        
     if candle.get('price') == None:
         return False
 
@@ -475,19 +486,19 @@ def check_pnl(condition, block, candle, order, launch):
 
     if ind_oper == '>=' and left_value >= right_value:
         print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return candle['price']
+        return pnl
     elif ind_oper == '<=' and left_value <= right_value:
         print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return candle['price']
+        return pnl
     elif ind_oper == '=' and left_value == right_value:
         print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return candle['price']
+        return pnl
     elif ind_oper == '>' and left_value > right_value:
         print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return candle['price']
+        return pnl
     elif ind_oper == '<' and left_value < right_value:
         print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return candle['price']
+        return pnl
     else:
         return False
    
@@ -509,6 +520,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
         if check == 'low':
             if float(candle['price']) < float(order['proboi'].get(pid)['proboi']):
                 proc = (float(order['proboi'].get(pid)['proboi']) - float(candle['price'])) / (float(order['proboi'].get(pid)['proboi']) / 100)
+                print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
         if check == 'close':
             if side == 'high':
@@ -524,6 +536,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
         if check == 'high':
             if float(candle['price']) > float(order['proboi'][pid]['proboi']):
                 proc = (float(candle['price']) - float(order['proboi'][pid]['proboi'])) / (float(order['proboi'][pid]['proboi'])/100)
+                print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
     except:
         return False
@@ -729,8 +742,6 @@ def set_done_conditions_group(conditions_group):
         condition['done'] = result
         if result == False:
             condition['id_candle'] = None
-
-
 
 def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
 
@@ -1085,9 +1096,9 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по тикам
 
-    # if keyboard.is_pressed("shift+`"):
-    #     print('Скрипт остановлен!')
-    #     break
+    if keyboard.is_pressed("shift+`"):
+         print('Скрипт остановлен!')
+         break
 
     if launch['mode'] == 'robot':
         try:
