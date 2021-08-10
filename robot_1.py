@@ -103,8 +103,9 @@ launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata
 rmq_metadata = json.loads(launch['rmq_metadata'])
 launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
+launch['cur_conditions_group'] = {}
 launch['id_candle'] = 0
-launch['cur_conditions_group'] = []
+launch['last_price'] = 0
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
@@ -501,7 +502,6 @@ def check_pnl(condition, block, candle, order, launch):
         return pnl
     else:
         return False
-   
 
 def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
@@ -520,23 +520,23 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
         if check == 'low':
             if float(candle['price']) < float(order['proboi'].get(pid)['proboi']):
                 proc = (float(order['proboi'].get(pid)['proboi']) - float(candle['price'])) / (float(order['proboi'].get(pid)['proboi']) / 100)
-                print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
         if check == 'close':
             if side == 'high':
                 if float(candle['close']) > float(order['proboi'].get(pid)['proboi']):
                     proc = (float(candle['close']) - float(order['proboi'].get(pid)['proboi'])) / (float(order['proboi'].get(pid)['proboi'])/100)
-                    print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                    print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                     return proc
             if side == 'low':
                 if float(order['proboi'].get(pid)['proboi']) > float(candle['close']):
                     proc = (float(order['proboi'].get(pid)['proboi']) - float(candle['close'])) / (float(order['proboi'].get(pid)['proboi']) / 100)
-                    print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                    print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                     return proc
         if check == 'high':
             if float(candle['price']) > float(order['proboi'][pid]['proboi']):
                 proc = (float(candle['price']) - float(order['proboi'][pid]['proboi'])) / (float(order['proboi'][pid]['proboi'])/100)
-                print('side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
     except:
         return False
@@ -589,6 +589,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         return False
     
     func_result = False
+    price = 0
     result = check_exit_price_by_step(condition, block, candle, order, prev_candle)
     if result:
 
@@ -599,35 +600,37 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         if order['proboi'].get(pid)['step'] >= new_breakdown_sum and order['proboi'].get(pid)['line_proc'] >= exit_price_percent:
             if order['open_time_position'] != 0:
                 if check == 'low':
-                    close_price_position = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
-                    if candle['price'] <= close_price_position:
-                        order['close_price_position'] = close_price_position
+                    price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
+                    if candle['price'] <= price:
+                        order['close_price_position'] = price
                         func_result = True
                 if check == 'close':
-                    order['close_price_position'] = float(candle['close'])
+                    price = float(candle['close'])
+                    order['close_price_position'] = price
                     func_result = True
                 if check == 'high':
-                    close_price_position = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
-                    if candle['price'] >= close_price_position:
-                        order['close_price_position'] = close_price_position
+                    price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
+                    if candle['price'] >= price:
+                        order['close_price_position'] = price
                         func_result = True
             if order['open_time_position'] == 0:
                 if check == 'low':
-                    open_price_position = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
-                    if candle['price'] <= open_price_position:
-                        order['open_price_position'] = open_price_position
+                    price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
+                    if candle['price'] <= price:
+                        order['open_price_position'] = price
                         func_result = True
                 if check == 'close':
-                    order['open_price_position'] = float(candle['close'])
+                    price = float(candle['close'])
+                    order['open_price_position'] = price
                     func_result = True
                 if check == 'high':
-                    open_price_position = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
-                    if candle['price'] >= open_price_position:
-                        order['open_price_position'] = open_price_position
+                    price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
+                    if candle['price'] >= price:
+                        order['open_price_position'] = price
                         func_result = True
             if func_result:
                 order['proboi'][pid] = {}
-                return True
+                return price
             else:
                 return False
         else:
@@ -722,65 +725,80 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     
     return blocks
 
+def drop_conditions(blocks, launch):
+    for block in blocks:
+        launch['cur_conditions_group'][str(block['number'])] = []
+        for condition in block['conditions']:
+            condition['id_candle'] = None
+            condition['done'] = False
+
 def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle, launch):
 
     for block in blocks:
+        launch['cur_conditions_group'].setdefault(str(block['number']),[])
         if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
+            drop_conditions(blocks, launch)
             return block
     
     return None
 
 def set_done_conditions_group(conditions_group):
 
-    result = True
-    id_candle = conditions_group[0]['id_candle']
     for condition in conditions_group:
-        if condition['id_candle'] != id_candle:
-            result = False
-    
+        condition['done'] = True
+
+def undone_conditions_group(conditions_group):
     for condition in conditions_group:
-        condition['done'] = result
-        if result == False:
-            condition['id_candle'] = None
+        condition['done'] = False
+        condition['id_candle'] = None
 
 def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
 
     cur_condition_number = None
     cond_done_id_candle = None
+    launch['prices'] = []
+
+    cur_conditions_group = launch['cur_conditions_group'][str(block['number'])]
+
+    # если изменилась свеча для текущего намбера, то обнуляем
+    if len(cur_conditions_group) > 0 and cur_conditions_group[0]['id_candle'] != launch['id_candle']:
+        undone_conditions_group(cur_conditions_group)
+        launch['cur_conditions_group'][str(block['number'])] = []
 
     for condition in block['conditions']:
-        
-        if condition.get('id_candle') != None and condition['id_candle'] == launch['id_candle']:
-            cond_done_id_candle = condition['id_candle']
-            continue
-
-        if cur_condition_number != None and condition['number'] != cur_condition_number:
-            set_done_conditions_group(launch['cur_conditions_group'])
-            launch['cur_conditions_group'].clear()
-            return False
 
         condition.setdefault('done', False)
-        
-        if condition['done'] == True:
-            cond_done_id_candle = condition['id_candle']
+
+        # пропускаем те условия, которые отработали в данной свече
+        if condition.get('id_candle') != None and condition['id_candle'] == launch['id_candle']:
             continue
 
-        if cond_done_id_candle != None and cond_done_id_candle == launch['id_candle']:
+        # если изменился намбер в цикле, то возвращаем False
+        if cur_condition_number != None and condition['number'] != cur_condition_number:
+             set_done_conditions_group(cur_conditions_group)
+             launch['cur_conditions_group'][str(block['number'])] = []
+             return False
+        
+        # если условие выполнилось, то продолжаем
+        if condition['done'] == True:
+            continue
+
+
+        if cond_done_id_candle != None and cond_done_id_candle == launch['id_candle']: # ждем пока не появится новая свеча, чтобы проверить группу с новым намбером
             return False
 
         if condition['type'] == 'pnl':
             result = check_pnl(condition, block, candle, order, launch)
             if result == False:
-                condition['done'] = False
                 return False
             else:
+                launch['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['close_price_position'] = result
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'value_change':
             result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
-                condition['done'] = False
                 return False
             else:
                 order['condition_checked_candle'] = prev_candle
@@ -789,32 +807,36 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             check = condition['check']
             if check == 'high' or check == 'low':
                 result = check_exit_price_by_steps(condition, block, candle, order, prev_candle)
-                if result:
+                if result != False:
                     order['last_condition_type'] = 'realtime'
             else:
                 result = check_exit_price_by_steps(condition, block, prev_candle, order, prev_prev_candle)
-                if result:
+                if result != False:
                     order['last_condition_type'] = 'history'
             if result == False:
-                condition['done'] = False
                 return False
             else:
+                launch['prices'].append(result)
                 order['close_time_order'] = candle['time']
         else:
-            condition['done'] = False
             return False
 
         # если условие выполнилось
         condition['id_candle'] = launch['id_candle']
         cur_condition_number = condition['number']
 
-        launch['cur_conditions_group'].append(condition)
+        launch['cur_conditions_group'][str(block['number'])].append(condition)
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
         
-    set_done_conditions_group(launch['cur_conditions_group'])
-    launch['cur_conditions_group'].clear()
+    set_done_conditions_group(cur_conditions_group)
+    launch['cur_conditions_group'][str(block['number'])] = []
+
+    if candle['price'] < launch['last_price']:
+        launch['price'] = min(launch['prices'])
+    else:
+        launch['price'] = max(launch['prices'])
     
     return True
 
@@ -905,6 +927,8 @@ def open_position(order, block, candle, stat, action, prev_candle):
             price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
         elif order['direction'] == 'short':
             price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
+        if launch.get('price') != None and launch['price'] != 0:
+            order['open_price_position'] = launch['price']
         if order['open_price_position'] == 0:
             order['open_price_position'] = price
         if order['price'] == 0:
@@ -913,6 +937,8 @@ def open_position(order, block, candle, stat, action, prev_candle):
         order['leverage'] = round(get_leverage(order, action, stat), 2)
         if launch['mode'] == 'robot':
             db_open_position(order)
+
+    launch['price'] = 0
   
     return result
 
@@ -932,6 +958,10 @@ def close_position(order, block, candle, stat, action):
             order['path'] = order['path'] + ', ' + block
         else:
             order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
+
+        if launch.get('price') != None and launch['price'] != 0:
+            order['close_price_position'] = launch['price']
+        launch['price'] = 0
 
         if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
@@ -1097,8 +1127,8 @@ if len(activation_blocks) == 0:
 while True: #цикл по тикам
 
     if keyboard.is_pressed("shift+`"):
-         print('Скрипт остановлен!')
-         break
+        print('Скрипт остановлен!')
+        break
 
     if launch['mode'] == 'robot':
         try:
@@ -1164,6 +1194,8 @@ while True: #цикл по тикам
                 strategy_state = 'check_blocks_conditions'
             else:
                 break
+
+    launch['last_price'] = candle['price']
         
 
 if cn_db:
