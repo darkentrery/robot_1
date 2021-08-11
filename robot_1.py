@@ -833,10 +833,11 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
     set_done_conditions_group(cur_conditions_group)
     launch['cur_conditions_group'][str(block['number'])] = []
 
-    if candle['price'] < launch['last_price']:
-        launch['price'] = min(launch['prices'])
-    else:
-        launch['price'] = max(launch['prices'])
+    if len(launch['prices']) > 0:
+        if candle['price'] < launch['last_price']:
+            launch['price'] = min(launch['prices'])
+        else:
+            launch['price'] = max(launch['prices'])
     
     return True
 
