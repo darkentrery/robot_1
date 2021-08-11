@@ -794,7 +794,6 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             else:
                 launch['prices'].append(result)
                 order['close_time_order'] = candle['time']
-                order['close_price_position'] = result
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'value_change':
             result = check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
@@ -803,6 +802,8 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             else:
                 order['condition_checked_candle'] = prev_candle
                 order['last_condition_type'] = 'history'
+                order['close_time_order'] = 0
+
         elif condition['type'] == 'exit_price':
             check = condition['check']
             if check == 'high' or check == 'low':
@@ -1129,9 +1130,9 @@ if len(activation_blocks) == 0:
 
 while True: #цикл по тикам
 
-    if keyboard.is_pressed("shift+`"):
-        print('Скрипт остановлен!')
-        break
+    # if keyboard.is_pressed("shift+`"):
+    #     print('Скрипт остановлен!')
+    #     break
 
     if launch['mode'] == 'robot':
         try:
