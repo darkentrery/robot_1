@@ -838,6 +838,8 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             launch['price'] = min(launch['prices'])
         else:
             launch['price'] = max(launch['prices'])
+    else:
+        launch['price'] = 0
     
     return True
 
