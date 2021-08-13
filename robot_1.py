@@ -638,6 +638,73 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
     return False
 
+def check_trailing(condition, block, candle, order, launch):
+
+    direction = order['direction']
+
+    back_percent = float(condition['back_percent'])
+
+    if order['trailing_stop'] == 0:
+        price = order['open_price_position']
+    else:
+        price = candle['price']
+
+    if ((direction == 'long' and candle['price'] > launch['last_price'])
+        or (direction == 'short' and candle['price'] < launch['last_price'])):
+            if direction == 'long':
+                order['trailing_stop'] = price - price * back_percent / 100
+            elif direction == 'short':
+                order['trailing_stop'] = price + price * back_percent / 100
+    else:
+        if order['trailing_stop'] != 0:
+            if direction == 'long':
+                if candle['price'] < order['trailing_stop']:
+                    return candle['price']
+            elif direction == 'short':
+                if candle['price'] > order['trailing_stop']:
+                    return candle['price']
+
+    return False
+
+def check_price(condition, block, candle, order, launch):
+    
+    direction = order['direction']
+
+    ind_oper = condition['change_percent'].split(' ')[0]
+    ind_value = float(condition['change_percent'].split(' ')[1])
+    if direction == 'short':
+        pnl = order['open_price_position'] - order['open_price_position'] / 100 * ind_value
+    else:
+        pnl = order['open_price_position'] + order['open_price_position'] / 100 * ind_value
+
+    if candle.get('price') == None:
+        return False
+
+    if direction == 'long':
+        left_value = candle['price']
+        right_value = pnl
+    else:
+        left_value = pnl
+        right_value = candle['price']
+
+    if ind_oper == '>=' and left_value >= right_value:
+        result = pnl
+    elif ind_oper == '<=' and left_value <= right_value:
+        result = pnl
+    elif ind_oper == '=' and left_value == right_value:
+        result = pnl
+    elif ind_oper == '>' and left_value > right_value:
+        result = pnl
+    elif ind_oper == '<' and left_value < right_value:
+        result = pnl
+    else:
+        result = False
+
+    if result != False:
+        print("price(" + direction + ", " + str(ind_value) +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
+
+    return result 
+
 # ---------- engine -----------------
 
 def get_leverage(order, action, stat):
@@ -803,7 +870,22 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['condition_checked_candle'] = prev_candle
                 order['last_condition_type'] = 'history'
                 order['close_time_order'] = 0
-
+        elif condition['type'] == 'price':
+            result = check_price(condition, block, candle, order, launch)
+            if result == False:
+                return False
+            else:
+                launch['prices'].append(result)
+                order['close_time_order'] = candle['time']
+                order['last_condition_type'] = 'realtime'
+        elif condition['type'] == 'trailing':
+            result = check_trailing(condition, block, candle, order, launch)
+            if result == False:
+                return False
+            else:
+                launch['prices'].append(result)
+                order['close_time_order'] = candle['time']
+                order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'exit_price':
             check = condition['check']
             if check == 'high' or check == 'low':
@@ -1119,7 +1201,6 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         print(e)
         cn_pos = get_db_connection(user, password, host, database)
         db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
-
 
 # ---------- main programm -----------------
 
