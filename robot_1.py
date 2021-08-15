@@ -646,19 +646,23 @@ def check_trailing(condition, block, candle, order, launch):
 
     result = False
     
-    if (order['trailing_price'] == 0
-        or (direction == 'long' and candle['price'] > launch['last_price'])
-        or (direction == 'short' and candle['price'] < launch['last_price'])):
+    if order['trailing_price'] == 0:
+        #or (direction == 'long' and candle['price'] > launch['last_price'])
+        #or (direction == 'short' and candle['price'] < launch['last_price'])):
 
-                trailinf_start = order['trailing_price'] == 0
+            trailing_start = order['trailing_price'] == 0
 
-                if direction == 'long':
-                    order['trailing_price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
-                elif direction == 'short':
-                    order['trailing_price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
+            if direction == 'long':
+                trailing_price = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
+                if trailing_price > order['trailing_price']:
+                    order['trailing_price'] = trailing_price
+            elif direction == 'short':
+                 trailing_price = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
+                 if trailing_price < order['trailing_price']:
+                    order['trailing_price'] = trailing_price
 
-                if trailinf_start:
-                    print("trailing_price(start)=" + str(order['trailing_price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
+            if trailing_start:
+                print("trailing_price(start)=" + str(order['trailing_price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
 
                 
     else:
