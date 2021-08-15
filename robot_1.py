@@ -369,7 +369,7 @@ def get_new_order(order):
     order['close_time_position'] = 0
     order['close_time_order'] = 0
 
-    order['trailing_stop'] = 0
+    order['trailing_price'] = 0
     order['uuid'] = str(uuid.uuid4())
 
     order['leverage'] = 1
@@ -644,29 +644,36 @@ def check_trailing(condition, block, candle, order, launch):
 
     back_percent = float(condition['back_percent'])
 
-    if order['trailing_stop'] == 0 and condition['back_percent'] == '1':
-        price = order['open_price_position']
-    else:
-        price = candle['price']
-
-    if (order['trailing_stop'] == 0
+    result = False
+    
+    if (order['trailing_price'] == 0
         or (direction == 'long' and candle['price'] > launch['last_price'])
         or (direction == 'short' and candle['price'] < launch['last_price'])):
 
-                if direction == 'long':
-                    order['trailing_stop'] = price - price * back_percent / 100
-                elif direction == 'short':
-                    order['trailing_stop'] = price + price * back_percent / 100
-    else:
-        if order['trailing_stop'] != 0:
-            if direction == 'long':
-                if candle['price'] < order['trailing_stop']:
-                    return candle['price']
-            elif direction == 'short':
-                if candle['price'] > order['trailing_stop']:
-                    return candle['price']
+                trailinf_start = order['trailing_price'] == 0
 
-    return False
+                if direction == 'long':
+                    order['trailing_price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
+                elif direction == 'short':
+                    order['trailing_price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
+
+                if trailinf_start:
+                    print("trailing_price(start)=" + str(order['trailing_price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
+
+                
+    else:
+        if order['trailing_price'] != 0:
+            if direction == 'long':
+                if candle['price'] < order['trailing_price']:
+                    result = order['trailing_price']
+            elif direction == 'short':
+                if candle['price'] > order['trailing_price']:
+                    result = order['trailing_price'] 
+
+    if result != False:
+        print("trailing_price(finish)=" + str(result) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']))
+
+    return result
 
 def check_price(condition, block, candle, order, launch):
     
