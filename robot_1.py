@@ -657,27 +657,24 @@ def check_trailing(condition, block, candle, order, launch):
     trailing.setdefault('max_price', 0)
     trailing.setdefault('min_price', 0)
 
-    if trailing['price'] == 0:
-
-        price_change = True
-        if direction == 'long' and candle['price'] > trailing['max_price']:
-            trailing['price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
-            trailing['max_price'] = candle['price']
-        elif direction == 'short' and candle['price'] < trailing['min_price']:
-            trailing['price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
-            trailing['min_price'] = candle['price']
-        else:
-            price_change = False
-
-        if price_change:
-            print("trailing_price(change)=" + str(trailing['price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
-                
+    price_change = True
+    if direction == 'long' and candle['price'] > trailing['max_price']:
+        trailing['price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
+        trailing['max_price'] = candle['price']
+    elif direction == 'short' and candle['price'] < trailing['min_price']:
+        trailing['price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
+        trailing['min_price'] = candle['price']
     else:
-        if trailing['price'] != 0:
-            if direction == 'long' and candle['price'] < trailing['price']:
-                result = trailing['price']
-            elif direction == 'short' and candle['price'] > trailing['price']:
-                result = trailing['price'] 
+        price_change = False
+
+    if price_change:
+        print("trailing_price(change)=" + str(trailing['price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
+                
+    if trailing['price'] != 0:
+        if direction == 'long' and candle['price'] < trailing['price']:
+            result = trailing['price']
+        elif direction == 'short' and candle['price'] > trailing['price']:
+            result = trailing['price'] 
 
     if result != False:
         print("trailing_price(finish)=" + str(result) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']))
