@@ -644,17 +644,19 @@ def check_trailing(condition, block, candle, order, launch):
 
     back_percent = float(condition['back_percent'])
 
-    if order['trailing_stop'] == 0:
+    if order['trailing_stop'] == 0 and condition['back_percent'] == '1':
         price = order['open_price_position']
     else:
         price = candle['price']
 
-    if ((direction == 'long' and candle['price'] > launch['last_price'])
+    if (order['trailing_stop'] == 0
+        or (direction == 'long' and candle['price'] > launch['last_price'])
         or (direction == 'short' and candle['price'] < launch['last_price'])):
-            if direction == 'long':
-                order['trailing_stop'] = price - price * back_percent / 100
-            elif direction == 'short':
-                order['trailing_stop'] = price + price * back_percent / 100
+
+                if direction == 'long':
+                    order['trailing_stop'] = price - price * back_percent / 100
+                elif direction == 'short':
+                    order['trailing_stop'] = price + price * back_percent / 100
     else:
         if order['trailing_stop'] != 0:
             if direction == 'long':
