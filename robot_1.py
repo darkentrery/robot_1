@@ -654,14 +654,14 @@ def check_trailing(condition, block, candle, order, launch):
     trailing = order['trailings'].setdefault(str(block['number']), {})
 
     trailing.setdefault('price', 0)
-    trailing.setdefault('max_price', 0)
-    trailing.setdefault('min_price', 0)
+    trailing.setdefault('max_price', candle['price'])
+    trailing.setdefault('min_price', candle['price'])
 
     price_change = True
-    if direction == 'long' and candle['price'] > trailing['max_price']:
+    if direction == 'long' and candle['price'] >= trailing['max_price']:
         trailing['price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
         trailing['max_price'] = candle['price']
-    elif direction == 'short' and candle['price'] < trailing['min_price']:
+    elif direction == 'short' and candle['price'] <= trailing['min_price']:
         trailing['price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
         trailing['min_price'] = candle['price']
     else:
