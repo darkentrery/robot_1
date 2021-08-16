@@ -153,41 +153,19 @@ cnx2.close()
 def get_cur_time():
     return datetime.datetime.utcnow()
 
-def safe_list_get(l, idx):
-  try:
-    return l[idx]
-  except IndexError:
-    return None
-
 def update_candle(launch):
     launch['id_candle'] = launch['id_candle'] + 1
 
 def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
 
     if launch['mode'] == 'tester':
-        if candle.get('time') != None:
-            save_tick_time = candle['time']
-            save_candle = candle.copy()
-            save_prev_candle = prev_candle.copy()
-        else:
-            save_tick_time = None
-        candle.clear()
         get_tick_from_table(launch, candle, 0)
         if candle == {}:
             return
         candle['price'] = float(candle['price'])
         cur_time = candle['time']
-        price = candle['price']
-        if save_tick_time != None and save_tick_time != candle['time']:
-            prev_prev_candle.update(save_prev_candle)
-            prev_candle.update(save_candle)
-            launch['was_close'] = False
-            launch['was_open'] = False
-            update_candle(launch)
-        
 
     if launch['mode'] == 'robot':
-        
         candle.clear()
         cur_time = get_cur_time()
         price = get_deribit_price(launch)
@@ -195,23 +173,28 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             candle['price'] = price
             candle['time'] = cur_time
 
-        prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
-        prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
-        if prev_candle_prom != {}:
-            if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
-                launch['was_close'] = False
-                launch['was_open'] = False
-                update_candle(launch)
+    prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
+    prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
+    if prev_candle_prom != None and prev_candle_prom != {}:
+        if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
+            launch['was_close'] = False
+            launch['was_open'] = False
+            update_candle(launch)
+            if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
-            prev_candle.update(prev_candle_prom)
-            
-        
-        prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
-        prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
-        if prev_prev_candle_prom != {}:
-            if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
+        prev_candle.update(prev_candle_prom)
+    elif prev_candle_prom == None:
+        prev_candle.clear()
+    
+    prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
+    prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
+    if prev_prev_candle_prom != None and prev_prev_candle_prom != {}:
+        if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
+            if launch['mode'] == 'robot':
                 print("prev_prev_candle: " + str(prev_prev_candle_prom))
-            prev_prev_candle.update(prev_prev_candle_prom)
+        prev_prev_candle.update(prev_prev_candle_prom)
+    elif prev_prev_candle_prom == None:
+        prev_prev_candle.clear()
 
 def select_candle(date_time, table_name):
     
@@ -252,9 +235,11 @@ def get_indicators(candle_time, table_name):
 
     if (candle_time.minute % launch['time_frame']) == 0 and cur_minute != candle_time.minute:
         result = select_candle(candle_time, table_name)
-        if result != None:
+        if result != {}:
             cur_minute = candle_time.minute
             return result
+        else:
+            return None
 
     return {}    
 
@@ -273,7 +258,7 @@ def get_deribit_price(launch):
     else:
         return None
 
-def get_tick_from_table(launch, candle, last_id):
+def get_tick_from_table1(launch, candle, last_id):
 
     tick_table_name = 'price_' + str(launch['time_frame'])
 
@@ -338,6 +323,39 @@ def get_tick_from_table(launch, candle, last_id):
                 candle['price'] = candle['close']
                 launch['ticks']['last_ohlc'] = 'close'
 
+def get_tick_from_table(launch, candle, last_id):
+
+    tick_table_name = 'price_tick'
+
+    if launch.get('ticks') == None:
+        launch['ticks'] = {}
+        ticks = launch['ticks']
+        ticks['connection'] = cn_db
+        ticks['cursor'] = ticks['connection'].cursor(buffered=True)
+        query = ("select * from {0} where id > {1} and time BETWEEN %s AND %s".format(tick_table_name, last_id))
+        ticks['cursor'].execute(query, (launch['start_time'], launch['end_time']))
+
+        ticks['keys'] = []
+        keys_name = ticks['cursor'].description
+        for row in keys_name:
+            ticks['keys'].append(row[0]) 
+
+    try:
+       row = launch['ticks']['cursor'].fetchone()
+    except:
+        id = launch['ticks']['last_id']
+        launch['ticks'] = None
+        get_tick_from_table(launch, candle, id)
+        return
+
+    if row == None:
+        launch['ticks']['connection'].close()
+        candle.clear()
+    else:
+        launch['ticks']['last_id'] = row[0]
+
+        for ss in launch['ticks']['keys']:
+             candle[ss] = row[launch['ticks']['keys'].index(ss)]
 
 # ---------- constructors ---------------
 
@@ -654,14 +672,14 @@ def check_trailing(condition, block, candle, order, launch):
     trailing = order['trailings'].setdefault(str(block['number']), {})
 
     trailing.setdefault('price', 0)
-    trailing.setdefault('max_price', candle['price'])
-    trailing.setdefault('min_price', candle['price'])
+    trailing.setdefault('max_price', 0)
+    trailing.setdefault('min_price', 0)
 
     price_change = True
-    if direction == 'long' and candle['price'] >= trailing['max_price']:
+    if direction == 'long' and (candle['price'] > trailing['max_price'] or trailing['max_price'] == 0):
         trailing['price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
         trailing['max_price'] = candle['price']
-    elif direction == 'short' and candle['price'] <= trailing['min_price']:
+    elif direction == 'short' and (candle['price'] < trailing['min_price'] or trailing['min_price'] == 0):
         trailing['price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
         trailing['min_price'] = candle['price']
     else:
@@ -1306,28 +1324,3 @@ if cnx:
 
 if cn_pos:  
     cn_pos.close()
-
-# all_orders = stat['profit_sum'] + stat['loss_sum']
-
-# if all_orders > 0:
-
-#     profit_positions_percent = stat['profit_sum']/(all_orders/100)
-#     loss_positions_percent = stat['loss_sum']/(all_orders/100)
-
-#     if stat['profit_sum'] == 0:
-#         profit_average_points = 0
-#     else:    
-#         profit_average_points = stat['profit_points'] / stat['profit_sum']
-#     if stat['loss_sum'] == 0:
-#         loss_average_points = 0
-#     else:    
-#         loss_average_points = stat['loss_points'] / stat['loss_sum']
-
-#     insert_stmt = ("INSERT INTO {0}(percent_positions, profit_positions_percent, profit_average_points, profit_sum, loss_positions_percent, loss_average_points, loss_sum)"
-#     "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(table_result_sum))
-
-#     data = (int(stat['percent_positions']), int(profit_positions_percent), profit_average_points, stat['profit_sum'], int(loss_positions_percent), loss_average_points, int(stat['loss_sum']))
-#     cursor.execute(insert_stmt, data)
-
-# cnx2.commit()
-# cnx2.close()
