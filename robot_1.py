@@ -1253,6 +1253,8 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         cn_pos = get_db_connection(user, password, host, database)
         db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
 
+
+
 # ---------- main programm -----------------
 
 strategy_state = 'check_blocks_conditions'
