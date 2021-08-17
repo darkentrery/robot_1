@@ -106,6 +106,8 @@ launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 launch['cur_conditions_group'] = {}
 launch['id_candle'] = 0
 launch['last_price'] = 0
+empty_time_candles = 10
+launch['empty_time_candles'] = 0
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
@@ -139,8 +141,7 @@ for gg in rows1:
     block_order[str(gg[0])] = iter
     iter = iter + 1
 
-strategy_state = 'check_blocks_conditions'
-action_block = None
+
 candle = {}
 prev_candle = {}
 prev_prev_candle = {}
@@ -408,6 +409,22 @@ def get_new_order(order):
     order['condition_checked_candle'] = None
 
     return order
+
+def manage_order_tester(order, prev_candle, launch):
+    
+    if launch['mode'] != 'tester':
+        return False
+    
+    if prev_candle == {}:
+        launch['empty_time_candles'] = launch['empty_time_candles'] + 1
+        if launch['empty_time_candles'] >= empty_time_candles:
+            order = get_new_order(order)
+            launch['cur_conditions_group'] = {}
+            return True
+    else:
+        launch['empty_time_candles'] = 0
+
+    return False
 
 def get_new_tick(price, time):
     tick = {}
@@ -826,11 +843,12 @@ def get_activation_blocks(action_block, blocks_data, block_order):
     return blocks
 
 def drop_conditions(blocks, launch):
-    for block in blocks:
-        launch['cur_conditions_group'][str(block['number'])] = []
-        for condition in block['conditions']:
-            condition['id_candle'] = None
-            condition['done'] = False
+    launch['cur_conditions_group'] = {}
+    # for block in blocks:
+    #     launch['cur_conditions_group'][str(block['number'])] = []
+    #     for condition in block['conditions']:
+    #         condition['id_candle'] = None
+    #         condition['done'] = False
 
 def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle, launch):
 
@@ -1237,6 +1255,8 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
 
 # ---------- main programm -----------------
 
+strategy_state = 'check_blocks_conditions'
+action_block = None
 activation_blocks = get_activation_blocks('0', blocks_data, block_order)
 if len(activation_blocks) == 0:
     raise Exception('There is no first block in startegy')
@@ -1273,6 +1293,11 @@ while True: #цикл по тикам
         print(e)
         continue
 
+    if manage_order_tester(order, prev_candle, launch):
+        strategy_state = 'check_blocks_conditions'
+        action_block = None
+        activation_blocks = get_activation_blocks('0', blocks_data, block_order)
+        continue
 
     if candle == {}:
         break
