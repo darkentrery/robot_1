@@ -147,8 +147,6 @@ prev_candle = {}
 prev_prev_candle = {}
 last_trading_status = 'off'
 
-cnx2.close()
-
 # ---------- mode ---------------
 
 def get_cur_time():
@@ -357,6 +355,8 @@ def get_tick_from_table(launch, candle, last_id):
 
         for ss in launch['ticks']['keys']:
              candle[ss] = row[launch['ticks']['keys'].index(ss)]
+
+
 
 # ---------- constructors ---------------
 
@@ -1253,15 +1253,91 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         cn_pos = get_db_connection(user, password, host, database)
         db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
 
+def json_serial(obj):
 
+    """JSON serializer for objects not serializable by default json code"""
+
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+
+def load_with_datetime(pairs, format='%Y-%m-%dT%H:%M:%S'):
+    """Load with dates"""
+    d = {}
+    for k, v in pairs:
+        ok = False
+        try:
+            d[k] = datetime.datetime.strptime(v, format).date()
+            ok = True
+        except:
+            d[k] = v
+        if ok == False:
+            try:
+                d[k] = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S.%f').date()
+            except:
+                d[k] = v
+    return d
+
+def db_save_state(launch, stat, order):
+
+    if launch['mode'] != 'robot':
+        return False
+
+    global cnx2
+    global cursor
+
+    launch_data = json.dumps(launch, default=json_serial)
+    stat_data = json.dumps(stat, default=json_serial)
+    order_data = json.dumps(order, default=json_serial)
+
+    try:
+        update_query = ("UPDATE launch SET launch_data = %s, stat_data = %s, order_data = %s where id = 1")
+        data = (launch_data, stat_data, order_data)
+        cursor.execute(update_query, data)
+        cnx2.commit()
+    except Exception as e:
+        print(e)
+
+def db_get_state(launch, stat, order):
+
+    if launch['mode'] != 'robot':
+        return False
+
+    global cnx2
+    global cursor
+
+    launch_data = json.dumps(launch, default=json_serial)
+    stat_data = json.dumps(stat, default=json_serial)
+    order_data = json.dumps(order, default=json_serial)
+
+    try:
+        query = ("SELECT launch_data, stat_data, order_data FROM launch")
+        cursor.execute(query)
+        for (launch_data, stat_data, order_data) in cursor:
+            if launch_data == "" or stat_data == "" or order_data == "":
+                return False
+
+        launch_data = json.loads(launch_data, object_pairs_hook=load_with_datetime)
+        stat_data = json.loads(stat_data, object_pairs_hook=load_with_datetime)
+        order_data = json.loads(order_data, object_pairs_hook=load_with_datetime)
+
+        launch.update(launch_data)
+        stat.update(stat_data)
+        order.update(order_data)
+
+        return True
+
+    except Exception as e:
+        print(e)
+        return False
 
 # ---------- main programm -----------------
 
-strategy_state = 'check_blocks_conditions'
-action_block = None
-activation_blocks = get_activation_blocks('0', blocks_data, block_order)
-if len(activation_blocks) == 0:
-    raise Exception('There is no first block in startegy')
+if db_get_state(launch, stat, order) != True:
+    launch['strategy_state'] = 'check_blocks_conditions'
+    launch['action_block'] = None
+    launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
+    if len(launch['activation_blocks']) == 0:
+        raise Exception('There is no first block in startegy')
 
 
 while True: #цикл по тикам
@@ -1296,9 +1372,9 @@ while True: #цикл по тикам
         continue
 
     if manage_order_tester(order, prev_candle, launch):
-        strategy_state = 'check_blocks_conditions'
-        action_block = None
-        activation_blocks = get_activation_blocks('0', blocks_data, block_order)
+        launch['strategy_state'] = 'check_blocks_conditions'
+        launch['action_block'] = None
+        launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
         continue
 
     if candle == {}:
@@ -1312,31 +1388,32 @@ while True: #цикл по тикам
             send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
             order = get_new_order(order)
-            activation_blocks = get_activation_blocks('0', blocks_data, block_order)
+            launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
             continue
 
     while True: #цикл по блокам
         
         # проверка условий активных блоков
-        if strategy_state == 'check_blocks_conditions':
-            action_block = check_blocks_condition(activation_blocks, candle, order, prev_candle, prev_prev_candle, launch)
-            if action_block != None:
-                strategy_state = 'execute_block_actions'
+        if launch['strategy_state'] == 'check_blocks_conditions':
+            launch['action_block'] = check_blocks_condition(launch['activation_blocks'], candle, order, prev_candle, prev_prev_candle, launch)
+            if launch['action_block'] != None:
+                launch['strategy_state'] = 'execute_block_actions'
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
-                if len(action_block['actions']) == 0:
-                    activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
+                if len(launch['action_block']['actions']) == 0:
+                    launch['activation_blocks'] = get_activation_blocks(launch['action_block'], blocks_data, block_order)
                     # назначаем только, если он (блок) один и в нем нет условий
-                    if len(activation_blocks) == 1 and len(activation_blocks[0]['conditions']) == 0:
-                        action_block = activation_blocks[0]
+                    if len(launch['activation_blocks']) == 1 and len(launch['activation_blocks'][0]['conditions']) == 0:
+                        launch['action_block'] = launch['activation_blocks'][0]
             else:
                 break
             
         # исполнение действий блока
-        if strategy_state == 'execute_block_actions':
-            result = execute_block_actions(action_block, candle, order, stat, launch)
+        if launch['strategy_state'] == 'execute_block_actions':
+            result = execute_block_actions(launch['action_block'], candle, order, stat, launch)
             if result == True:
-                activation_blocks = get_activation_blocks(action_block, blocks_data, block_order)
-                strategy_state = 'check_blocks_conditions'
+                launch['activation_blocks'] = get_activation_blocks(launch['action_block'], blocks_data, block_order)
+                launch['strategy_state'] = 'check_blocks_conditions'
+                db_save_state(launch, stat, order)
             else:
                 break
 
@@ -1351,3 +1428,6 @@ if cnx:
 
 if cn_pos:  
     cn_pos.close()
+
+if cnx2:
+    cnx2.close()
