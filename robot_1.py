@@ -100,6 +100,10 @@ launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata
     launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
     break
 
+if launch['mode'] == 'tester':
+    cn_tick = get_db_connection(user, password, host, database)
+
+
 rmq_metadata = json.loads(launch['rmq_metadata'])
 launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
 
@@ -324,14 +328,12 @@ def get_tick_from_table1(launch, candle, last_id):
 
 def get_tick_from_table(launch, candle, last_id):
 
-    global cn_db
-
     tick_table_name = 'price_tick'
 
     if launch.get('ticks') == None:
         launch['ticks'] = {}
         ticks = launch['ticks']
-        ticks['connection'] = cn_db
+        ticks['connection'] = cn_tick
         ticks['cursor'] = ticks['connection'].cursor()
         query = ("select * from {0} where id > {1} and time BETWEEN %s AND %s".format(tick_table_name, last_id))
         ticks['cursor'].execute(query, (launch['start_time'], launch['end_time']))
@@ -566,7 +568,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
         if check == 'low':
             if float(candle['price']) < float(order['proboi'].get(pid)['proboi']):
                 proc = (float(order['proboi'].get(pid)['proboi']) - float(candle['price'])) / (float(order['proboi'].get(pid)['proboi']) / 100)
-                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
         if check == 'close':
             if side == 'high':
@@ -582,7 +584,7 @@ def check_exit_price_by_step(condition, block, candle, order, prev_candle):
         if check == 'high':
             if float(candle['price']) > float(order['proboi'][pid]['proboi']):
                 proc = (float(candle['price']) - float(order['proboi'][pid]['proboi'])) / (float(order['proboi'][pid]['proboi'])/100)
-                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) +', close=' + str(candle['close']) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
+                print('time=' + str(candle['time']) + ',side=' + str(side) + ', check=' + str(check) + ',proboi=' + str(order['proboi'].get(pid)['proboi']) +  ', name=' + str(condition['name']))
                 return proc
     except:
         return False
@@ -1445,3 +1447,6 @@ if cn_pos:
 
 if cnx2:
     cnx2.close()
+
+if launch['mode'] == 'tester' and cn_tick:
+    cn_tick.close()
