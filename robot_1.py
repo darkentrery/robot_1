@@ -324,13 +324,15 @@ def get_tick_from_table1(launch, candle, last_id):
 
 def get_tick_from_table(launch, candle, last_id):
 
+    global cn_db
+
     tick_table_name = 'price_tick'
 
     if launch.get('ticks') == None:
         launch['ticks'] = {}
         ticks = launch['ticks']
         ticks['connection'] = cn_db
-        ticks['cursor'] = ticks['connection'].cursor(buffered=True)
+        ticks['cursor'] = ticks['connection'].cursor()
         query = ("select * from {0} where id > {1} and time BETWEEN %s AND %s".format(tick_table_name, last_id))
         ticks['cursor'].execute(query, (launch['start_time'], launch['end_time']))
 
@@ -341,7 +343,8 @@ def get_tick_from_table(launch, candle, last_id):
 
     try:
        row = launch['ticks']['cursor'].fetchone()
-    except:
+    except Exception as e:
+        print(e)
         id = launch['ticks']['last_id']
         launch['ticks'] = None
         get_tick_from_table(launch, candle, id)
