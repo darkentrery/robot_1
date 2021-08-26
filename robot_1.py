@@ -613,7 +613,12 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
 
     if prev_candle != None:
         old_proboi = order['proboi'].get(pid)['proboi']
-        proboi = float(prev_candle.get(condition['name'] + '-' + condition['side'], 0))
+
+        level_name = condition['name'] + '-' + condition['side']
+        proboi = prev_candle.get(level_name)
+        if proboi == None:
+            proboi = 0
+        proboi = float(proboi)
         order['proboi'].get(pid)['proboi'] = proboi
         if order['proboi'].get(pid)['status'] == 0:
             order['proboi'].get(pid)['old_proboi'] = order['proboi'].get(pid)['proboi']
