@@ -8,6 +8,9 @@ import http.client
 import pika 
 import uuid
 import keyboard
+import ssl
+
+ssl._create_default_https_context = ssl._create_unverified_context
 
 print('=============================================================================')
 
@@ -1086,7 +1089,11 @@ def open_position(order, block, candle, stat, action, prev_candle):
             order['open_price_position'] = price
         if order['price'] == 0:
             order['price'] = price
-        order['path'] = order['path'] + str(block['number']) + '_' + block['alg_number']
+        if order['path'] == '':
+            pr_str = ''
+        else:
+            pr_str = ','
+        order['path'] = order['path'] + pr_str + str(block['number']) + '_' + block['alg_number']
         order['leverage'] = round(get_leverage(order, action, stat), 2)
         if launch['mode'] == 'robot':
             db_open_position(order)
