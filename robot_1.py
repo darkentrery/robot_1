@@ -115,7 +115,8 @@ launch['empty_time_candles'] = 0
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
-cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
+# cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
+cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).replace(second=0).replace(microsecond=0)
 
 keys = []
 
@@ -236,10 +237,12 @@ def get_indicators(candle_time, table_name):
 
     global cur_minute
 
-    if (candle_time.minute % launch['time_frame']) == 0 and cur_minute != candle_time.minute:
+    candle_minute = candle_time.replace(second=0).replace(microsecond=0)
+
+    if (candle_time.minute % launch['time_frame']) == 0 and cur_minute != candle_minute:
         result = select_candle(candle_time, table_name)
         if result != {}:
-            cur_minute = candle_time.minute
+            cur_minute = candle_time.replace(second=0).replace(microsecond=0)
             return result
         else:
             return None
