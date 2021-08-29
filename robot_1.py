@@ -259,7 +259,7 @@ def get_deribit_price(launch):
 
     if response.get('result') != None and response['result'].get('trades') != None and len(response['result']['trades']) > 0:
         price = response['result']['trades'][0]['price'] 
-        print("deribit price = " + str(price))
+        print("deribit price = " + str(price) + ", time = " + str(datetime.datetime.utcnow()))
         return price
     else:
         return None
