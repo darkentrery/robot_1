@@ -1344,7 +1344,7 @@ def db_get_state(launch, stat, order):
         query = ("SELECT launch_data, stat_data, order_data FROM launch")
         cursor.execute(query)
         for (launch_data, stat_data, order_data) in cursor:
-            if launch_data == "" or stat_data == "" or order_data == "":
+            if launch_data == "" or stat_data == "" or order_data == "" or launch_data == None or stat_data == None or order_data == None:
                 return False
 
         launch_data = json.loads(launch_data, object_pairs_hook=load_with_datetime)
