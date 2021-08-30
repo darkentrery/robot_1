@@ -183,7 +183,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
     prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
     if prev_candle_prom != None and prev_candle_prom != {}:
-        if prev_candle != {} and prev_candle['time'] != prev_candle_prom['time']:
+        if ((prev_candle == {}) or (prev_candle != {} and prev_candle['time'] != prev_candle_prom['time'])):
             launch['was_close'] = False
             launch['was_open'] = False
             update_candle(launch)
@@ -196,7 +196,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
     prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
     if prev_prev_candle_prom != None and prev_prev_candle_prom != {}:
-        if prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time']:
+        if ((prev_prev_candle == {}) or (prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time'])):
             if launch['mode'] == 'robot':
                 print("prev_prev_candle: " + str(prev_prev_candle_prom))
         prev_prev_candle.update(prev_prev_candle_prom)
@@ -780,6 +780,10 @@ def get_leverage(order, action, stat):
     
     leverage_start = action.get('leverage_start')
     if leverage_start == None:
+        return float(action.get('leverage', 1))
+
+    leverage_max = action.get('leverage_max')
+    if leverage_max == None:
         return float(action.get('leverage', 1))
 
     order['leverage_start'] = float(leverage_start)
