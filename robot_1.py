@@ -77,10 +77,9 @@ def get_trading_status():
         cursor_local.execute(query)
         result = cursor_local.fetchone()
         for (trading_status) in result:
-            if trading_status == 'on' or trading_status == 'off_now_close':
-                return trading_status
+            return trading_status
         
-        return 'off'
+        return 'on'
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database)
@@ -94,31 +93,35 @@ cursor = cnx2.cursor()
 
 cn_pos = get_db_connection(user, password, host, database)
 
-launch = {}
+def init_launch():
+    launch = {}
 
-query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
-cursor.execute(query)
-for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['time_frame'], 
-launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata']) in cursor:
-    launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
-    break
+    query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
+    cursor.execute(query)
+    for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['time_frame'], 
+    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata']) in cursor:
+        launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
+        break
+
+    launch['rmq_metadata'] = json.loads(launch['rmq_metadata'])
+    launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
+
+    launch['cur_conditions_group'] = {}
+    launch['id_candle'] = 0
+    launch['last_price'] = 0
+    launch['empty_time_candles'] = 0
+
+    return launch
+
+launch = init_launch()
 
 if launch['mode'] == 'tester':
     cn_tick = get_db_connection(user, password, host, database)
 
-
-rmq_metadata = json.loads(launch['rmq_metadata'])
-launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
-
-launch['cur_conditions_group'] = {}
-launch['id_candle'] = 0
-launch['last_price'] = 0
 empty_time_candles = 10
-launch['empty_time_candles'] = 0
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
-# cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).minute
 cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).replace(second=0).replace(microsecond=0)
 
 keys = []
@@ -153,7 +156,7 @@ for gg in rows1:
 candle = {}
 prev_candle = {}
 prev_prev_candle = {}
-last_trading_status = 'off'
+robot_is_stoped = True
 
 # ---------- mode ---------------
 
@@ -867,11 +870,6 @@ def get_activation_blocks(action_block, blocks_data, block_order):
 
 def drop_conditions(blocks, launch):
     launch['cur_conditions_group'] = {}
-    # for block in blocks:
-    #     launch['cur_conditions_group'][str(block['number'])] = []
-    #     for condition in block['conditions']:
-    #         condition['id_candle'] = None
-    #         condition['done'] = False
 
 def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle, launch):
 
@@ -1020,7 +1018,7 @@ def execute_block_actions(block, candle, order, stat, launch):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
+                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
                 print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
@@ -1029,8 +1027,8 @@ def execute_block_actions(block, candle, order, stat, launch):
                     was_close = True
                 if launch['trading_status'] == 'on': 
                     continue
-                else:
-                    return False    
+                elif launch['trading_status'] == 'off_after_close':
+                    return None    
             else:
                 action['done'] = False
                 return False
@@ -1055,7 +1053,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
+                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
                     print('Открытие позиции: ' + order['direction'] + ', ' + str(order['leverage']) + ', ' + str(order['open_time_position']))
                     launch['was_open'] = True
                 else:
@@ -1365,15 +1363,29 @@ def db_get_state(launch, stat, order):
         print(e)
         return False
 
+def db_clear_state():
+
+    try:
+        update_query = ("UPDATE launch SET launch_data = %s, stat_data = %s, order_data = %s where id = 1")
+        data = (None, None, None)
+        cursor.execute(update_query, data)
+        cnx2.commit()
+        print("Контекст очищен")
+    except Exception as e:
+        print(e)
+
+
 # ---------- main programm -----------------
 
-if db_get_state(launch, stat, order) != True:
+def init_algo(launch):
     launch['strategy_state'] = 'check_blocks_conditions'
     launch['action_block'] = None
     launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
     if len(launch['activation_blocks']) == 0:
         raise Exception('There is no first block in startegy')
 
+if db_get_state(launch, stat, order) != True:
+    init_algo(launch)
 
 while True: #цикл по тикам
 
@@ -1383,22 +1395,31 @@ while True: #цикл по тикам
 
     if launch['mode'] == 'robot':
         try:
-            launch['trading_status'] = get_trading_status()
+            trading_status = get_trading_status()
         except Exception as e:
             print(e)
             continue
 
-        if last_trading_status != 'on' and launch['trading_status'] == 'on':
+        if robot_is_stoped and trading_status == 'on':
+            robot_is_stoped = False
             print('Робот запущен')
 
-        if (launch['trading_status'] == 'off'
-        or (launch['trading_status'].startswith('off') and order['open_time_position'] == 0)):
-            if last_trading_status == 'on':
-                last_trading_status = launch['trading_status']
-                print('Робот остановлен')
-            continue
+        robot_must_stop = (trading_status == 'off'
+            or (launch['trading_status'] == "off_after_close" and order['open_time_position'] == 0)
+            or trading_status == 'off_now_close')
 
-        last_trading_status = launch['trading_status']
+        if robot_must_stop and robot_is_stoped == False:
+            robot_is_stoped = True
+            print('Робот остановлен')
+            if trading_status != 'off':
+                db_clear_state()
+                launch = init_launch()
+                init_algo(launch)
+
+        launch['trading_status'] = trading_status
+
+        if robot_is_stoped:
+            continue
 
     try:
         set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle)
@@ -1420,7 +1441,7 @@ while True: #цикл по тикам
         order['close_time_order'] = candle['time']
         order['close_price_position'] = candle['price']
         if close_position(order, launch['trading_status'], candle, stat, None):
-            send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], rmq_metadata)
+            send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
             order = get_new_order(order)
             launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
