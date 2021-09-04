@@ -1392,8 +1392,8 @@ def db_clear_state():
 
 def send_open_position_telegram(launch, order):
 
-    # if launch['mode'] != 'robot':
-    #     return
+    if launch['mode'] != 'robot':
+        return
 
     global cn_db
     global cursor_db
@@ -1415,8 +1415,8 @@ def send_open_position_telegram(launch, order):
 
 def send_close_position_telegram(launch, order):
 
-    # if launch['mode'] != 'robot':
-    #     return
+    if launch['mode'] != 'robot':
+        return
 
     global cn_db
     global cursor_db
