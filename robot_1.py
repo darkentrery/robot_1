@@ -1292,6 +1292,9 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         cn_pos.commit()
         cursor_local.close()
 
+        send_open_position_telegram(launch, order)
+        send_close_position_telegram(launch, order)
+
     except Exception as e:
         print(e)
         cn_pos = get_db_connection(user, password, host, database)
@@ -1389,8 +1392,8 @@ def db_clear_state():
 
 def send_open_position_telegram(launch, order):
 
-    if launch['mode'] != 'robot':
-        return
+    # if launch['mode'] != 'robot':
+    #     return
 
     global cn_db
     global cursor_db
@@ -1400,7 +1403,10 @@ def send_open_position_telegram(launch, order):
         query = "select id, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
         cursor_db.execute(query)
         for (id, leverage)  in cursor_db:
-            text = 'ID=' + str(id) + ", " + order['direction'] + ", open" + "\n" + str(order['open_price_position'])
+            text = ('*ID ' + str(id) + "*" + 
+            "\n" + order['direction'] + " open" + 
+            "\n" + str(order['open_price_position']) + 
+            "\n" + "L " + str(leverage))
 
         if text != '':
             send_telegram(launch, text)    
@@ -1409,20 +1415,23 @@ def send_open_position_telegram(launch, order):
 
 def send_close_position_telegram(launch, order):
 
-    if launch['mode'] != 'robot':
-        return
+    # if launch['mode'] != 'robot':
+    #     return
 
     global cn_db
     global cursor_db
 
     text = ''
     try:
-        query = "select id, percent_position, month_percent from {0} where id_position = '{1}'".format(table_result, order['uuid'])
+        query = "select id, percent_position, month_percent, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
         cursor_db.execute(query)
-        for (id, percent_position, month_percent) in cursor_db:
-            text = ('id' + str(id) + ", " + order['direction'] + ", close" +
-                "\n" + str(order['close_price_position']) + " " + str(percent_position) + "%" +
-                "\n" + str(month_percent) + "%"
+        for (id, percent_position, month_percent, leverage) in cursor_db:
+            text = ('*ID ' + str(id) + "*"
+                "\n" + order['direction'] + " close" +
+                "\n" + str(order['close_price_position']) +
+                "\n" + "R " + str(round(percent_position, 2)) + "%" +
+                "\n" + "*L " + str(leverage) + "*"
+                "\n" + "*M " + str(round(month_percent, 2)) + "%" + "*"
                 )
         if text != '':
             send_telegram(launch, text)    
@@ -1440,7 +1449,8 @@ def send_telegram(launch, text):
 
     requests.post(method, data={
         "chat_id": channel_id,
-        "text": text}) 
+        "text": text,
+        "parse_mode": "Markdown"}) 
 
 
 # ---------- main programm -----------------
