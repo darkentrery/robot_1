@@ -2,7 +2,7 @@
     "user": "user",
     "password": "userpass",
     "host": "95.142.38.22",
-    "database_host": "robot_1",
+    "database": "tester_1",
     "table_result": "positions",
     "table_result_sum": "positions_sum"
 }
