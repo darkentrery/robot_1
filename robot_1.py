@@ -115,6 +115,26 @@ def init_launch():
 
 launch = init_launch()
 
+def db_get_algorithm(launch):
+    
+    try:
+        cursor.execute('SELECT * FROM {0}'.format(launch['algorithm']))
+    except Exception as e:
+        print('Ошибка получения таблицы с настройками, причина: ')
+        print(e)
+    rows1 = cursor.fetchall()
+
+    launch['algorithm_data'] = {}
+
+    launch['algorithm_data']['block_order'] = {}
+    iter = 0
+
+    launch['algorithm_data']['blocks_data'] = rows1
+    for gg in rows1:
+        launch['algorithm_data']['block_order'][str(gg[0])] = iter
+        iter = iter + 1
+
+
 if launch['mode'] == 'tester':
     cn_tick = get_db_connection(user, password, host, database)
 
@@ -137,20 +157,6 @@ if launch['mode'] != 'robot':
         print('Ошибка получения таблицы с результами, причина: ')
         print(e)
 
-try:
-    cursor.execute('SELECT * FROM {0}'.format(launch['algorithm']))
-except Exception as e:
-    print('Ошибка получения таблицы с настройками, причина: ')
-    print(e)
-rows1 = cursor.fetchall()
-
-block_order = {}
-iter = 0
-
-blocks_data = rows1
-for gg in rows1:
-    block_order[str(gg[0])] = iter
-    iter = iter + 1
 
 
 candle = {}
@@ -827,7 +833,10 @@ def set_block_data(table_row, alg_number, col_number, col_conditions_a, col_acti
     block_data['alg_number'] = alg_number
     return block_data 
 
-def get_activation_blocks(action_block, blocks_data, block_order):
+def get_activation_blocks(action_block, algorithm_data):
+
+    blocks_data = algorithm_data['blocks_data']
+    block_order = algorithm_data['block_order']
 
     blocks = []
     activation_blocks = []
@@ -1378,9 +1387,10 @@ def db_clear_state():
 # ---------- main programm -----------------
 
 def init_algo(launch):
+    db_get_algorithm(launch)
     launch['strategy_state'] = 'check_blocks_conditions'
     launch['action_block'] = None
-    launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
+    launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
     if len(launch['activation_blocks']) == 0:
         raise Exception('There is no first block in startegy')
 
@@ -1388,10 +1398,6 @@ if db_get_state(launch, stat, order) != True:
     init_algo(launch)
 
 while True: #цикл по тикам
-
-    # if keyboard.is_pressed("shift+`"):
-    #     print('Скрипт остановлен!')
-    #     break
 
     if launch['mode'] == 'robot':
         try:
@@ -1430,7 +1436,7 @@ while True: #цикл по тикам
     if manage_order_tester(order, prev_candle, launch):
         launch['strategy_state'] = 'check_blocks_conditions'
         launch['action_block'] = None
-        launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
+        launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
         continue
 
     if candle == {}:
@@ -1444,7 +1450,7 @@ while True: #цикл по тикам
             send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
             order = get_new_order(order)
-            launch['activation_blocks'] = get_activation_blocks('0', blocks_data, block_order)
+            launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
             continue
 
     while True: #цикл по блокам
@@ -1456,7 +1462,7 @@ while True: #цикл по тикам
                 launch['strategy_state'] = 'execute_block_actions'
                 # если в блоке нет текущих действий, то активным блоком назначаем следующий
                 if len(launch['action_block']['actions']) == 0:
-                    launch['activation_blocks'] = get_activation_blocks(launch['action_block'], blocks_data, block_order)
+                    launch['activation_blocks'] = get_activation_blocks(launch['action_block'], launch['algorithm_data'])
                     # назначаем только, если он (блок) один и в нем нет условий
                     if len(launch['activation_blocks']) == 1 and len(launch['activation_blocks'][0]['conditions']) == 0:
                         launch['action_block'] = launch['activation_blocks'][0]
@@ -1467,7 +1473,7 @@ while True: #цикл по тикам
         if launch['strategy_state'] == 'execute_block_actions':
             result = execute_block_actions(launch['action_block'], candle, order, stat, launch)
             if result == True:
-                launch['activation_blocks'] = get_activation_blocks(launch['action_block'], blocks_data, block_order)
+                launch['activation_blocks'] = get_activation_blocks(launch['action_block'], launch['algorithm_data'])
                 launch['strategy_state'] = 'check_blocks_conditions'
                 db_save_state(launch, stat, order)
             else:
