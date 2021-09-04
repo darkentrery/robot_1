@@ -425,7 +425,6 @@ def get_new_order(order):
     order['order_type'] = ''
     order['state'] = 'start'
     order['path'] = ''
-    order['price'] = 0
 
     order['proboi'] = {}
 
@@ -803,7 +802,7 @@ def get_leverage(order, action, stat):
     leverage_max = float(action.get('leverage_max'))
     leverage_take_price_percent = float(action.get('leverage_take_price_percent', '1'))
 
-    leverage_take_money = order['price'] / 100 * float(leverage_take_price_percent) * float(leverage_start)
+    leverage_take_money = order['open_price_position'] / 100 * float(leverage_take_price_percent) * float(leverage_start)
 
     leverage_compensation = (-stat['losses_money'] + float(leverage_take_money)) / float(leverage_take_money) * float(leverage_start)
 
@@ -1056,7 +1055,6 @@ def execute_block_actions(block, candle, order, stat, launch):
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
                     order['open_price_position'] = saved_close_price
-                    order['price'] = saved_close_price
                 order['state'] = 'order_is_opened'
             if order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle, stat, action, prev_candle)
@@ -1098,8 +1096,6 @@ def open_position(order, block, candle, stat, action, prev_candle):
             order['open_price_position'] = launch['price']
         if order['open_price_position'] == 0:
             order['open_price_position'] = price
-        if order['price'] == 0:
-            order['price'] = price
         if order['path'] == '':
             pr_str = ''
         else:
@@ -1140,27 +1136,27 @@ def close_position(order, block, candle, stat, action):
             else:
                 order['close_price_position'] = float(order['condition_checked_candle']['close'])
         if order['direction'] == 'long':
-            if order['close_price_position'] >= order['price']:
+            if order['close_price_position'] >= order['open_price_position']:
                 result_position = 'profit'
                 stat['profit_sum'] = stat['profit_sum'] + 1
             else:
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
-                points_position = order['close_price_position'] - order['price']
+                points_position = order['close_price_position'] - order['open_price_position']
             else:
-                points_position = order['close_price_position'] - order['price']
+                points_position = order['close_price_position'] - order['open_price_position']
         else:
-            if order['price'] >= order['close_price_position']:
+            if order['open_price_position'] >= order['close_price_position']:
                 result_position = 'profit'
                 stat['profit_sum'] = stat['profit_sum'] + 1
             else:
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
             if order['order_type'] == 'limit':
-                points_position = order['price'] - order['close_price_position']
+                points_position = order['open_price_position'] - order['close_price_position']
             else:
-                points_position = order['price'] - order['close_price_position']
+                points_position = order['open_price_position'] - order['close_price_position']
 
         rpl = points_position * float(order['leverage'])
         if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
@@ -1182,7 +1178,7 @@ def close_position(order, block, candle, stat, action):
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
         
 
-        price_perecent = points_position / order['price'] * 100
+        price_perecent = points_position / order['open_price_position'] * 100
 
         if result_position == 'profit': 
             if stat['percent_series'] <= 0:
