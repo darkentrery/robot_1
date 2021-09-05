@@ -10,6 +10,7 @@ import uuid
 import keyboard
 import ssl
 import requests
+from datetime import timedelta
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -144,7 +145,9 @@ empty_time_candles = 1
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
-cur_minute = (datetime.datetime.utcnow() - datetime.timedelta(minutes = 2*launch['time_frame'])).replace(second=0).replace(microsecond=0)
+cur_time_utc = datetime.datetime.utcnow()
+cur_time_frame = {}
+
 
 keys = []
 
@@ -174,6 +177,21 @@ def get_cur_time():
 def update_candle(launch):
     launch['id_candle'] = launch['id_candle'] + 1
 
+def get_cur_timeframe(cur_time_frame, cur_time, time_frame):
+
+    if cur_time_frame == {}:
+        cur_time_frame['start'] = cur_time.replace(hour=0, minute=0, second=0, microsecond=0)
+        cur_time_frame['finish'] = cur_time_frame['start'] + timedelta(minutes=time_frame) - timedelta(seconds=1)
+
+    while True:
+        if cur_time_frame['start'] <= cur_time and cur_time < cur_time_frame['finish']:
+            break
+        else:
+            cur_time_frame['start'] = cur_time_frame['start'] + timedelta(minutes=time_frame)
+            cur_time_frame['finish'] = cur_time_frame['start'] + timedelta(minutes=time_frame) - timedelta(seconds=1)
+
+    return cur_time_frame
+
 def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
 
     if launch['mode'] == 'tester':
@@ -191,7 +209,13 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             candle['price'] = price
             candle['time'] = cur_time
 
-    prev_candle_time = cur_time - launch['time_frame'] * datetime.timedelta(seconds=60)
+    if cur_time_frame == {} or cur_time > cur_time_frame['finish']:
+        cur_time_frame.update(get_cur_timeframe(cur_time_frame, cur_time, launch['time_frame']))
+    else:
+        if launch['mode'] != 'robot':
+            return
+
+    prev_candle_time = cur_time_frame['start'] - launch['time_frame'] * datetime.timedelta(seconds=60)
     prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
     if prev_candle_prom != None and prev_candle_prom != {}:
         if ((prev_candle == {}) or (prev_candle != {} and prev_candle['time'] != prev_candle_prom['time'])):
@@ -204,7 +228,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     elif prev_candle_prom == None:
         prev_candle.clear()
     
-    prev_prev_candle_time = cur_time - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
+    prev_prev_candle_time = cur_time_frame['start'] - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
     prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
     if prev_prev_candle_prom != None and prev_prev_candle_prom != {}:
         if ((prev_prev_candle == {}) or (prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time'])):
@@ -213,6 +237,16 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
         prev_prev_candle.update(prev_prev_candle_prom)
     elif prev_prev_candle_prom == None:
         prev_prev_candle.clear()
+
+def get_indicators(candle_time, table_name):
+
+    result = select_candle(candle_time, table_name)
+    if result != {}:
+        return result
+    else:
+        return None
+
+    # return {}    
 
 def select_candle(date_time, table_name):
     
@@ -245,23 +279,7 @@ def select_candle(date_time, table_name):
         print(e)
         cn_db = get_db_connection(user, password, host, database)
         cursor_db = cn_db.cursor()
-        select_candle(date_time, table_name)
-
-def get_indicators(candle_time, table_name):
-
-    global cur_minute
-
-    candle_minute = candle_time.replace(second=0).replace(microsecond=0)
-
-    if (candle_time.minute % launch['time_frame']) == 0 and cur_minute != candle_minute:
-        result = select_candle(candle_time, table_name)
-        if result != {}:
-            cur_minute = candle_time.replace(second=0).replace(microsecond=0)
-            return result
-        else:
-            return None
-
-    return {}    
+        return select_candle(date_time, table_name)
 
 def get_deribit_price(launch):
 
