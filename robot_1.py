@@ -140,7 +140,7 @@ def db_get_algorithm(launch):
 if launch['mode'] == 'tester':
     cn_tick = get_db_connection(user, password, host, database)
 
-empty_time_candles = 10
+empty_time_candles = 1
 
 price_table_name = 'price_' + str(launch['time_frame'])
 
