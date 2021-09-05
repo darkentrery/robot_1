@@ -184,7 +184,7 @@ def get_cur_timeframe(cur_time_frame, cur_time, time_frame):
         cur_time_frame['finish'] = cur_time_frame['start'] + timedelta(minutes=time_frame) - timedelta(seconds=1)
 
     while True:
-        if cur_time_frame['start'] <= cur_time and cur_time < cur_time_frame['finish']:
+        if cur_time_frame['start'] <= cur_time and cur_time <= cur_time_frame['finish']:
             break
         else:
             cur_time_frame['start'] = cur_time_frame['start'] + timedelta(minutes=time_frame)
