@@ -9,6 +9,7 @@ import pika
 import uuid
 import keyboard
 import ssl
+import requests
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -96,15 +97,16 @@ cn_pos = get_db_connection(user, password, host, database)
 def init_launch():
     launch = {}
 
-    query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata FROM launch")
+    query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata, telegram_metadata FROM launch")
     cursor.execute(query)
     for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['time_frame'], 
-    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata']) in cursor:
+    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata'], launch['telegram_metadata']) in cursor:
         launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
         break
 
     launch['rmq_metadata'] = json.loads(launch['rmq_metadata'])
     launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
+    launch['telegram_metadata'] = json.loads(launch['telegram_metadata'])
 
     launch['cur_conditions_group'] = {}
     launch['id_candle'] = 0
@@ -1240,6 +1242,7 @@ def db_open_position(order):
     
         cursor_db.execute(insert_stmt, data)
         cn_db.commit()
+        send_open_position_telegram(launch, order)
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database)
@@ -1261,6 +1264,7 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
             stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['month_percent'], stat['rollback_month_percent'], order['uuid'])
         cursor_db.execute(insert_stmt, data)
         cn_db.commit()
+        send_close_position_telegram(launch, order)
     except Exception as e:
         print(e)
         cn_db = get_db_connection(user, password, host, database)
@@ -1287,6 +1291,10 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
         cursor_local.execute(insert_stmt, data)
         cn_pos.commit()
         cursor_local.close()
+
+        send_open_position_telegram(launch, order)
+        send_close_position_telegram(launch, order)
+
     except Exception as e:
         print(e)
         cn_pos = get_db_connection(user, password, host, database)
@@ -1379,6 +1387,70 @@ def db_clear_state():
         print("Контекст очищен")
     except Exception as e:
         print(e)
+
+# ---------- telegram ----------------------
+
+def send_open_position_telegram(launch, order):
+
+    if launch['mode'] != 'robot':
+        return
+
+    global cn_db
+    global cursor_db
+
+    text = ''
+    try:
+        query = "select id, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
+        cursor_db.execute(query)
+        for (id, leverage)  in cursor_db:
+            text = ('*ID ' + str(id) + "*" + 
+            "\n" + order['direction'] + " open" + 
+            "\n" + str(order['open_price_position']) + 
+            "\n" + "L " + str(leverage))
+
+        if text != '':
+            send_telegram(launch, text)    
+    except Exception as e:
+        print(e)
+
+def send_close_position_telegram(launch, order):
+
+    if launch['mode'] != 'robot':
+        return
+
+    global cn_db
+    global cursor_db
+
+    text = ''
+    try:
+        query = "select id, percent_position, month_percent, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
+        cursor_db.execute(query)
+        for (id, percent_position, month_percent, leverage) in cursor_db:
+            text = ('*ID ' + str(id) + "*"
+                "\n" + order['direction'] + " close" +
+                "\n" + str(order['close_price_position']) +
+                "\n" + "R " + str(round(percent_position, 2)) + "%" +
+                "\n" + "*L " + str(leverage) + "*"
+                "\n" + "*M " + str(round(month_percent, 2)) + "%" + "*"
+                )
+        if text != '':
+            send_telegram(launch, text)    
+    except Exception as e:
+        print(e)
+
+
+def send_telegram(launch, text):
+
+    token = launch['telegram_metadata']['token'] # ключ тг бота
+    url = "https://api.telegram.org/bot"
+    channel_id = launch['telegram_metadata']['channel_id']
+    url += token
+    method = url + "/sendMessage"
+
+    requests.post(method, data={
+        "chat_id": channel_id,
+        "text": text,
+        "parse_mode": "Markdown"}) 
 
 
 # ---------- main programm -----------------
