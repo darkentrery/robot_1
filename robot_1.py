@@ -45,6 +45,19 @@ cursor_db = cn_db.cursor()
 
 keys_candle_table = []
 
+def custom_round(price):
+    price = round(price, 2)
+    price_ceil = float(int(price))
+    ost = price - price_ceil
+    if ost >= 0 and ost < 0.25:
+        return price_ceil
+    elif ost >= 0.25 and ost < 0.75:
+        return price_ceil + 0.5
+    else:
+        return price_ceil + 1
+    
+     
+
 def send_signal_rmq(action, order, mode, rmq_metadata):
 
     if mode != 'robot':
@@ -698,31 +711,31 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
                 if check == 'low':
                     price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] <= price:
-                        order['close_price_position'] = price
+                        order['close_price_position'] = custom_round(price)
                         func_result = True
                 if check == 'close':
                     price = float(candle['close'])
-                    order['close_price_position'] = price
+                    order['close_price_position'] = custom_round(price)
                     func_result = True
                 if check == 'high':
                     price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] >= price:
-                        order['close_price_position'] = price
+                        order['close_price_position'] = custom_round(price)
                         func_result = True
             if order['open_time_position'] == 0:
                 if check == 'low':
                     price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] <= price:
-                        order['open_price_position'] = price
+                        order['open_price_position'] = custom_round(price)
                         func_result = True
                 if check == 'close':
                     price = float(candle['close'])
-                    order['open_price_position'] = price
+                    order['open_price_position'] = custom_round(price)
                     func_result = True
                 if check == 'high':
                     price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] >= price:
-                        order['open_price_position'] = price
+                        order['open_price_position'] = custom_round(price)
                         func_result = True
             if func_result:
                 order['proboi'][pid] = {}
@@ -1110,7 +1123,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 else:
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
-                    order['open_price_position'] = saved_close_price
+                    order['open_price_position'] = custom_round(saved_close_price)
                 order['state'] = 'order_is_opened'
             if order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle, stat, action, prev_candle)
@@ -1149,9 +1162,9 @@ def open_position(order, block, candle, stat, action, prev_candle):
         elif order['direction'] == 'short':
             price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
         if launch.get('price') != None and launch['price'] != 0:
-            order['open_price_position'] = launch['price']
+            order['open_price_position'] = custom_round(launch['price'])
         if order['open_price_position'] == 0:
-            order['open_price_position'] = price
+            order['open_price_position'] = custom_round(price)
         if order['path'] == '':
             pr_str = ''
         else:
@@ -1183,14 +1196,14 @@ def close_position(order, block, candle, stat, action):
             order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
         if launch.get('price') != None and launch['price'] != 0:
-            order['close_price_position'] = launch['price']
+            order['close_price_position'] = custom_round(launch['price'])
         launch['price'] = 0
 
         if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
-                order['close_price_position'] = float(candle['close'])
+                order['close_price_position'] = custom_round(float(candle['close']))
             else:
-                order['close_price_position'] = float(order['condition_checked_candle']['close'])
+                order['close_price_position'] = custom_round(float(order['condition_checked_candle']['close']))
         if order['direction'] == 'long':
             if order['close_price_position'] >= order['open_price_position']:
                 result_position = 'profit'
@@ -1565,7 +1578,7 @@ while True: #цикл по тикам
     if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
         order['close_time_position'] = candle['time']
         order['close_time_order'] = candle['time']
-        order['close_price_position'] = candle['price']
+        order['close_price_position'] = custom_round(candle['price'])
         if close_position(order, launch['trading_status'], candle, stat, None):
             send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
