@@ -45,7 +45,7 @@ cursor_db = cn_db.cursor()
 
 keys_candle_table = []
 
-def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
+def send_signal_rmq(action, order, mode, rmq_metadata):
 
     if mode != 'robot':
         return
@@ -53,9 +53,15 @@ def send_signal_rmq(action, side, leverage, uuid, mode, rmq_metadata):
     try:
         msg = {}
         msg['action'] = action
-        msg['side'] = side
-        msg['leverage'] = leverage
-        msg['uuid'] = uuid
+        msg['side'] = order['direction']
+        msg['leverage'] = order['leverage']
+        msg['uuid'] = order['uuid']
+        msg['order_type'] = order['order_type']
+        if action == 'open':
+            msg['price'] = order['open_price_position']
+        elif action == 'close':
+            msg['price'] = order['close_price_position']
+        msg['price']
         msg['time_stamp'] = str(datetime.datetime.utcnow())
 
         credentials = pika.PlainCredentials(rmq_metadata['user'], rmq_metadata['password'])
@@ -1075,7 +1081,7 @@ def execute_block_actions(block, candle, order, stat, launch):
             result = close_position(order, block, candle, stat, action)
             if result:
                 action['done'] = True
-                send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
+                send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
                 print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
                 print('-------------------------------------------------------')
                 saved_close_time = order['close_time_order']
@@ -1110,7 +1116,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 result = open_position(order, block, candle, stat, action, prev_candle)
                 if result:
                     action['done'] = True
-                    send_signal_rmq('open', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
+                    send_signal_rmq('open', order, launch['mode'], launch['rmq_metadata'])
                     print('Открытие позиции: ' + order['direction'] + ', ' + str(order['leverage']) + ', ' + str(order['open_time_position']))
                     launch['was_open'] = True
                 else:
@@ -1561,7 +1567,7 @@ while True: #цикл по тикам
         order['close_time_order'] = candle['time']
         order['close_price_position'] = candle['price']
         if close_position(order, launch['trading_status'], candle, stat, None):
-            send_signal_rmq('close', order['direction'], order['leverage'], order['uuid'], launch['mode'], launch['rmq_metadata'])
+            send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
             print('-------------------------------------------------------')
             order = get_new_order(order)
