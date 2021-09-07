@@ -171,6 +171,9 @@ robot_is_stoped = True
 
 # ---------- mode ---------------
 
+def log_condition(time, info):
+    print('time=' + str(time) + ", " + info)
+
 def get_cur_time():
     return datetime.datetime.utcnow()
 
@@ -245,8 +248,6 @@ def get_indicators(candle_time, table_name):
         return result
     else:
         return None
-
-    # return {}    
 
 def select_candle(date_time, table_name):
     
@@ -449,6 +450,8 @@ def get_new_order(order):
     order['proboi'] = {}
 
     order['condition_checked_candle'] = None
+
+    order['cache_conditions'] = {}
 
     return order
 
@@ -802,6 +805,22 @@ def check_price(condition, block, candle, order, launch):
 
     return result 
 
+def check_candle(condition, block, candle, order, launch):
+
+    value = condition.get("value")
+    if value == None:
+        return False
+
+    par_name = "candle" + "_" + value + "_" + str(block['number'])
+    if order['cache_conditions'].get(par_name) == None:
+        order['cache_conditions'][par_name] = cur_time_frame['start']
+
+    result = order['cache_conditions'][par_name] != cur_time_frame['start']
+    if result:
+        log_condition(candle['time'], condition['type'] + " (" + condition["value"] +")") 
+
+    return result
+
 # ---------- engine -----------------
 
 def get_leverage(order, action, stat):
@@ -936,6 +955,8 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
 
         condition.setdefault('done', False)
 
+        condition.setdefault('number', "1")
+
         # пропускаем те условия, которые отработали в данной свече
         if condition.get('id_candle') != None and condition['id_candle'] == launch['id_candle']:
             continue
@@ -1001,6 +1022,14 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             else:
                 launch['prices'].append(result)
                 order['close_time_order'] = candle['time']
+        elif condition['type'] == 'candle':
+            result = check_candle(condition, block, candle, order, launch)
+            if result == False:
+                return False
+            else:
+                order['condition_checked_candle'] = prev_candle
+                order['close_time_order'] = 0
+                order['last_condition_type'] = 'history'
         else:
             return False
 
@@ -1456,7 +1485,6 @@ def send_close_position_telegram(launch, order):
     except Exception as e:
         print(e)
 
-
 def send_telegram(launch, text):
 
     token = launch['telegram_metadata']['token'] # ключ тг бота
@@ -1469,7 +1497,6 @@ def send_telegram(launch, text):
         "chat_id": channel_id,
         "text": text,
         "parse_mode": "Markdown"}) 
-
 
 # ---------- main programm -----------------
 
