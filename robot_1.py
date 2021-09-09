@@ -15,7 +15,7 @@ from datetime import timedelta
 ssl._create_default_https_context = ssl._create_unverified_context
 
 empty_time_candles = 1
-spread = 0.5
+spread = 0.1
 
 print('=============================================================================')
 
