@@ -1249,7 +1249,7 @@ def close_position(order, block, candle, stat, action):
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
         stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
-        stat['percent_position_spread'] = ((points_position - 2*spread*points_position/100) / order['open_price_position']) * 100 * float(order['leverage'])
+        stat['percent_position_spread'] = stat['percent_position'] - 2 * spread
 
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
         stat['percent_positions_spread'] = stat['percent_positions_spread'] + stat['percent_position_spread']
@@ -1329,13 +1329,13 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
 
     try:
         insert_stmt = (
-            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s, month_percent = %s, rollback_month_percent = %s, percent_positions_spread = %s, month_percent_spread = %s"
+            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s, month_percent = %s, rollback_month_percent = %s"
             " where id_position = %s".format(table_result)
         )
         data = (
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, 
-            stat['month_percent'], stat['rollback_month_percent'], stat['percent_positions_spread'],  stat['month_percent_spread'], order['uuid'])
+            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions_spread'], rpl, stat['losses_money'], price_perecent, 
+            stat['month_percent_spread'], stat['rollback_month_percent'], order['uuid'])
         cursor_db.execute(insert_stmt, data)
         cn_db.commit()
         send_close_position_telegram(launch, order)
@@ -1353,15 +1353,14 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
     try:
         insert_stmt = (
             "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id, month_percent,"
-            "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent, rollback_month_percent, percent_positions_spread, month_percent_spread) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent, rollback_month_percent) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
-            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'], stat['month_percent'],
+            order['open_price_position'], order['open_time_position'], order['leverage'], order['path'], stat['month_percent_spread'],
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-            stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['rollback_month_percent'],
-            stat['percent_positions_spread'],  stat['month_percent_spread'])
+            stat['percent_position'], stat['percent_series'], 0, stat['percent_positions_spread'], rpl, stat['losses_money'], price_perecent, stat['rollback_month_percent'])
     
         cursor_local.execute(insert_stmt, data)
         cn_pos.commit()
