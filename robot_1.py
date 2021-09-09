@@ -48,15 +48,7 @@ cursor_db = cn_db.cursor()
 
 keys_candle_table = []
 
-def custom_round(price, action, direction):
-
-    fraction = 1
-    if ((action == 'open' and direction == 'long') or (action == 'close' and direction == 'short')):
-        fraction = 1 + spread/100
-    elif ((action == 'open' and direction == 'short') or (action == 'close' and direction == 'long')):
-        fraction = 1 - spread/100
-
-    price = price * fraction
+def custom_round(price):
 
     price = round(price, 2)
     price_ceil = float(int(price))
@@ -450,6 +442,10 @@ def get_new_statistics():
     stat['max_month_percent'] = 0
     stat['rollback_month_percent'] = 0
 
+    stat['percent_position_spread'] = 0
+    stat['percent_positions_spread'] = 0
+    stat['month_percent_spread'] = 0
+
     return stat
 
 def get_new_order(order):
@@ -720,31 +716,31 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
                 if check == 'low':
                     price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] <= price:
-                        order['close_price_position'] = custom_round(price, 'close', order['direction'])
+                        order['close_price_position'] = custom_round(price)
                         func_result = True
                 if check == 'close':
                     price = float(candle['close'])
-                    order['close_price_position'] = custom_round(price, 'close', order['direction'])
+                    order['close_price_position'] = custom_round(price)
                     func_result = True
                 if check == 'high':
                     price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] >= price:
-                        order['close_price_position'] = custom_round(price, 'close', order['direction'])
+                        order['close_price_position'] = custom_round(price)
                         func_result = True
             if order['open_time_position'] == 0:
                 if check == 'low':
                     price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] <= price:
-                        order['open_price_position'] = custom_round(price, 'open', order['direction'])
+                        order['open_price_position'] = custom_round(price)
                         func_result = True
                 if check == 'close':
                     price = float(candle['close'])
-                    order['open_price_position'] = custom_round(price, 'open', order['direction'])
+                    order['open_price_position'] = custom_round(price)
                     func_result = True
                 if check == 'high':
                     price = float(order['proboi'].get(pid)['proboi']) + ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
                     if candle['price'] >= price:
-                        order['open_price_position'] = custom_round(price, 'open', order['direction'])
+                        order['open_price_position'] = custom_round(price)
                         func_result = True
             if func_result:
                 order['proboi'][pid] = {}
@@ -1132,7 +1128,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 else:
                     order['open_time_order'] = saved_close_time
                 if saved_close_price != 0:
-                    order['open_price_position'] = custom_round(saved_close_price, 'open', order['direction'])
+                    order['open_price_position'] = custom_round(saved_close_price)
                 order['state'] = 'order_is_opened'
             if order['state'] == 'order_is_opened':
                 result = open_position(order, block, candle, stat, action, prev_candle)
@@ -1171,9 +1167,9 @@ def open_position(order, block, candle, stat, action, prev_candle):
         elif order['direction'] == 'short':
             price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
         if launch.get('price') != None and launch['price'] != 0:
-            order['open_price_position'] = custom_round(launch['price'], 'open', order['direction'])
+            order['open_price_position'] = custom_round(launch['price'])
         if order['open_price_position'] == 0:
-            order['open_price_position'] = custom_round(price, 'open', order['direction'])
+            order['open_price_position'] = custom_round(price)
         if order['path'] == '':
             pr_str = ''
         else:
@@ -1205,14 +1201,14 @@ def close_position(order, block, candle, stat, action):
             order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
         if launch.get('price') != None and launch['price'] != 0:
-            order['close_price_position'] = custom_round(launch['price'], 'close', order['direction'])
+            order['close_price_position'] = custom_round(launch['price'])
         launch['price'] = 0
 
         if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
-                order['close_price_position'] = custom_round(float(candle['close'], 'close', order['direction']))
+                order['close_price_position'] = custom_round(float(candle['close']))
             else:
-                order['close_price_position'] = custom_round(float(order['condition_checked_candle']['close'], 'close', order['direction']))
+                order['close_price_position'] = custom_round(float(order['condition_checked_candle']['close']))
         if order['direction'] == 'long':
             if order['close_price_position'] >= order['open_price_position']:
                 result_position = 'profit'
@@ -1253,8 +1249,10 @@ def close_position(order, block, candle, stat, action):
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
         stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage'])
+        stat['percent_position_spread'] = ((points_position - 2*spread*points_position/100) / order['open_price_position']) * 100 * float(order['leverage'])
+
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
-        
+        stat['percent_positions_spread'] = stat['percent_positions_spread'] + stat['percent_position_spread']
 
         price_perecent = points_position / order['open_price_position'] * 100
 
@@ -1273,14 +1271,14 @@ def close_position(order, block, candle, stat, action):
             order['close_time_position'] = order['close_time_order']
 
         if order['open_time_position'].month == stat['cur_month']:
-            stat['month_percent'] = stat['last_month_percent'] + stat['percent_position']
+            stat['month_percent'] = stat['month_percent'] + stat['percent_position'] 
+            stat['month_percent_spread'] = stat['month_percent_spread'] + stat['percent_position_spread'] 
         else:
             stat['month_percent'] = stat['percent_position']
+            stat['month_percent_spread'] = stat['percent_position_spread']
             stat['cur_month'] = order['open_time_position'].month
             stat['max_month_percent'] = 0
             stat['rollback_month_percent'] = 0
-
-        stat['last_month_percent'] = stat['month_percent']
 
         if stat['month_percent'] - stat['max_month_percent'] < stat['rollback_month_percent']:
             stat['rollback_month_percent'] = stat['month_percent'] - stat['max_month_percent']
@@ -1331,12 +1329,13 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
 
     try:
         insert_stmt = (
-            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s, month_percent = %s, rollback_month_percent = %s"
+            "UPDATE {0} SET close_order_type = %s, close_time_order = %s, close_price_position = %s, close_time_position = %s, result_position = %s, points_position = %s, percent_position = %s, percent_series = %s, percent_price_deviation = %s, blocks_id = %s, percent_positions = %s, rpl = %s, losses_money = %s, price_perecent = %s, month_percent = %s, rollback_month_percent = %s, percent_positions_spread = %s, month_percent_spread = %s"
             " where id_position = %s".format(table_result)
         )
         data = (
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['month_percent'], stat['rollback_month_percent'], order['uuid'])
+            stat['percent_position'], stat['percent_series'], 0, order['path'], stat['percent_positions'], rpl, stat['losses_money'], price_perecent, 
+            stat['month_percent'], stat['rollback_month_percent'], stat['percent_positions_spread'],  stat['month_percent_spread'], order['uuid'])
         cursor_db.execute(insert_stmt, data)
         cn_db.commit()
         send_close_position_telegram(launch, order)
@@ -1354,14 +1353,15 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
     try:
         insert_stmt = (
             "INSERT INTO {0}(id_position, side, open_type_order, open_time_order, open_price_position, open_time_position, leverage, blocks_id, month_percent,"
-            "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent, rollback_month_percent) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
+            "close_order_type, close_time_order, close_price_position, close_time_position , result_position , points_position , percent_position , percent_series , percent_price_deviation , percent_positions , rpl , losses_money , price_perecent, rollback_month_percent, percent_positions_spread, month_percent_spread) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(table_result)
         )
         data = (
             order['uuid'], order['direction'], order['order_type'], order['open_time_order'], 
             order['open_price_position'], order['open_time_position'], order['leverage'], order['path'], stat['month_percent'],
             order['order_type'], order['close_time_order'], order['close_price_position'], order['close_time_position'], result_position, points_position, 
-            stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['rollback_month_percent'])
+            stat['percent_position'], stat['percent_series'], 0, stat['percent_positions'], rpl, stat['losses_money'], price_perecent, stat['rollback_month_percent'],
+            stat['percent_positions_spread'],  stat['month_percent_spread'])
     
         cursor_local.execute(insert_stmt, data)
         cn_pos.commit()
@@ -1587,7 +1587,7 @@ while True: #цикл по тикам
     if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
         order['close_time_position'] = candle['time']
         order['close_time_order'] = candle['time']
-        order['close_price_position'] = custom_round(candle['price'], 'close', order['direction'])
+        order['close_price_position'] = custom_round(candle['price'])
         if close_position(order, launch['trading_status'], candle, stat, None):
             send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
             print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
