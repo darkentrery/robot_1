@@ -234,6 +234,8 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
 
     if cur_time_frame == {} or cur_time > cur_time_frame['finish']:
         cur_time_frame.update(get_cur_timeframe(cur_time_frame, cur_time, launch['time_frame']))
+        launch['cur_candle'] = {}
+        launch['cur_candle']['open'] = candle['price']
     else:
         if launch['mode'] != 'robot':
             return
@@ -537,10 +539,10 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
 
     change_check = False
 
-    if change == 'more_than_previous':
+    if change == 'more':
         if indicator > last_ind:
             change_check = True
-    elif change == 'less_than_previous':
+    elif change == 'less':
         if indicator < last_ind:
             change_check = True
     elif change == '':
@@ -666,7 +668,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     side = condition['side']
     check = condition['check']
 
-    exit_price_percent = float(condition['exit_price_percent'])
+    exit_price_percent = float(condition.setdefault('exit_price_percent', 0))
 
     if prev_candle != None:
         old_proboi = order['proboi'].get(pid)['proboi']
@@ -762,12 +764,17 @@ def check_trailing(condition, block, candle, order, launch):
     trailing.setdefault('max_price', 0)
     trailing.setdefault('min_price', 0)
 
+    if condition.get("type_trailing") == "one_candle":
+        start = launch['cur_candle']['open']
+    else:
+        start = order['open_price_position']
+
     price_change = True
     if direction == 'long' and (candle['price'] > trailing['max_price'] or trailing['max_price'] == 0):
-        trailing['price'] = candle['price'] - (candle['price'] - order['open_price_position']) * back_percent / 100
+        trailing['price'] = candle['price'] - (candle['price'] - start) * back_percent / 100
         trailing['max_price'] = candle['price']
     elif direction == 'short' and (candle['price'] < trailing['min_price'] or trailing['min_price'] == 0):
-        trailing['price'] = candle['price'] + (order['open_price_position'] - candle['price']) * back_percent / 100
+        trailing['price'] = candle['price'] + (start - candle['price']) * back_percent / 100
         trailing['min_price'] = candle['price']
     else:
         price_change = False
@@ -776,9 +783,9 @@ def check_trailing(condition, block, candle, order, launch):
         print("trailing_price(change)=" + str(trailing['price']) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']) + ", open_price=" + str(order['open_price_position']))            
                 
     if trailing['price'] != 0:
-        if direction == 'long' and candle['price'] < trailing['price']:
+        if direction == 'long' and candle['price'] <= trailing['price']:
             result = trailing['price']
-        elif direction == 'short' and candle['price'] > trailing['price']:
+        elif direction == 'short' and candle['price'] >= trailing['price']:
             result = trailing['price'] 
 
     if result != False:
