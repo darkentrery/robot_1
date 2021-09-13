@@ -460,6 +460,7 @@ def get_new_order(order):
     order['close_time_order'] = 0
 
     order['trailings'] = {}
+    order['abs'] = {}
     order['uuid'] = str(uuid.uuid4())
 
     order['leverage'] = 1
@@ -508,6 +509,50 @@ order = get_new_order(None)
 stat = get_new_statistics()
 
 # ---------- conditions -----------------
+
+def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
+
+    if condition['candle'] == None or condition['parameter'] == None or condition['operation'] == None:
+        return False
+
+    abs = order['abs'].setdefault(str(block['number']), {})
+    if abs == {}:
+        if condition['candle'] == -1:
+           cond_candle = prev_candle
+        elif condition['candle'] == -2:
+            cond_candle = prev_prev_candle
+        else:
+            return False
+
+        parameter = cond_candle.get(condition['parameter'])
+        if parameter == None:
+            return False
+
+        abs['value'] = parameter
+        abs['operation'] = condition['operation']
+
+        return False
+
+    left_value = candle['price']
+    right_value = abs['value']
+
+    result = False
+    if abs['operation'] == '>=' and left_value >= right_value:
+        result = candle['price']
+    elif abs['operation'] == '<=' and left_value <= right_value:
+        result = candle['price']
+    elif abs['operation'] == '=' and left_value == right_value:
+        result = candle['price']
+    elif abs['operation'] == '>' and left_value > right_value:
+        result = candle['price']
+    elif abs['operation'] == '<' and left_value < right_value:
+        result = candle['price']
+
+    if result != False:
+        print("abs(" + "candle = " + str(condition['candle']) +  ", parameter = " + condition['parameter'] + ", operation = " + condition['operation'] + ", abs_value = " + str(abs['value'])
+         + "), time=" + str(candle['time']) + ", price=" + str(candle['price']))        
+
+    return result
 
 def check_value_change(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
@@ -1028,6 +1073,14 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'trailing':
             result = check_trailing(condition, block, candle, order, launch)
+            if result == False:
+                return False
+            else:
+                launch['prices'].append(result)
+                order['close_time_order'] = candle['time']
+                order['last_condition_type'] = 'realtime'
+        elif condition['type'] == 'abs':
+            result = check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
                 return False
             else:
