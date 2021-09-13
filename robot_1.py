@@ -530,9 +530,13 @@ def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, la
 
         abs['value'] = parameter
         abs['operation'] = condition['operation']
+        abs['prev_candle'] = prev_candle
 
         return False
 
+    if abs['prev_candle'] == prev_candle:
+        return False
+    
     left_value = candle['price']
     right_value = abs['value']
 
