@@ -1155,11 +1155,9 @@ def open_position(order, block, candle, stat, action, prev_candle):
     result = False
 
     if order['direction'] == 'long':
-        # if order['order_type'] == 'market':
         order['open_time_position'] = order['open_time_order']
         result = True
     elif order['direction'] == 'short':
-        # if order['order_type'] == 'market':
         order['open_time_position'] = order['open_time_order']
         result = True
 
