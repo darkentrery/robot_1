@@ -1155,13 +1155,13 @@ def open_position(order, block, candle, stat, action, prev_candle):
     result = False
 
     if order['direction'] == 'long':
-        if order['order_type'] == 'market':
-            order['open_time_position'] = order['open_time_order']
-            result = True
+        # if order['order_type'] == 'market':
+        order['open_time_position'] = order['open_time_order']
+        result = True
     elif order['direction'] == 'short':
-        if order['order_type'] == 'market':
-            order['open_time_position'] = order['open_time_order']
-            result = True
+        # if order['order_type'] == 'market':
+        order['open_time_position'] = order['open_time_order']
+        result = True
 
     if result == True:
         price_old = prev_candle['close']
@@ -1190,8 +1190,8 @@ def close_position(order, block, candle, stat, action):
     
     points_position = 0
 
-    if ((order['direction'] == 'long' and order['order_type'] == 'market') or
-        (order['direction'] == 'short' and order['order_type'] == 'market')):
+    if ((order['direction'] == 'long') or
+        (order['direction'] == 'short')):
         
         # если уже было закрытие в данной свече
         if launch.get('was_close') != None and launch['was_close'] == True:
@@ -1219,10 +1219,7 @@ def close_position(order, block, candle, stat, action):
             else:
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
-            if order['order_type'] == 'limit':
-                points_position = order['close_price_position'] - order['open_price_position']
-            else:
-                points_position = order['close_price_position'] - order['open_price_position']
+            points_position = order['close_price_position'] - order['open_price_position']
         else:
             if order['open_price_position'] >= order['close_price_position']:
                 result_position = 'profit'
@@ -1230,10 +1227,7 @@ def close_position(order, block, candle, stat, action):
             else:
                 result_position = 'loss'
                 stat['loss_sum'] = stat['loss_sum'] + 1
-            if order['order_type'] == 'limit':
-                points_position = order['open_price_position'] - order['close_price_position']
-            else:
-                points_position = order['open_price_position'] - order['close_price_position']
+            points_position = order['open_price_position'] - order['close_price_position']
 
         rpl = points_position * float(order['leverage'])
         if order.get('leverage_start') != None and order['leverage'] > order['leverage_start'] and points_position >=0:
@@ -1268,8 +1262,7 @@ def close_position(order, block, candle, stat, action):
             else:
                 stat['percent_series'] = stat['percent_series'] + stat['percent_position']
 
-        if order['order_type'] == 'market':
-            order['close_time_position'] = order['close_time_order']
+        order['close_time_position'] = order['close_time_order']
 
         if order['open_time_position'].month == stat['cur_month']:
             stat['month_percent'] = stat['month_percent'] + stat['percent_position'] 
