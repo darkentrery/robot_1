@@ -461,6 +461,7 @@ def get_new_order(order):
 
     order['trailings'] = {}
     order['abs'] = {}
+    order['candle_direction'] = {}
     order['uuid'] = str(uuid.uuid4())
 
     order['leverage'] = 1
@@ -525,6 +526,10 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
     if cond_candle == None or cond_candle.get('open') == None or cond_candle.get('close') == None:
         return False
 
+    candle_direction = order['candle_direction'].setdefault(str(block['number']), {})
+    if candle_direction != {} and candle_direction['cur_time_frame'] == cur_time_frame['start']:
+        return False
+
     result = False
 
     if cond_candle['close'] >= cond_candle['open'] and condition['side'] == 'buy':
@@ -533,7 +538,9 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
         result =candle['price']
 
     if result != False:
+        candle_direction['cur_time_frame'] = cur_time_frame['start']
         log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']))        
+
     return result
 
 def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
