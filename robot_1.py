@@ -192,7 +192,7 @@ robot_is_stoped = True
 # ---------- mode ---------------
 
 def log_condition(time, info):
-    print('time=' + str(time) + ", " + info)
+    print(str(time) + " --- " + info)
 
 def get_cur_time():
     return datetime.datetime.utcnow()
@@ -510,16 +510,42 @@ stat = get_new_statistics()
 
 # ---------- conditions -----------------
 
+def check_candle_direction(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
+
+    if condition.get('offset') == None or condition.get('side') == None:
+        return False
+
+    if condition['offset'] == -1:
+        cond_candle = prev_candle
+    elif condition['offset'] == -2:
+        cond_candle = prev_prev_candle
+    else:
+        return False
+
+    if cond_candle == None or cond_candle.get('open') == None or cond_candle.get('close') == None:
+        return False
+
+    result = False
+
+    if cond_candle['close'] >= cond_candle['open'] and condition['side'] == 'buy':
+        result = candle['price']
+    elif cond_candle['close'] < cond_candle['open'] and condition['side'] == 'sell':
+        result =candle['price']
+
+    if result != False:
+        log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']))        
+    return result
+
 def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
-    if condition['candle'] == None or condition['parameter'] == None or condition['operation'] == None:
+    if condition.get('offset') == None or condition.get('parameter') == None or condition.get('operation') == None:
         return False
 
     abs = order['abs'].setdefault(str(block['number']), {})
     if abs == {}:
-        if condition['candle'] == -1:
+        if condition['offset'] == -1:
            cond_candle = prev_candle
-        elif condition['candle'] == -2:
+        elif condition['offset'] == -2:
             cond_candle = prev_prev_candle
         else:
             return False
@@ -553,8 +579,8 @@ def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, la
         result = right_value
 
     if result != False:
-        print("abs(" + "candle = " + str(condition['candle']) +  ", parameter = " + condition['parameter'] + ", operation = " + condition['operation'] + ", abs_value = " + str(abs['value'])
-         + "), time=" + str(candle['time']) + ", price=" + str(candle['price']))        
+        log_condition(candle['time'], "abs(" + "candle = " + str(condition['offset']) +  ", parameter = " + condition['parameter'] + ", operation = " + condition['operation'] + ", abs_value = " + str(abs['value'])
+             + "), time=" + str(candle['time']) + ", price=" + str(candle['price']))        
 
     return result
 
@@ -1085,6 +1111,14 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'abs':
             result = check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
+            if result == False:
+                return False
+            else:
+                launch['prices'].append(result)
+                order['close_time_order'] = candle['time']
+                order['last_condition_type'] = 'realtime'
+        elif condition['type'] == 'candle_direction':
+            result = check_candle_direction(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
                 return False
             else:
