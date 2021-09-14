@@ -52,7 +52,7 @@ def custom_round(price):
 
     price = round(price, 2)
     price_ceil = float(int(price))
-    ost = price - price_ceil
+    ost = float(price) - price_ceil
     if ost >= 0 and ost < 0.25:
         return price_ceil
     elif ost >= 0.25 and ost < 0.75:
@@ -542,15 +542,15 @@ def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, la
 
     result = False
     if abs['operation'] == '>=' and left_value >= right_value:
-        result = candle['price']
+        result = right_value
     elif abs['operation'] == '<=' and left_value <= right_value:
-        result = candle['price']
+        result = right_value
     elif abs['operation'] == '=' and left_value == right_value:
-        result = candle['price']
+        result = right_value
     elif abs['operation'] == '>' and left_value > right_value:
-        result = candle['price']
+        result = right_value
     elif abs['operation'] == '<' and left_value < right_value:
-        result = candle['price']
+        result = right_value
 
     if result != False:
         print("abs(" + "candle = " + str(condition['candle']) +  ", parameter = " + condition['parameter'] + ", operation = " + condition['operation'] + ", abs_value = " + str(abs['value'])
