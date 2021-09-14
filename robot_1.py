@@ -535,7 +535,7 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
     if cond_candle['close'] >= cond_candle['open'] and condition['side'] == 'buy':
         result = candle['price']
     elif cond_candle['close'] < cond_candle['open'] and condition['side'] == 'sell':
-        result =candle['price']
+        result = candle['price']
 
     if result != False:
         candle_direction['cur_time_frame'] = cur_time_frame['start']
@@ -1049,6 +1049,9 @@ def undone_conditions_group(conditions_group):
 
 def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
 
+    if launch['was_close']:
+        return False
+
     cur_condition_number = None
     cond_done_id_candle = None
     launch['prices'] = []
@@ -1244,7 +1247,7 @@ def execute_block_actions(block, candle, order, stat, launch):
             else:
                 return False
 
-    launch['was_close'] = was_close
+    launch['was_close'] = was_close and order['open_time_position'] == 0
 
     return True
 
