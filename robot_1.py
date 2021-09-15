@@ -879,12 +879,17 @@ def check_price(condition, block, candle, order, launch):
     
     direction = order['direction']
 
+    if condition.get("type_change") == "one_candle":
+        start = launch['cur_candle']['open']
+    else:
+        start = order['open_price_position']
+
     ind_oper = condition['change_percent'].split(' ')[0]
     ind_value = float(condition['change_percent'].split(' ')[1])
     if direction == 'short':
-        pnl = order['open_price_position'] - order['open_price_position'] / 100 * ind_value
+        pnl = start - start / 100 * ind_value
     else:
-        pnl = order['open_price_position'] + order['open_price_position'] / 100 * ind_value
+        pnl = start + start / 100 * ind_value
 
     if candle.get('price') == None:
         return False
