@@ -182,8 +182,6 @@ if launch['mode'] != 'robot':
         print('Ошибка получения таблицы с результами, причина: ')
         print(e)
 
-
-
 candle = {}
 prev_candle = {}
 prev_prev_candle = {}
@@ -306,7 +304,7 @@ def select_candle(date_time, table_name):
 
 def get_deribit_price(launch):
 
-    connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'])
+    connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'], timeout=7)
     connection.request("GET", "/api/v2/public/get_last_trades_by_instrument?count=1&instrument_name={0}".format(launch['symbol']))
     response = json.loads(connection.getresponse().read().decode())
 
@@ -1625,6 +1623,8 @@ def send_telegram(launch, text):
 
 def init_algo(launch):
     db_get_algorithm(launch)
+    launch['was_close'] = False
+    launch['was_open'] = False
     launch['strategy_state'] = 'check_blocks_conditions'
     launch['action_block'] = None
     launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
