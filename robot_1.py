@@ -119,9 +119,9 @@ cn_pos = get_db_connection(user, password, host, database)
 def init_launch():
     launch = {}
 
-    query = ("SELECT algorithm, start_time, end_time, timeframe, symbol, mode, trading_status, rmq_metadata, deribit_metadata, telegram_metadata FROM launch")
+    query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, deribit_metadata, telegram_metadata FROM launch")
     cursor.execute(query)
-    for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['time_frame'], 
+    for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['frame'], 
     launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata'], launch['telegram_metadata']) in cursor:
         launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
         break
@@ -134,6 +134,13 @@ def init_launch():
     launch['id_candle'] = 0
     launch['last_price'] = 0
     launch['empty_time_candles'] = 0
+
+    symbol_numb = launch['frame'].find("_")
+    if symbol_numb != -1:
+        launch.setdefault('renko', {})
+        launch['renko']['step'] = float(launch['frame'].replace("_", "."))
+    else:
+        launch['time_frame'] = int(launch['frame'])
 
     return launch
 
@@ -163,7 +170,7 @@ if launch['mode'] == 'tester':
     cn_tick = get_db_connection(user, password, host, database)
 
 
-price_table_name = 'price_' + str(launch['time_frame'])
+price_table_name = 'price_' + launch['frame']
 
 cur_time_utc = datetime.datetime.utcnow()
 cur_time_frame = {}
@@ -185,6 +192,7 @@ if launch['mode'] != 'robot':
 candle = {}
 prev_candle = {}
 prev_prev_candle = {}
+next_candle = {}
 robot_is_stoped = True
 
 # ---------- mode ---------------
@@ -261,6 +269,33 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     elif prev_prev_candle_prom == None:
         prev_prev_candle.clear()
 
+def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle):
+
+    if launch['mode'] == 'tester':
+        get_tick_from_table(launch, candle, 0)
+        if candle == {}:
+            return
+        candle['price'] = float(candle['price'])
+        cur_time = candle['time']
+
+    if launch['mode'] == 'robot':
+        candle.clear()
+        cur_time = get_cur_time()
+        price = get_deribit_price(launch)
+        if price != None:
+            candle['price'] = price
+            candle['time'] = cur_time
+
+    if launch['mode'] == 'tester':
+        if next_candle == {} or cur_time >= next_candle['time']:
+            cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
+            launch['cur_candle'] = {}
+            launch['cur_candle']['open'] = candle['price']
+            launch['was_close'] = False
+            launch['was_open'] = False
+
+        
+
 def get_indicators(candle_time, table_name):
 
     result = select_candle(candle_time, table_name)
@@ -302,6 +337,54 @@ def select_candle(date_time, table_name):
         cursor_db = cn_db.cursor()
         return select_candle(date_time, table_name)
 
+def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, next_candle):
+
+    global cn_db
+    global cursor_db
+    global keys_candle_table
+
+    try: 
+
+        query = ("select {0} from {1} where time <= '{2}' order by time desc LIMIT 3".format("*", table_name, date_time))
+
+        cursor_db.execute(query)
+
+        if len(keys_candle_table) == 0:
+            keys_name = cursor_db.description
+            for row in keys_name:
+                keys_candle_table.append(row[0]) 
+        
+        candle = {}
+
+        i = 1
+        for row in cursor_db:
+            for ss in keys_candle_table:
+                if i == 1: 
+                    candle[ss] = row[keys_candle_table.index(ss)]
+                elif i == 2:
+                    prev_candle[ss] = row[keys_candle_table.index(ss)]
+                elif i == 3:
+                    prev_prev_candle[ss] = row[keys_candle_table.index(ss)]
+            i = i + 1
+
+        next_candle.clear()
+        query = ("select {0} from {1} where time > '{2}' order by time asc LIMIT 1".format("*", table_name, date_time))
+
+        cursor_db.execute(query)
+
+        for row in cursor_db:
+            for ss in keys_candle_table:
+                next_candle[ss] = row[keys_candle_table.index(ss)]
+
+        return candle
+
+    except Exception as e:
+        print(e)
+        cn_db = get_db_connection(user, password, host, database)
+        cursor_db = cn_db.cursor()
+        return select_renko_candles(date_time, table_name, next_candle)
+
+
 def get_deribit_price(launch):
 
     connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'], timeout=7)
@@ -316,71 +399,6 @@ def get_deribit_price(launch):
         return price
     else:
         return None
-
-def get_tick_from_table1(launch, candle, last_id):
-
-    tick_table_name = 'price_' + str(launch['time_frame'])
-
-    if launch.get('ticks') == None:
-        launch['ticks'] = {}
-        ticks = launch['ticks']
-        ticks['last_ohlc'] = 'close'
-        ticks['connection'] = cn_db
-        ticks['cursor'] = ticks['connection'].cursor(buffered=True)
-        query = ("select * from {0} where id > {1} and time BETWEEN %s AND %s".format(tick_table_name, last_id))
-        ticks['cursor'].execute(query, (launch['start_time'], launch['end_time']))
-
-        ticks['keys'] = []
-        keys_name = ticks['cursor'].description
-        for row in keys_name:
-            ticks['keys'].append(row[0]) 
-
-    try:
-        if launch['ticks']['last_ohlc'] == 'close':
-            row = launch['ticks']['cursor'].fetchone()
-            launch['ticks']['row'] = row
-        else:
-            row = launch['ticks']['row']
-    except:
-        id = launch['ticks']['last_id']
-        launch['ticks'] = None
-        get_tick_from_table(launch, candle, id)
-        return
-
-    if row == None:
-        launch['ticks']['connection'].close()
-    else:
-        launch['ticks']['last_id'] = row[0]
-
-        for ss in launch['ticks']['keys']:
-             candle[ss] = row[launch['ticks']['keys'].index(ss)]
-
-        if candle['open'] > candle['close']:
-            if launch['ticks']['last_ohlc'] == 'close':
-                candle['price'] = candle['open']
-                launch['ticks']['last_ohlc'] = 'open'
-            elif launch['ticks']['last_ohlc'] == 'open':
-                candle['price'] = candle['high']
-                launch['ticks']['last_ohlc'] = 'high'
-            elif launch['ticks']['last_ohlc'] == 'high':
-                candle['price'] = candle['low']
-                launch['ticks']['last_ohlc'] = 'low'
-            elif launch['ticks']['last_ohlc'] == 'low':
-                candle['price'] = candle['close']
-                launch['ticks']['last_ohlc'] = 'close'
-        else:
-            if launch['ticks']['last_ohlc'] == 'close':
-                candle['price'] = candle['open']
-                launch['ticks']['last_ohlc'] = 'open'
-            elif launch['ticks']['last_ohlc'] == 'open':
-                candle['price'] = candle['low']
-                launch['ticks']['last_ohlc'] = 'low'
-            elif launch['ticks']['last_ohlc'] == 'low':
-                candle['price'] = candle['high']
-                launch['ticks']['last_ohlc'] = 'high'
-            elif launch['ticks']['last_ohlc'] == 'high':
-                candle['price'] = candle['close']
-                launch['ticks']['last_ohlc'] = 'close'
 
 def get_tick_from_table(launch, candle, last_id):
 
@@ -536,7 +554,8 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
         result = candle['price']
 
     if result != False:
-        candle_direction['cur_time_frame'] = cur_time_frame['start']
+        if launch.get('renko') == None:
+            candle_direction['cur_time_frame'] = cur_time_frame['start']
         log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']))        
 
     return result
@@ -743,7 +762,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     order['proboi'].get(pid).setdefault('old_proboi', 0)
     order['proboi'].get(pid).setdefault('line_proc', 0)
 
-    condition.setdefault('new_breakdown_sum', 1)
+    condition.setdefault('min_breakouts', 1)
 
     side = condition['side']
     check = condition['check']
@@ -768,10 +787,10 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
     if order['proboi'].get(pid)['proboi'] == 0:
         return False
     
-    if condition.get('new_breakdown_sum') == None:
-        new_breakdown_sum = 1
+    if condition.get('min_breakouts') == None:
+        min_breakouts = 1
     else:
-        new_breakdown_sum = int(condition['new_breakdown_sum'])
+        min_breakouts = int(condition['min_breakouts'])
         
     if order['proboi'].get(pid)['status'] != 0 and side == 'high' and order['proboi'].get(pid)['proboi'] < old_proboi:
         order['proboi'][pid] = {}
@@ -789,7 +808,7 @@ def check_exit_price_by_steps(condition, block, candle, order, prev_candle):
         order['proboi'].get(pid)['line_proc'] = result + order['proboi'].get(pid)['line_proc']
 
         order['proboi'].get(pid)['step'] = order['proboi'].get(pid)['step'] + 1
-        if order['proboi'].get(pid)['step'] >= new_breakdown_sum and order['proboi'].get(pid)['line_proc'] >= exit_price_percent:
+        if order['proboi'].get(pid)['step'] >= min_breakouts and order['proboi'].get(pid)['line_proc'] >= exit_price_percent:
             if order['open_time_position'] != 0:
                 if check == 'low':
                     price = float(order['proboi'].get(pid)['proboi']) - ((float(order['proboi'].get(pid)['proboi']) / 100) * exit_price_percent)
@@ -1665,7 +1684,10 @@ while True: #цикл по тикам
             continue
 
     try:
-        set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle)
+        if launch.get('renko') == None:
+            set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle)
+        else:
+            set_candle_renko(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, next_candle)
     except Exception as e:
         print(e)
         continue
