@@ -952,6 +952,45 @@ def check_candle(condition, block, candle, order, launch):
 
     return result
 
+def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
+
+    if prev_candle == {}:
+        return False
+
+    side = condition["side"]
+    name = condition["name"] + "-" + condition["side"]
+    candle = condition["candle"]
+
+    if prev_candle.get(name) == None:
+        return False
+
+    reject = order['reject'].setdefault(str(block['number']) + '_' + name, {})
+    if reject == {}:
+        result_side = ((side == 'high' and prev_candle['open'] > prev_candle['close'])
+            or (side == 'low' and prev_candle['open'] < prev_candle['close']))
+        if result_side == True:
+            reject['side'] = side
+            reject['candle'] = candle
+            reject['cur_time_frame'] = cur_time_frame['start']
+        return False
+
+    if reject['cur_time_frame'] == cur_time_frame['start']:
+        return False
+
+    next_result_side = ((side == 'high' and prev_candle['open'] > prev_candle['close'])
+            or (side == 'low' and prev_candle['open'] < prev_candle['close']))
+    
+    if next_result_side == False:
+        reject.clear()
+        return False
+
+    reject['candle'] = reject['candle'] - 1
+    reject['cur_time_frame'] = cur_time_frame['start']
+
+    return reject['candle'] == 0
+
+
+
 # ---------- engine -----------------
 
 def get_leverage(order, action, stat):
@@ -1174,6 +1213,14 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
         elif condition['type'] == 'candle':
             result = check_candle(condition, block, candle, order, launch)
+            if result == False:
+                return False
+            else:
+                order['condition_checked_candle'] = prev_candle
+                order['close_time_order'] = 0
+                order['last_condition_type'] = 'history'
+        elif condition['type'] == 'reject':
+            result = check_reject(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
                 return False
             else:
