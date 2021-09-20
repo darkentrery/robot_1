@@ -477,6 +477,7 @@ def get_new_order(order):
 
     order['trailings'] = {}
     order['abs'] = {}
+    order['reject'] = {}
     order['candle_direction'] = {}
     order['uuid'] = str(uuid.uuid4())
 
@@ -964,10 +965,11 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
     if prev_candle.get(name) == None:
         return False
 
-    reject = order['reject'].setdefault(str(block['number']) + '_' + name, {})
+    reject = order['reject'].setdefault(name + '_' + str(block['number']), {})
     if reject == {}:
-        result_side = ((side == 'high' and prev_candle['open'] > prev_candle['close'])
+        result_side = (((side == 'high' and prev_candle['open'] > prev_candle['close'])
             or (side == 'low' and prev_candle['open'] < prev_candle['close']))
+            and prev_candle['close'] == prev_candle.get(name))
         if result_side == True:
             reject['side'] = side
             reject['candle'] = candle
