@@ -16,6 +16,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 empty_time_candles = 1
 spread = 0.1
+skip_cube_x = 2
 
 print('=============================================================================')
 
@@ -496,21 +497,32 @@ def get_new_order(order):
 
     return order
 
-def manage_order_tester(order, prev_candle, launch):
+def manage_order_tester(order, prev_candle, launch, candle):
     
+    skip_order = False
     if launch['mode'] != 'tester':
-        return False
+        return skip_order
     
-    if prev_candle == {}:
-        launch['empty_time_candles'] = launch['empty_time_candles'] + 1
-        if launch['empty_time_candles'] >= empty_time_candles:
-            order = get_new_order(order)
-            launch['cur_conditions_group'] = {}
-            return True
+    if launch['renko'] == None:
+        if prev_candle == {}:
+            launch['empty_time_candles'] = launch['empty_time_candles'] + 1
+            if launch['empty_time_candles'] >= empty_time_candles:
+                skip_order = True
+        else:
+            launch['empty_time_candles'] = 0
     else:
-        launch['empty_time_candles'] = 0
+        if order['open_time_position'] != 0:
+            percent = skip_cube_x * launch['renko']['step']
+            if candle['price'] > order['open_price_position'] * (1 + percent/100):
+                skip_order = True
+            elif candle['price'] < order['open_price_position'] * (1 - percent/100):
+                skip_order = True        
 
-    return False
+    if skip_order:
+        order = get_new_order(order)
+        launch['cur_conditions_group'] = {}
+
+    return skip_order
 
 def get_new_tick(price, time):
     tick = {}
@@ -1741,14 +1753,16 @@ while True: #цикл по тикам
         print(e)
         continue
 
-    if manage_order_tester(order, prev_candle, launch):
+    if candle == {}:
+        break
+    
+    if manage_order_tester(order, prev_candle, launch, candle):
         launch['strategy_state'] = 'check_blocks_conditions'
         launch['action_block'] = None
         launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
         continue
 
-    if candle == {}:
-        break
+    
 
     if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
         order['close_time_position'] = candle['time']
