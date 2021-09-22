@@ -388,17 +388,25 @@ def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, n
 
 def get_deribit_price(launch):
 
-    connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'], timeout=7)
-    connection.request("GET", "/api/v2/public/get_last_trades_by_instrument?count=1&instrument_name={0}".format(launch['symbol']))
-    response = json.loads(connection.getresponse().read().decode())
+    try:
+        connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'], timeout=7)
+        connection.request("GET", "/api/v2/public/get_last_trades_by_instrument?count=1&instrument_name={0}".format(launch['symbol']))
+        response = json.loads(connection.getresponse().read().decode())
 
-    connection.close()
+        connection.close()
 
-    if response.get('result') != None and response['result'].get('trades') != None and len(response['result']['trades']) > 0:
-        price = response['result']['trades'][0]['price'] 
-        print("deribit price = " + str(price) + ", time = " + str(datetime.datetime.utcnow()))
-        return price
-    else:
+        if response.get('result') != None and response['result'].get('trades') != None and len(response['result']['trades']) > 0:
+            price = response['result']['trades'][0]['price'] 
+            print("deribit price = " + str(price) + ", time = " + str(datetime.datetime.utcnow()))
+            return price
+        else:
+            time.sleep(2)
+            print("deribit error" + ", time = " + str(datetime.datetime.utcnow()))
+            return None
+    except Exception as e:
+        time.sleep(2)
+        print(e)
+        print("deribit exception" + ", time = " + str(datetime.datetime.utcnow()))
         return None
 
 def get_tick_from_table(launch, candle, last_id):
