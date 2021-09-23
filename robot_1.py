@@ -120,15 +120,15 @@ cn_pos = get_db_connection(user, password, host, database)
 def init_launch():
     launch = {}
 
-    query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, deribit_metadata, telegram_metadata FROM launch")
+    query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, exchange_metadata, telegram_metadata FROM launch")
     cursor.execute(query)
     for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['frame'], 
-    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['deribit_metadata'], launch['telegram_metadata']) in cursor:
+    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['exchange_metadata'], launch['telegram_metadata']) in cursor:
         launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
         break
 
     launch['rmq_metadata'] = json.loads(launch['rmq_metadata'])
-    launch['deribit_metadata'] = json.loads(launch['deribit_metadata'])
+    launch['exchange_metadata'] = json.loads(launch['exchange_metadata'])
     launch['telegram_metadata'] = json.loads(launch['telegram_metadata'])
 
     launch['cur_conditions_group'] = {}
@@ -185,7 +185,7 @@ table_result_sum = data['table_result_sum']
 if launch['mode'] != 'robot':
     try:
         cursor.execute("TRUNCATE TABLE {0}".format(table_result))
-        cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
+        # cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
     except Exception as e:
         print('Ошибка получения таблицы с результами, причина: ')
         print(e)
@@ -389,7 +389,7 @@ def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, n
 def get_deribit_price(launch):
 
     try:
-        connection = http.client.HTTPSConnection(launch['deribit_metadata']['host'], timeout=7)
+        connection = http.client.HTTPSConnection(launch['exchange_metadata']['host'], timeout=7)
         connection.request("GET", "/api/v2/public/get_last_trades_by_instrument?count=1&instrument_name={0}".format(launch['symbol']))
         response = json.loads(connection.getresponse().read().decode())
 
@@ -577,7 +577,7 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
     if result != False:
         if launch.get('renko') == None:
             candle_direction['cur_time_frame'] = cur_time_frame['start']
-        log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']))        
+        log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']) + ")")        
 
     return result
 
