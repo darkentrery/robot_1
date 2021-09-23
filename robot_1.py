@@ -1215,9 +1215,9 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
-                order['close_time_order'] = candle['time']
-                order['last_condition_type'] = 'realtime'
+                order['condition_checked_candle'] = prev_candle
+                order['close_time_order'] = 0
+                order['last_condition_type'] = 'history'
         elif condition['type'] == 'exit_price':
             check = condition['check']
             if check == 'high' or check == 'low':
