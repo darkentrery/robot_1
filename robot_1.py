@@ -1761,7 +1761,7 @@ while True: #цикл по тикам
         print(e)
         continue
 
-    if candle == {}:
+    if candle == {} and launch['mode'] != 'robot':
         break
     
     if manage_order_tester(order, prev_candle, launch, candle):
@@ -1810,7 +1810,8 @@ while True: #цикл по тикам
             else:
                 break
 
-    launch['last_price'] = candle['price']
+    if candle != {}:
+        launch['last_price'] = candle['price']
         
 
 if cn_db:
