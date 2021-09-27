@@ -411,7 +411,7 @@ def get_deribit_price(launch):
 
 def get_tick_from_table(launch, candle, last_id):
 
-    tick_table_name = 'price_tick'
+    tick_table_name = 'price_tick' + "_" + launch['frame']
 
     if launch.get('ticks') == None:
         launch['ticks'] = {}
