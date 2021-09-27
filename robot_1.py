@@ -16,7 +16,7 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 empty_time_candles = 1
 spread = 0.1
-skip_cube_x = 2
+skip_cube_x = 0
 
 print('=============================================================================')
 
@@ -519,7 +519,7 @@ def manage_order_tester(order, prev_candle, launch, candle):
         else:
             launch['empty_time_candles'] = 0
     else:
-        if order['open_time_position'] != 0:
+        if order['open_time_position'] != 0 and skip_cube_x != 0:
             percent = skip_cube_x * launch['renko']['step']
             if candle['price'] > order['open_price_position'] * (1 + percent/100):
                 skip_order = True
@@ -529,6 +529,7 @@ def manage_order_tester(order, prev_candle, launch, candle):
     if skip_order:
         order = get_new_order(order)
         launch['cur_conditions_group'] = {}
+        print('skip order')
 
     return skip_order
 
