@@ -294,6 +294,7 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
             launch['cur_candle']['open'] = candle['price']
             launch['was_close'] = False
             launch['was_open'] = False
+            cur_time_frame['start'] = cur_candle['time']
 
         
 
@@ -343,6 +344,7 @@ def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, n
     global cn_db
     global cursor_db
     global keys_candle_table
+    global cur_time_frame
 
     try: 
 
@@ -981,20 +983,19 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
 
     side = condition["side"]
     name = condition["name"] + "-" + condition["side"]
-    candle = condition["candle"]
+    candle_count = condition["candle"]
 
     if prev_candle.get(name) == None:
         return False
 
     reject = order['reject'].setdefault(name + '_' + str(block['number']), {})
     if reject == {}:
-        result_side = (((side == 'high' and prev_candle['open'] > prev_candle['close'])
-            or (side == 'low' and prev_candle['open'] < prev_candle['close']))
-            and prev_candle['close'] == prev_candle.get(name))
+        result_side = prev_candle['close'] == prev_candle.get(name)
         if result_side == True:
             reject['side'] = side
-            reject['candle'] = candle
+            reject['candle_count'] = candle_count
             reject['cur_time_frame'] = cur_time_frame['start']
+            log_condition(candle['time'], "reject(start)")
         return False
 
     if reject['cur_time_frame'] == cur_time_frame['start']:
@@ -1007,10 +1008,14 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
         reject.clear()
         return False
 
-    reject['candle'] = reject['candle'] - 1
+    reject['candle_count'] = reject['candle_count'] - 1
     reject['cur_time_frame'] = cur_time_frame['start']
 
-    return reject['candle'] == 0
+    result = reject['candle_count'] == 0
+    if result:
+        log_condition(candle['time'], "reject(finish)")
+
+    return result
 
 
 
