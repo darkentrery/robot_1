@@ -167,8 +167,7 @@ def db_get_algorithm(launch):
         iter = iter + 1
 
 
-if launch['mode'] == 'tester':
-    cn_tick = get_db_connection(user, password, host, database)
+cn_tick = get_db_connection(user, password, host, database)
 
 
 price_table_name = 'price_' + launch['frame']
@@ -270,33 +269,40 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     elif prev_prev_candle_prom == None:
         prev_prev_candle.clear()
 
+def get_max_tick():
+
+    global cn_db
+    global cursor_db
+
+    tick_table_name = 'price_tick' + "_" + launch['frame']
+    query = ("select MAX(id) from {0}".format(tick_table_name))
+    cursor.execute(query)
+    for (max_id) in cursor:
+        if len(max_id) != 0:
+            return max_id[0]
+
+    return 0
+
 def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle):
 
-    if launch['mode'] == 'tester':
-        get_tick_from_table(launch, candle, 0)
-        if candle == {}:
-            return
-        candle['price'] = float(candle['price'])
-        cur_time = candle['time']
-
     if launch['mode'] == 'robot':
-        candle.clear()
-        cur_time = get_cur_time()
-        price = get_deribit_price(launch)
-        if price != None:
-            candle['price'] = price
-            candle['time'] = cur_time
+        id_tick = get_max_tick()
+    else:
+        id_tick = 0
 
-    if launch['mode'] == 'tester':
-        if next_candle == {} or cur_time >= next_candle['time']:
-            cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
-            launch['cur_candle'] = {}
-            launch['cur_candle']['open'] = candle['price']
-            launch['was_close'] = False
-            launch['was_open'] = False
-            cur_time_frame['start'] = cur_candle['time']
+    get_tick_from_table(launch, candle, id_tick)
+    if candle == {}:
+        return
+    candle['price'] = float(candle['price'])
+    cur_time = candle['time']
 
-        
+    if next_candle == {} or cur_time >= next_candle['time']:
+        cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
+        launch['cur_candle'] = {}
+        launch['cur_candle']['open'] = candle['price']
+        launch['was_close'] = False
+        launch['was_open'] = False
+        cur_time_frame['start'] = cur_candle['time']
 
 def get_indicators(candle_time, table_name):
 
@@ -1767,8 +1773,13 @@ while True: #цикл по тикам
         print(e)
         continue
 
-    if candle == {} and launch['mode'] != 'robot':
-        break
+    if candle == {}:
+        if launch['mode'] != 'robot':
+            break
+        else:
+            time.sleep(1)
+            log_condition(get_cur_time(), "wait tick")
+            continue
     
     if manage_order_tester(order, prev_candle, launch, candle):
         launch['strategy_state'] = 'check_blocks_conditions'
