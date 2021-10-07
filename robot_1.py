@@ -286,13 +286,17 @@ def get_max_tick():
 def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle):
 
     if launch['mode'] == 'robot':
-        id_tick = get_max_tick()
+        launch['renko'].setdefault('ticks', {})
+        if launch['renko']['ticks'].get("last_tick_id") == None:
+            launch['renko']['ticks']['last_tick_id'] = get_max_tick() - 1
+        get_renko_tick(launch, candle)
     else:
         id_tick = 0
+        get_tick_from_table(launch, candle, id_tick)
 
-    get_tick_from_table(launch, candle, id_tick)
     if candle == {}:
         return
+
     candle['price'] = float(candle['price'])
     cur_time = candle['time']
 
@@ -452,7 +456,33 @@ def get_tick_from_table(launch, candle, last_id):
         for ss in launch['ticks']['keys']:
              candle[ss] = row[launch['ticks']['keys'].index(ss)]
 
+def get_renko_tick(launch, candle):
+    
+    renko = launch['renko']
 
+    cn_tick = get_db_connection(user, password, host, database)
+    cursor_tick = cn_tick.cursor()
+    tick_table_name = 'price_tick' + "_" + launch['frame']
+    query = ("select * from {0} where id > {1}".format(tick_table_name, renko['ticks']['last_tick_id']))
+    cursor_tick.execute(query)
+    
+    if renko['ticks'].get('keys') == None:
+        renko['ticks']['keys'] = []
+        keys_name = cursor_tick.description
+        for row in keys_name:
+            renko['ticks']['keys'].append(row[0])
+
+    row_tick = cursor_tick.fetchone()
+
+    if row_tick == None:
+        candle.clear()
+    else:
+        renko['ticks']['last_tick_id'] = row_tick[0]
+        for ss in renko['ticks']['keys']:
+             candle[ss] = row_tick[renko['ticks']['keys'].index(ss)]
+        log_condition(candle['time'],'renko_price = ' + str(candle['price']) + ", renko_id = " + str(candle['id'])) 
+
+    cn_tick.close()
 
 # ---------- constructors ---------------
 
