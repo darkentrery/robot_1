@@ -117,21 +117,58 @@ cursor = cnx2.cursor()
 
 cn_pos = get_db_connection(user, password, host, database)
 
+def get_new_order(order):
+
+    if order == None:
+        order = {}
+
+    order['open_price_position'] = 0
+    order['close_price_position'] = 0
+
+    order['open_time_order'] = 0
+    order['open_time_position'] = 0
+    order['close_time_position'] = 0
+    order['close_time_order'] = 0
+
+    order['trailings'] = {}
+    order['abs'] = {}
+    order['reject'] = {}
+    order['candle_direction'] = {}
+    order['uuid'] = str(uuid.uuid4())
+
+    order['leverage'] = 1
+    order['price_indent'] = 0
+    order['direction'] = ''
+    order['order_type'] = ''
+    order['state'] = 'start'
+    order['path'] = ''
+
+    order['proboi'] = {}
+
+    order['condition_checked_candle'] = None
+
+    order['cache_conditions'] = {}
+
+    return order
+
 def init_launch():
+    
     launch = {}
 
-    query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, exchange_metadata, telegram_metadata FROM launch")
+    algorithm_prefix = 'algorithm_'
+
+    query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, exchange_metadata, telegram_metadata, many_metadata, traiding_mode FROM launch")
     cursor.execute(query)
     for (postfix_algorithm, launch['start_time'], launch['end_time'], launch['frame'], 
-    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['exchange_metadata'], launch['telegram_metadata']) in cursor:
-        launch['algorithm'] = 'algorithm_' + str(postfix_algorithm)
+    launch['symbol'], launch['mode'], launch['trading_status'], launch['rmq_metadata'], launch['exchange_metadata'], launch['telegram_metadata'], launch['many_metadata'], launch['traiding_mode']) in cursor:
         break
 
     launch['rmq_metadata'] = json.loads(launch['rmq_metadata'])
     launch['exchange_metadata'] = json.loads(launch['exchange_metadata'])
     launch['telegram_metadata'] = json.loads(launch['telegram_metadata'])
+    launch['many_metadata'] = json.loads(launch['many_metadata'])
 
-    launch['cur_conditions_group'] = {}
+    launch['streams'] = []
     launch['id_candle'] = 0
     launch['last_price'] = 0
     launch['empty_time_candles'] = 0
@@ -143,38 +180,49 @@ def init_launch():
     else:
         launch['time_frame'] = int(launch['frame'])
 
+    if launch['traiding_mode'] == 'many':
+        for ord_many in launch['many_metadata']['streams']:
+            stream_element = {}
+            stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
+            stream_element['order'] = get_new_order(None)
+            stream_element['cur_conditions_group'] = {}
+            launch['streams'].append(stream_element)
+    else:
+        stream_element = {}
+        stream_element['algorithm'] = algorithm_prefix + str(postfix_algorithm)
+        stream_element['order'] = get_new_order(None)
+        stream_element['cur_conditions_group'] = {}
+        launch['streams'].append(stream_element)
+
     return launch
 
 launch = init_launch()
 
-def db_get_algorithm(launch):
+def db_get_algorithm(stream):
     
     try:
-        cursor.execute('SELECT * FROM {0}'.format(launch['algorithm']))
+        cursor.execute('SELECT * FROM {0}'.format(stream['algorithm']))
     except Exception as e:
         print('Ошибка получения таблицы с настройками, причина: ')
         print(e)
     rows1 = cursor.fetchall()
 
-    launch['algorithm_data'] = {}
+    stream['algorithm_data'] = {}
 
-    launch['algorithm_data']['block_order'] = {}
+    stream['algorithm_data']['block_order'] = {}
     iter = 0
 
-    launch['algorithm_data']['blocks_data'] = rows1
+    stream['algorithm_data']['blocks_data'] = rows1
     for gg in rows1:
-        launch['algorithm_data']['block_order'][str(gg[0])] = iter
+        stream['algorithm_data']['block_order'][str(gg[0])] = iter
         iter = iter + 1
 
-
 cn_tick = get_db_connection(user, password, host, database)
-
 
 price_table_name = 'price_' + launch['frame']
 
 cur_time_utc = datetime.datetime.utcnow()
 cur_time_frame = {}
-
 
 keys = []
 
@@ -198,6 +246,8 @@ robot_is_stoped = True
 # ---------- mode ---------------
 
 def log_condition(time, info):
+    if time == None:
+        time = datetime.datetime.utcnow()
     print(str(time) + " --- " + info)
 
 def get_cur_time():
@@ -397,7 +447,6 @@ def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, n
         cursor_db = cn_db.cursor()
         return select_renko_candles(date_time, table_name, next_candle)
 
-
 def get_deribit_price(launch):
 
     try:
@@ -509,40 +558,6 @@ def get_new_statistics():
 
     return stat
 
-def get_new_order(order):
-
-    if order == None:
-        order = {}
-
-    order['open_price_position'] = 0
-    order['close_price_position'] = 0
-
-    order['open_time_order'] = 0
-    order['open_time_position'] = 0
-    order['close_time_position'] = 0
-    order['close_time_order'] = 0
-
-    order['trailings'] = {}
-    order['abs'] = {}
-    order['reject'] = {}
-    order['candle_direction'] = {}
-    order['uuid'] = str(uuid.uuid4())
-
-    order['leverage'] = 1
-    order['price_indent'] = 0
-    order['direction'] = ''
-    order['order_type'] = ''
-    order['state'] = 'start'
-    order['path'] = ''
-
-    order['proboi'] = {}
-
-    order['condition_checked_candle'] = None
-
-    order['cache_conditions'] = {}
-
-    return order
-
 def manage_order_tester(order, prev_candle, launch, candle):
     
     skip_order = False
@@ -582,7 +597,6 @@ def get_proboi_id(block, condition):
 
     return block['alg_number'] + '_' + condition['number']  + '_' + condition['name']
 
-order = get_new_order(None)
 stat = get_new_statistics()
 
 # ---------- conditions -----------------
@@ -730,7 +744,7 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
 
     return False
 
-def check_pnl(condition, block, candle, order, launch):
+def check_pnl(condition, block, candle, order):
     
     direction = order['direction']
 
@@ -1053,8 +1067,6 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
 
     return result
 
-
-
 # ---------- engine -----------------
 
 def get_leverage(order, action, stat):
@@ -1149,15 +1161,13 @@ def get_activation_blocks(action_block, algorithm_data):
     
     return blocks
 
-def drop_conditions(blocks, launch):
-    launch['cur_conditions_group'] = {}
+def check_blocks_condition(candle, order, prev_candle, prev_prev_candle, launch, stream):
 
-def check_blocks_condition(blocks, candle, order, prev_candle, prev_prev_candle, launch):
-
+    blocks = stream['activation_blocks']
     for block in blocks:
-        launch['cur_conditions_group'].setdefault(str(block['number']),[])
-        if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
-            drop_conditions(blocks, launch)
+        stream['cur_conditions_group'].setdefault(str(block['number']),[])
+        if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch, stream):
+            stream['cur_conditions_group'] = {}
             return block
     
     return None
@@ -1172,21 +1182,21 @@ def undone_conditions_group(conditions_group):
         condition['done'] = False
         condition['id_candle'] = None
 
-def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch):
+def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch, stream):
 
-    if launch['was_close']:
+    if stream['was_close']:
         return False
 
     cur_condition_number = None
     cond_done_id_candle = None
-    launch['prices'] = []
+    stream['prices'] = []
 
-    cur_conditions_group = launch['cur_conditions_group'][str(block['number'])]
+    cur_conditions_group = stream['cur_conditions_group'][str(block['number'])]
 
     # если изменилась свеча для текущего намбера, то обнуляем
     if len(cur_conditions_group) > 0 and cur_conditions_group[0]['id_candle'] != launch['id_candle']:
         undone_conditions_group(cur_conditions_group)
-        launch['cur_conditions_group'][str(block['number'])] = []
+        stream['cur_conditions_group'][str(block['number'])] = []
 
     for condition in block['conditions']:
 
@@ -1201,7 +1211,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
         # если изменился намбер в цикле, то возвращаем False
         if cur_condition_number != None and condition['number'] != cur_condition_number:
              set_done_conditions_group(cur_conditions_group)
-             launch['cur_conditions_group'][str(block['number'])] = []
+             stream['cur_conditions_group'][str(block['number'])] = []
              return False
         
         # если условие выполнилось, то продолжаем
@@ -1213,11 +1223,11 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             return False
 
         if condition['type'] == 'pnl':
-            result = check_pnl(condition, block, candle, order, launch)
+            result = check_pnl(condition, block, candle, order)
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'value_change':
@@ -1233,7 +1243,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'trailing':
@@ -1241,7 +1251,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'abs':
@@ -1249,7 +1259,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'candle_direction':
@@ -1257,7 +1267,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'exit_price':
@@ -1273,7 +1283,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             if result == False:
                 return False
             else:
-                launch['prices'].append(result)
+                stream['prices'].append(result)
                 order['close_time_order'] = candle['time']
         elif condition['type'] == 'candle':
             result = check_candle(condition, block, candle, order, launch)
@@ -1298,25 +1308,27 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
         condition['id_candle'] = launch['id_candle']
         cur_condition_number = condition['number']
 
-        launch['cur_conditions_group'][str(block['number'])].append(condition)
+        stream['cur_conditions_group'][str(block['number'])].append(condition)
 
         if order['condition_checked_candle'] == None:
             order['condition_checked_candle'] = candle
         
     set_done_conditions_group(cur_conditions_group)
-    launch['cur_conditions_group'][str(block['number'])] = []
+    stream['cur_conditions_group'][str(block['number'])] = []
 
-    if len(launch['prices']) > 0:
+    if len(stream['prices']) > 0:
         if candle['price'] < launch['last_price']:
-            launch['price'] = min(launch['prices'])
+            stream['price'] = min(stream['prices'])
         else:
-            launch['price'] = max(launch['prices'])
+            stream['price'] = max(stream['prices'])
     else:
-        launch['price'] = 0
+        stream['price'] = 0
     
     return True
 
-def execute_block_actions(block, candle, order, stat, launch):
+def execute_block_actions(candle, order, stat, launch, stream):
+
+    block = stream['action_block']
 
     saved_close_time = 0
     saved_close_price = 0
@@ -1333,7 +1345,7 @@ def execute_block_actions(block, candle, order, stat, launch):
                 return False   
             if order['close_time_order'] == 0:
                 order['close_time_order'] = candle['time']
-            result = close_position(order, block, candle, stat, action)
+            result = close_position(order, block, candle, stat, action, launch, stream)
             if result:
                 action['done'] = True
                 send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
@@ -1351,11 +1363,11 @@ def execute_block_actions(block, candle, order, stat, launch):
             else:
                 action['done'] = False
                 return False
-        if action['order'] == "open":
+        elif action['order'] == "open":
             if order['state'] == 'start':
                 
                 # если уже было закрытие в данной свече
-                if launch.get('was_close') != None and launch['was_close'] == True:
+                if stream.get('was_close') != None and stream['was_close'] == True:
                     return False
 
                 order['order_type'] = action['order_type']
@@ -1368,23 +1380,31 @@ def execute_block_actions(block, candle, order, stat, launch):
                     order['open_price_position'] = custom_round(saved_close_price)
                 order['state'] = 'order_is_opened'
             if order['state'] == 'order_is_opened':
-                result = open_position(order, block, candle, stat, action, prev_candle)
+                result = open_position(order, block, candle, stat, action, prev_candle, launch, stream)
                 if result:
                     action['done'] = True
                     send_signal_rmq('open', order, launch['mode'], launch['rmq_metadata'])
                     print('Открытие позиции: ' + order['direction'] + ', ' + str(order['leverage']) + ', ' + str(order['open_time_position']))
-                    launch['was_open'] = True
+                    stream['was_open'] = True
                 else:
                     action['done'] = False
                     return False
             else:
                 return False
+        elif action['order'] == "open_many":
+            result = open_position_many(order, block, candle, stat, action)
+            if result == False:
+                return False
+        elif action['order'] == "update_many":
+            result = update_position_many(order, block, candle, stat, action)
+            if result == False:
+                return False
 
-    launch['was_close'] = was_close and order['open_time_position'] == 0
+    stream['was_close'] = was_close and order['open_time_position'] == 0
 
     return True
 
-def open_position(order, block, candle, stat, action, prev_candle):
+def open_position(order, block, candle, stat, action, prev_candle, launch, stream):
 
     result = False
 
@@ -1401,8 +1421,8 @@ def open_position(order, block, candle, stat, action, prev_candle):
             price = float(price_old) - (float(price_old) / 100) * float(order['price_indent'])
         elif order['direction'] == 'short':
             price = float(price_old) + (float(price_old) / 100) * float(order['price_indent'])  
-        if launch.get('price') != None and launch['price'] != 0:
-            order['open_price_position'] = custom_round(launch['price'])
+        if stream.get('price') != None and stream['price'] != 0:
+            order['open_price_position'] = custom_round(stream['price'])
         if order['open_price_position'] == 0:
             order['open_price_position'] = custom_round(price)
         if order['path'] == '':
@@ -1414,11 +1434,11 @@ def open_position(order, block, candle, stat, action, prev_candle):
         if launch['mode'] == 'robot':
             db_open_position(order)
 
-    launch['price'] = 0
+    stream['price'] = 0
   
     return result
 
-def close_position(order, block, candle, stat, action):
+def close_position(order, block, candle, stat, action, launch, stream):
     
     points_position = 0
 
@@ -1426,7 +1446,7 @@ def close_position(order, block, candle, stat, action):
         (order['direction'] == 'short')):
         
         # если уже было закрытие в данной свече
-        if launch.get('was_close') != None and launch['was_close'] == True:
+        if stream.get('was_close') != None and stream['was_close'] == True:
             order['close_time_order'] = 0
             return False
 
@@ -1435,9 +1455,9 @@ def close_position(order, block, candle, stat, action):
         else:
             order['path'] = order['path'] + ', ' + str(block['number']) + '_' + block['alg_number']
 
-        if launch.get('price') != None and launch['price'] != 0:
-            order['close_price_position'] = custom_round(launch['price'])
-        launch['price'] = 0
+        if stream.get('price') != None and stream['price'] != 0:
+            order['close_price_position'] = custom_round(stream['price'])
+        stream['price'] = 0
 
         if order['close_price_position'] == 0:
             if order['condition_checked_candle'] == None:
@@ -1477,7 +1497,7 @@ def close_position(order, block, candle, stat, action):
         
         if stat['losses_money'] > 0: stat['losses_money'] = 0
 
-        stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage']) - 2 * spread
+        stat['percent_position'] = (points_position / order['open_price_position']) * 100 * float(order['leverage']) - 2 * spread * float(order['leverage'])
 
         stat['percent_positions'] = stat['percent_positions'] + stat['percent_position']
 
@@ -1520,6 +1540,124 @@ def close_position(order, block, candle, stat, action):
         return True
 
     return False
+
+def open_position_many(order, block, candle, stat, action):
+    
+    if action.get('leverage') == None:
+        return False
+
+    order['leverage'] = action['leverage']
+
+    return True
+
+def update_position_many(order, block, candle, stat, action):
+
+    leverage_up = action.get('leverage_up')
+    leverage_down = action.get('leverage_down')
+    leverage_min = action.get('leverage_min')
+    leverage_source = action.get('leverage_source')
+
+    if leverage_down == None and leverage_up == None:
+        return False
+
+    try:
+        if leverage_up != None:
+            order['leverage'] = order['leverage'] + leverage_up
+        elif leverage_down != None:
+            if leverage_source == None:
+                return False
+            leverage_source = float(get_leverage_many(leverage_source))
+            order['leverage'] = get_leverage_down(leverage_down, leverage_source, leverage_min)
+    except Exception as e:
+        log_condition(None, e)
+        return False
+    
+    return True
+
+def get_leverage_many(leverage_source):
+
+    global cursor
+    
+    query = ("SELECT leverage, equity FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
+    cursor.execute(query)
+    for (leverage, eqiuty) in cursor:
+        return leverage
+
+    return float(1)
+
+def get_leverage_down(leverage_down, leverage_source, leverage_min):
+
+    if leverage_down.find("%") != -1:
+        leverage_down = float(leverage_down.replace('%', ''))
+        result = leverage_down * leverage_source / 100
+        if leverage_min != None:
+            if leverage_min > result:
+                return leverage_min
+            else:
+                return result    
+
+# ---------- telegram ----------------------
+
+def send_open_position_telegram(launch, order):
+
+    if launch['mode'] != 'robot':
+        return
+
+    global cn_db
+    global cursor_db
+
+    text = ''
+    try:
+        query = "select id, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
+        cursor_db.execute(query)
+        for (id, leverage)  in cursor_db:
+            text = ('*ID ' + str(id) + "*" + 
+            "\n" + order['direction'] + " open" + 
+            "\n" + str(order['open_price_position']) + 
+            "\n" + "L " + str(leverage))
+
+        if text != '':
+            send_telegram(launch, text)    
+    except Exception as e:
+        print(e)
+
+def send_close_position_telegram(launch, order):
+
+    if launch['mode'] != 'robot':
+        return
+
+    global cn_db
+    global cursor_db
+
+    text = ''
+    try:
+        query = "select id, percent_position, month_percent, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
+        cursor_db.execute(query)
+        for (id, percent_position, month_percent, leverage) in cursor_db:
+            text = ('*ID ' + str(id) + "*"
+                "\n" + order['direction'] + " close" +
+                "\n" + str(order['close_price_position']) +
+                "\n" + "R " + str(round(percent_position, 2)) + "%" +
+                "\n" + "*L " + str(leverage) + "*"
+                "\n" + "*M " + str(round(month_percent, 2)) + "%" + "*"
+                )
+        if text != '':
+            send_telegram(launch, text)    
+    except Exception as e:
+        print(e)
+
+def send_telegram(launch, text):
+
+    token = launch['telegram_metadata']['token'] # ключ тг бота
+    url = "https://api.telegram.org/bot"
+    channel_id = launch['telegram_metadata']['channel_id']
+    url += token
+    method = url + "/sendMessage"
+
+    requests.post(method, data={
+        "chat_id": channel_id,
+        "text": text,
+        "parse_mode": "Markdown"}) 
 
 # ---------- database ----------------------
 
@@ -1622,7 +1760,7 @@ def load_with_datetime(pairs, format='%Y-%m-%dT%H:%M:%S'):
                 d[k] = v
     return d
 
-def db_save_state(launch, stat, order):
+def db_save_state(launch, stat):
 
     if launch['mode'] != 'robot':
         return False
@@ -1632,17 +1770,16 @@ def db_save_state(launch, stat, order):
 
     launch_data = json.dumps(launch, default=json_serial)
     stat_data = json.dumps(stat, default=json_serial)
-    order_data = json.dumps(order, default=json_serial)
 
     try:
-        update_query = ("UPDATE launch SET launch_data = %s, stat_data = %s, order_data = %s where id = 1")
-        data = (launch_data, stat_data, order_data)
+        update_query = ("UPDATE launch SET launch_data = %s, stat_data = %s where id = 1")
+        data = (launch_data, stat_data)
         cursor.execute(update_query, data)
         cnx2.commit()
     except Exception as e:
         print(e)
 
-def db_get_state(launch, stat, order):
+def db_get_state(launch, stat):
 
     if launch['mode'] != 'robot':
         return False
@@ -1652,22 +1789,19 @@ def db_get_state(launch, stat, order):
 
     launch_data = json.dumps(launch, default=json_serial)
     stat_data = json.dumps(stat, default=json_serial)
-    order_data = json.dumps(order, default=json_serial)
 
     try:
-        query = ("SELECT launch_data, stat_data, order_data FROM launch")
+        query = ("SELECT launch_data, stat_data FROM launch")
         cursor.execute(query)
-        for (launch_data, stat_data, order_data) in cursor:
-            if launch_data == "" or stat_data == "" or order_data == "" or launch_data == None or stat_data == None or order_data == None:
+        for (launch_data, stat_data, orders_data) in cursor:
+            if launch_data == "" or stat_data == "" or launch_data == None or stat_data == None:
                 return False
 
         launch_data = json.loads(launch_data, object_pairs_hook=load_with_datetime)
         stat_data = json.loads(stat_data, object_pairs_hook=load_with_datetime)
-        order_data = json.loads(order_data, object_pairs_hook=load_with_datetime)
-
+        
         launch.update(launch_data)
         stat.update(stat_data)
-        order.update(order_data)
 
         return True
 
@@ -1686,82 +1820,21 @@ def db_clear_state():
     except Exception as e:
         print(e)
 
-# ---------- telegram ----------------------
-
-def send_open_position_telegram(launch, order):
-
-    if launch['mode'] != 'robot':
-        return
-
-    global cn_db
-    global cursor_db
-
-    text = ''
-    try:
-        query = "select id, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
-        cursor_db.execute(query)
-        for (id, leverage)  in cursor_db:
-            text = ('*ID ' + str(id) + "*" + 
-            "\n" + order['direction'] + " open" + 
-            "\n" + str(order['open_price_position']) + 
-            "\n" + "L " + str(leverage))
-
-        if text != '':
-            send_telegram(launch, text)    
-    except Exception as e:
-        print(e)
-
-def send_close_position_telegram(launch, order):
-
-    if launch['mode'] != 'robot':
-        return
-
-    global cn_db
-    global cursor_db
-
-    text = ''
-    try:
-        query = "select id, percent_position, month_percent, leverage from {0} where id_position = '{1}'".format(table_result, order['uuid'])
-        cursor_db.execute(query)
-        for (id, percent_position, month_percent, leverage) in cursor_db:
-            text = ('*ID ' + str(id) + "*"
-                "\n" + order['direction'] + " close" +
-                "\n" + str(order['close_price_position']) +
-                "\n" + "R " + str(round(percent_position, 2)) + "%" +
-                "\n" + "*L " + str(leverage) + "*"
-                "\n" + "*M " + str(round(month_percent, 2)) + "%" + "*"
-                )
-        if text != '':
-            send_telegram(launch, text)    
-    except Exception as e:
-        print(e)
-
-def send_telegram(launch, text):
-
-    token = launch['telegram_metadata']['token'] # ключ тг бота
-    url = "https://api.telegram.org/bot"
-    channel_id = launch['telegram_metadata']['channel_id']
-    url += token
-    method = url + "/sendMessage"
-
-    requests.post(method, data={
-        "chat_id": channel_id,
-        "text": text,
-        "parse_mode": "Markdown"}) 
-
 # ---------- main programm -----------------
 
 def init_algo(launch):
-    db_get_algorithm(launch)
-    launch['was_close'] = False
-    launch['was_open'] = False
-    launch['strategy_state'] = 'check_blocks_conditions'
-    launch['action_block'] = None
-    launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
-    if len(launch['activation_blocks']) == 0:
-        raise Exception('There is no first block in startegy')
 
-if db_get_state(launch, stat, order) != True:
+    for stream in launch['streams']:
+        db_get_algorithm(stream)
+        stream['was_close'] = False
+        stream['was_open'] = False
+        stream['strategy_state'] = 'check_blocks_conditions'
+        stream['action_block'] = None
+        stream['activation_blocks'] = get_activation_blocks('0', stream['algorithm_data'])
+        if len(stream['activation_blocks']) == 0:
+            raise Exception('There is no first block in startegy')
+
+if db_get_state(launch, stat) != True:
     init_algo(launch)
 
 while True: #цикл по тикам
@@ -1810,52 +1883,54 @@ while True: #цикл по тикам
             time.sleep(1)
             log_condition(get_cur_time(), "wait tick")
             continue
-    
-    if manage_order_tester(order, prev_candle, launch, candle):
-        launch['strategy_state'] = 'check_blocks_conditions'
-        launch['action_block'] = None
-        launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
-        continue
 
-    
+    for stream in launch['streams']:
 
-    if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
-        order['close_time_position'] = candle['time']
-        order['close_time_order'] = candle['time']
-        order['close_price_position'] = custom_round(candle['price'])
-        if close_position(order, launch['trading_status'], candle, stat, None):
-            send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
-            print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
-            print('-------------------------------------------------------')
-            order = get_new_order(order)
-            launch['activation_blocks'] = get_activation_blocks('0', launch['algorithm_data'])
-            continue
+        order = stream['order']
 
-    while True: #цикл по блокам
-        
-        # проверка условий активных блоков
-        if launch['strategy_state'] == 'check_blocks_conditions':
-            launch['action_block'] = check_blocks_condition(launch['activation_blocks'], candle, order, prev_candle, prev_prev_candle, launch)
-            if launch['action_block'] != None:
-                launch['strategy_state'] = 'execute_block_actions'
-                # если в блоке нет текущих действий, то активным блоком назначаем следующий
-                if len(launch['action_block']['actions']) == 0:
-                    launch['activation_blocks'] = get_activation_blocks(launch['action_block'], launch['algorithm_data'])
-                    # назначаем только, если он (блок) один и в нем нет условий
-                    if len(launch['activation_blocks']) == 1 and len(launch['activation_blocks'][0]['conditions']) == 0:
-                        launch['action_block'] = launch['activation_blocks'][0]
-            else:
-                break
+        # if manage_order_tester(order, prev_candle, launch, candle):
+        #     launch['strategy_state'] = 'check_blocks_conditions'
+        #     launch['action_block'] = None
+        #     launch['activation_blocks'] = get_activation_blocks('0', stream['algorithm_data'])
+        #     continue
+
+        # if order['open_time_position'] != 0 and order['close_time_position'] == 0 and launch['trading_status'] == 'off_now_close':
+        #     order['close_time_position'] = candle['time']
+        #     order['close_time_order'] = candle['time']
+        #     order['close_price_position'] = custom_round(candle['price'])
+        #     if close_position(order, launch['trading_status'], candle, stat, None):
+        #         send_signal_rmq('close', order, launch['mode'], launch['rmq_metadata'])
+        #         print('Закрытие позиции: ' + str(stat['percent_position']) + ', ' + str(order['close_time_position']))
+        #         print('-------------------------------------------------------')
+        #         order = get_new_order(order)
+        #         launch['activation_blocks'] = get_activation_blocks('0', stream['algorithm_data'])
+        #         continue
+
+        while True: #цикл по блокам
             
-        # исполнение действий блока
-        if launch['strategy_state'] == 'execute_block_actions':
-            result = execute_block_actions(launch['action_block'], candle, order, stat, launch)
-            if result == True:
-                launch['activation_blocks'] = get_activation_blocks(launch['action_block'], launch['algorithm_data'])
-                launch['strategy_state'] = 'check_blocks_conditions'
-                db_save_state(launch, stat, order)
-            else:
-                break
+            # проверка условий активных блоков
+            if stream['strategy_state'] == 'check_blocks_conditions':
+                stream['action_block'] = check_blocks_condition(candle, order, prev_candle, prev_prev_candle, launch, stream)
+                if stream['action_block'] != None:
+                    stream['strategy_state'] = 'execute_block_actions'
+                    # если в блоке нет текущих действий, то активным блоком назначаем следующий
+                    if len(stream['action_block']['actions']) == 0:
+                        stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['algorithm_data'])
+                        # назначаем только, если он (блок) один и в нем нет условий
+                        if len(stream['activation_blocks']) == 1 and len(stream['activation_blocks'][0]['conditions']) == 0:
+                            stream['action_block'] = stream['activation_blocks'][0]
+                else:
+                    break
+                
+            # исполнение действий блока
+            if stream['strategy_state'] == 'execute_block_actions':
+                result = execute_block_actions(candle, order, stat, launch, stream)
+                if result == True:
+                    stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['algorithm_data'])
+                    stream['strategy_state'] = 'check_blocks_conditions'
+                    db_save_state(launch, stat)
+                else:
+                    break
 
     if candle != {}:
         launch['last_price'] = candle['price']
