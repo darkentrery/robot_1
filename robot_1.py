@@ -186,6 +186,7 @@ def init_launch():
             stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
             stream_element['order'] = get_new_order(None)
             stream_element['cur_conditions_group'] = {}
+            stream_element['id'] = ord_many['id']
             launch['streams'].append(stream_element)
     else:
         stream_element = {}
@@ -1392,11 +1393,17 @@ def execute_block_actions(candle, order, stat, launch, stream):
             else:
                 return False
         elif action['order'] == "open_many":
-            result = open_position_many(order, block, candle, stat, action)
+            order['order_type'] = action['order_type']
+            order['direction'] = action['direction']
+            order['path'] = str(block['number']) + '_' + block['alg_number']
+            result = open_position_many(order, block, candle, stat, action, stream)
             if result == False:
                 return False
         elif action['order'] == "update_many":
-            result = update_position_many(order, block, candle, stat, action)
+            order['order_type'] = action['order_type']
+            order['direction'] = action['direction']
+            order['path'] = str(block['number']) + '_' + block['alg_number']
+            result = update_position_many(order, block, candle, stat, action, stream)
             if result == False:
                 return False
 
@@ -1541,16 +1548,19 @@ def close_position(order, block, candle, stat, action, launch, stream):
 
     return False
 
-def open_position_many(order, block, candle, stat, action):
+def open_position_many(order, block, candle, stat, action, stream):
     
     if action.get('leverage') == None:
         return False
 
     order['leverage'] = action['leverage']
+    order['equity'] = 1
+
+    db_insert_position_many(order, stream, candle)
 
     return True
 
-def update_position_many(order, block, candle, stat, action):
+def update_position_many(order, block, candle, stat, action, stream):
 
     leverage_up = action.get('leverage_up')
     leverage_down = action.get('leverage_down')
@@ -1561,29 +1571,44 @@ def update_position_many(order, block, candle, stat, action):
         return False
 
     try:
+        many_params = get_many_params(stream['id'])
         if leverage_up != None:
             order['leverage'] = order['leverage'] + leverage_up
         elif leverage_down != None:
             if leverage_source == None:
                 return False
-            leverage_source = float(get_leverage_many(leverage_source))
-            order['leverage'] = get_leverage_down(leverage_down, leverage_source, leverage_min)
+            many_params_source = get_many_params(leverage_source)
+            order['leverage'] = get_leverage_down(leverage_down, many_params_source['leverage'], leverage_min)
     except Exception as e:
         log_condition(None, e)
         return False
     
+    order['equity'] = get_equity_many(many_params['equity'], candle['price'], many_params['price_order'], many_params['leverage'])
+
+    db_insert_position_many(order, stream, candle)
+
     return True
 
-def get_leverage_many(leverage_source):
+def get_many_params(leverage_source):
 
     global cursor
     
-    query = ("SELECT leverage, equity FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
-    cursor.execute(query)
-    for (leverage, eqiuty) in cursor:
-        return leverage
+    many_params = {}
 
-    return float(1)
+    query = ("SELECT leverage, equity, price_order FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
+    cursor.execute(query)
+    for (many_params['leverage'], many_params['equity'], many_params['price_order']) in cursor:
+        many_params['leverage'] = float(many_params['leverage'])
+        many_params['equity'] = float(many_params['equity'])
+        many_params['price_order'] = float(many_params['price_order'])
+        many_params['last'] = True
+        return many_params
+
+    many_params['leverage'] = float(1)
+    many_params['eqiuty'] = float(1)
+    many_params['last'] = False
+
+    return many_params
 
 def get_leverage_down(leverage_down, leverage_source, leverage_min):
 
@@ -1595,6 +1620,12 @@ def get_leverage_down(leverage_down, leverage_source, leverage_min):
                 return leverage_min
             else:
                 return result    
+
+def get_equity_many(last_equity, price, last_price, last_leverage):
+
+    result = last_equity + last_equity * ((price - last_price) / last_price * last_leverage)
+
+    return result
 
 # ---------- telegram ----------------------
 
@@ -1819,6 +1850,29 @@ def db_clear_state():
         print("Контекст очищен")
     except Exception as e:
         print(e)
+
+def db_insert_position_many(order, stream, candle):
+
+    global cn_pos
+    cursor_local = cn_pos.cursor()
+
+    try:
+        insert_stmt = (
+            "INSERT INTO positions_{0} (side, equity, leverage, time_order, price_order, type_order, blocks_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(stream['id'])
+        )
+        data = (
+            order['direction'], order['equity'], order['leverage'], candle['time'], candle['price'], order['order_type'], order['path']
+        )
+            
+        cursor_local.execute(insert_stmt, data)
+        cn_pos.commit()
+        cursor_local.close()
+
+    except Exception as e:
+        print(e)
+        cn_pos = get_db_connection(user, password, host, database)
+        db_insert_position_many(order, stream, candle)
 
 # ---------- main programm -----------------
 
