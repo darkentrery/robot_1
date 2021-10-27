@@ -1558,6 +1558,12 @@ def open_position_many(order, block, candle, stat, action, stream):
 
     db_insert_position_many(order, stream, candle)
 
+    log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
+    if launch['mode'] == 'tester':
+        log_text = log_text + ", id = " + str(candle['id'])
+
+    print(log_text)
+
     return True
 
 def update_position_many(order, block, candle, stat, action, stream):
@@ -1586,6 +1592,13 @@ def update_position_many(order, block, candle, stat, action, stream):
     order['equity'] = get_equity_many(many_params['equity'], candle['price'], many_params['price_order'], many_params['leverage'])
 
     db_insert_position_many(order, stream, candle)
+    log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
+    if launch['mode'] == 'tester':
+        log_text = log_text + ", id = " + str(candle['id'])
+
+    print(log_text)
+
+    print('---------------------------------------------')
 
     return True
 
