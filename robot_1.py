@@ -299,8 +299,9 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
     prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
     if prev_candle_prom != None and prev_candle_prom != {}:
         if ((prev_candle == {}) or (prev_candle != {} and prev_candle['time'] != prev_candle_prom['time'])):
-            launch['was_close'] = False
-            launch['was_open'] = False
+            for stream in launch['streams']:
+                stream['was_close'] = False
+                stream['was_open'] = False
             update_candle(launch)
             if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
@@ -353,8 +354,9 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
-        launch['was_close'] = False
-        launch['was_open'] = False
+        for stream in launch['streams']:
+            stream['was_close'] = False
+            stream['was_open'] = False
         cur_time_frame['start'] = cur_candle['time']
 
 def get_indicators(candle_time, table_name):
@@ -1166,7 +1168,7 @@ def check_blocks_condition(candle, order, prev_candle, prev_prev_candle, launch,
     for block in blocks:
         stream['cur_conditions_group'].setdefault(str(block['number']),[])
         if block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, launch, stream):
-            stream['cur_conditions_group'] = {}
+            stream['cur_conditions_group'].clear()
             return block
     
     return None
@@ -1404,6 +1406,8 @@ def execute_block_actions(candle, order, stat, launch, stream):
             result = update_position_many(order, block, candle, stat, action, stream)
             if result == False:
                 return False
+            if order['last_condition_type'] == 'realtime':
+                was_close = True
 
     stream['was_close'] = was_close and order['open_time_position'] == 0
 
