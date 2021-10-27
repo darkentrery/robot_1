@@ -228,12 +228,10 @@ cur_time_frame = {}
 keys = []
 
 table_result = data['table_result']
-table_result_sum = data['table_result_sum']
 
 if launch['mode'] != 'robot':
     try:
         cursor.execute("TRUNCATE TABLE {0}".format(table_result))
-        # cursor.execute("TRUNCATE TABLE {0}".format(table_result_sum))
     except Exception as e:
         print('Ошибка получения таблицы с результами, причина: ')
         print(e)
@@ -1900,6 +1898,13 @@ def init_algo(launch):
         stream['activation_blocks'] = get_activation_blocks('0', stream['algorithm_data'])
         if len(stream['activation_blocks']) == 0:
             raise Exception('There is no first block in startegy')
+        
+        if launch['mode'] != 'robot':
+            try:
+                cursor.execute("TRUNCATE TABLE {0}".format("positions_" + stream['id']))
+            except Exception as e:
+                print(e)
+
 
 if db_get_state(launch, stat) != True:
     init_algo(launch)
