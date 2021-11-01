@@ -1643,7 +1643,7 @@ def get_equity_many(last_equity, price, last_price, last_leverage):
 
     result = last_equity + last_equity * ((price - last_price) / last_price * last_leverage)
 
-    return result
+    return round(result, 8)
 
 def set_equity(launch, prev_candle):
 
