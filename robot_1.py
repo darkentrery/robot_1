@@ -149,6 +149,8 @@ def get_new_order(order):
 
     order['cache_conditions'] = {}
 
+    order['equity'] = 1
+
     return order
 
 def init_launch():
@@ -354,6 +356,7 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
+        set_equity(launch, prev_candle)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
@@ -1641,6 +1644,28 @@ def get_equity_many(last_equity, price, last_price, last_leverage):
     result = last_equity + last_equity * ((price - last_price) / last_price * last_leverage)
 
     return result
+
+def set_equity(launch, prev_candle):
+
+    if launch['traiding_mode'] != 'many':
+        return
+
+    if launch['mode'] == 'tester' and prev_candle != {}:
+        global cursor
+        set_query = ""
+        total_equity = 0.0
+        for stream in launch['streams']:
+            if set_query == '':
+                razd = ''
+            else:
+                razd = ','
+            set_query = set_query + razd + "equity_{0}={1}".format(stream['id'], str(stream['order']['equity']))
+            total_equity = total_equity + stream['order']['equity']
+        
+        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s where id=%s".format(price_table_name, set_query))
+        data = (total_equity, prev_candle['id'])
+        cursor.execute(insert_stmt, data)
+
 
 # ---------- telegram ----------------------
 
