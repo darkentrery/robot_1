@@ -150,6 +150,7 @@ def get_new_order(order):
     order['cache_conditions'] = {}
 
     order['equity'] = 1
+    order['max_equity'] = 1
 
     return order
 
@@ -1595,6 +1596,8 @@ def update_position_many(order, block, candle, stat, action, stream):
         return False
     
     order['equity'] = get_equity_many(many_params['equity'], candle['price'], many_params['price_order'], many_params['leverage'])
+    if order['equity'] > order['max_equity']:
+        order['max_equity'] = order['equity']
 
     db_insert_position_many(order, stream, candle)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
@@ -1659,7 +1662,7 @@ def set_equity(launch, prev_candle):
                 razd = ''
             else:
                 razd = ','
-            set_query = set_query + razd + "equity_{0}={1}".format(stream['id'], str(stream['order']['equity']))
+            set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
             total_equity = total_equity + stream['order']['equity']
         
         insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s where id=%s".format(price_table_name, set_query))
