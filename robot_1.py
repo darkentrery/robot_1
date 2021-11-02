@@ -149,8 +149,8 @@ def get_new_order(order):
 
     order['cache_conditions'] = {}
 
-    order['equity'] = 1
-    order['max_equity'] = 1
+    order['equity'] = 0.5
+    order['max_equity'] = 0.5
 
     return order
 
@@ -1669,6 +1669,25 @@ def set_equity(launch, prev_candle):
         data = (total_equity, prev_candle['id'])
         cursor.execute(insert_stmt, data)
 
+def delete_equity(launch):
+
+    if launch['mode'] != 'robot':
+        return
+
+    if launch['traiding_mode'] != 'many':
+        return
+
+    set_query = ""
+    for stream in launch['streams']:
+        if set_query == '':
+            razd = ''
+        else:
+            razd = ','
+        set_query = set_query + razd + "equity_{0} = NULL, max_equity_{0} = NULL".format(stream['id'])
+    
+    insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL".format(price_table_name, set_query))
+    cursor.execute(insert_stmt, data)
+
 
 # ---------- telegram ----------------------
 
@@ -1920,6 +1939,8 @@ def db_insert_position_many(order, stream, candle):
 # ---------- main programm -----------------
 
 def init_algo(launch):
+
+    delete_equity(launch)
 
     for stream in launch['streams']:
         db_get_algorithm(stream)
