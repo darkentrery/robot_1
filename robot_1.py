@@ -1671,12 +1671,13 @@ def set_equity(launch, prev_candle):
 
 def delete_equity(launch):
 
-    if launch['mode'] != 'robot':
+    if launch['mode'] != 'tester':
         return
 
     if launch['traiding_mode'] != 'many':
         return
 
+    global cursor
     set_query = ""
     for stream in launch['streams']:
         if set_query == '':
