@@ -1396,14 +1396,14 @@ def execute_block_actions(candle, order, stat, launch, stream):
                     return False
             else:
                 return False
-        elif action['order'] == "open_many":
+        elif action['order'] == "open_many" and launch['traiding_mode'] == 'many':
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
             result = open_position_many(order, block, candle, stat, action, stream)
             if result == False:
                 return False
-        elif action['order'] == "update_many":
+        elif action['order'] == "update_many" and launch['traiding_mode'] == 'many':
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
@@ -1560,8 +1560,7 @@ def open_position_many(order, block, candle, stat, action, stream):
         return False
 
     order['leverage'] = action['leverage']
-    order['equity'] = 1
-
+    order['equity'] = 0.5
     db_insert_position_many(order, stream, candle)
 
     log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
