@@ -184,6 +184,7 @@ def init_launch():
         launch['time_frame'] = int(launch['frame'])
 
     if launch['traiding_mode'] == 'many':
+        launch['balancing'] = None
         for ord_many in launch['many_metadata']['streams']:
             stream_element = {}
             stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
@@ -1412,6 +1413,14 @@ def execute_block_actions(candle, order, stat, launch, stream):
                 return False
             if order['last_condition_type'] == 'realtime':
                 was_close = True
+        elif action['order'] == "balance_many" and launch['traiding_mode'] == 'many':
+            order['order_type'] = action['order_type']
+            order['direction'] = action['direction']
+            result = balance_position_many(launch, block, candle, stat, action)
+            if result == False:
+                return False
+            if order['last_condition_type'] == 'realtime':
+                was_close = True
 
     stream['was_close'] = was_close and order['open_time_position'] == 0
 
@@ -1609,6 +1618,33 @@ def update_position_many(order, block, candle, stat, action, stream):
 
     return True
 
+def balance_position_many(launch, block, candle, stat, action):
+
+    total_equity = get_total_equity()
+    if total_equity == None:
+        return False
+
+    launch['balancing'] = float(total_equity) / float(len(launch['streams']))
+
+    for stream in launch['streams']:
+        stream['order']['equity'] = launch['balancing']
+        if stream['order']['equity'] > stream['order']['max_equity']:
+            stream['order']['max_equity'] = stream['order']['equity']
+
+        stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
+        stream['order']['leverage'] = 0
+        db_insert_position_many(stream['order'], stream, candle)
+
+    log_text = "Ребалансировка many-позициq: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
+    if launch['mode'] == 'tester':
+        log_text = log_text + ", id = " + str(candle['id'])
+
+    print(log_text)
+
+    print('---------------------------------------------')
+
+    return True
+
 def get_many_params(leverage_source):
 
     global cursor
@@ -1664,9 +1700,26 @@ def set_equity(launch, prev_candle):
             set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
             total_equity = total_equity + stream['order']['equity']
         
-        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s where id=%s".format(price_table_name, set_query))
-        data = (total_equity, prev_candle['id'])
+        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s where id=%s".format(price_table_name, set_query))
+        data = (total_equity, launch['balancing'], prev_candle['id'])
         cursor.execute(insert_stmt, data)
+
+        launch['balancing'] = None
+
+def get_total_equity():
+
+    if launch['traiding_mode'] != 'many':
+        return None
+
+    if launch['mode'] == 'tester' and prev_candle != {}:
+        global cursor
+
+        query = "select id, total_equity from {0} where id={1}".format(price_table_name, prev_candle['id'])
+        cursor.execute(query)
+        for (id, total_equity) in cursor:
+            return total_equity
+
+    return None
 
 def delete_equity(launch):
 
