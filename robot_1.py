@@ -1624,10 +1624,12 @@ def balance_position_many(launch, block, candle, stat, action):
     if total_equity == None:
         return False
 
-    launch['balancing'] = float(total_equity) / float(len(launch['streams']))
+    balancing = float(total_equity) / float(len(launch['streams']))
+
+    launch['balancing'] = total_equity
 
     for stream in launch['streams']:
-        stream['order']['equity'] = launch['balancing']
+        stream['order']['equity'] = balancing
         if stream['order']['equity'] > stream['order']['max_equity']:
             stream['order']['max_equity'] = stream['order']['equity']
 
