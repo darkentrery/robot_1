@@ -1630,11 +1630,8 @@ def balance_position_many(launch, block, candle, stat, action):
 
     for stream in launch['streams']:
         stream['order']['equity'] = balancing
-        if stream['order']['equity'] > stream['order']['max_equity']:
-            stream['order']['max_equity'] = stream['order']['equity']
-
+        stream['order']['max_equity'] = balancing
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
-        stream['order']['leverage'] = 0
         db_insert_position_many(stream['order'], stream, candle)
 
     log_text = "Ребалансировка many-позициq: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
