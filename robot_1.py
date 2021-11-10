@@ -184,7 +184,6 @@ def init_launch():
         launch['time_frame'] = int(launch['frame'])
 
     if launch['traiding_mode'] == 'many':
-        launch['balancing'] = None
         for ord_many in launch['many_metadata']['streams']:
             stream_element = {}
             stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
@@ -1073,6 +1072,49 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
 
     return result
 
+def check_percent(condition, block, candle, order, prev_candle, launch):
+
+    if prev_candle == {}:
+        return False
+
+    if condition.get('value') == None:
+        return False
+
+    param_1 = float(prev_candle.get(condition['param_1']))
+    if param_1 == None:
+        return False
+
+    param_2 = float(prev_candle.get(condition['param_2']))
+    if param_2 == None:
+        return False
+    
+    operator = condition['value'].split(' ')[0]
+    percent = float(condition['value'].split(' ')[1])
+
+    percent_fact = ((param_1 - param_2) / param_1) * 100
+
+    if operator == '>=':
+        if percent_fact >= percent:
+            return True
+    elif operator == '<=':
+        if percent_fact <= percent:
+            return True
+    elif operator == '<':
+        if percent_fact < percent:
+            return True
+    elif operator == '>':
+        if percent_fact > percent:
+            return True
+    elif operator == '=':
+        if percent_fact == percent:
+            return True
+    elif operator == '':
+        return True
+    else:
+        return True
+
+    return True
+
 # ---------- engine -----------------
 
 def get_leverage(order, action, stat):
@@ -1244,6 +1286,14 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['condition_checked_candle'] = prev_candle
                 order['last_condition_type'] = 'history'
                 order['close_time_order'] = 0
+        elif condition['type'] == 'check_percent':
+            result = check_percent(condition, block, candle, order, prev_candle, launch)
+            if result == False:
+                return False
+            else:
+                stream['prices'].append(result)
+                order['close_time_order'] = candle['time']
+                order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'price':
             result = check_price(condition, block, candle, order, launch)
             if result == False:
@@ -1698,12 +1748,14 @@ def set_equity(launch, prev_candle):
                 razd = ','
             set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
             total_equity = total_equity + stream['order']['equity']
+            prev_candle['total_equity'] = total_equity
         
+        launch.setdefault('balancing', total_equity)
+        prev_candle['balancing'] = launch['balancing']
+
         insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s where id=%s".format(price_table_name, set_query))
         data = (total_equity, launch['balancing'], prev_candle['id'])
         cursor.execute(insert_stmt, data)
-
-        launch['balancing'] = None
 
 def get_total_equity():
 
