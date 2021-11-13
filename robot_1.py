@@ -273,7 +273,7 @@ def get_cur_timeframe(cur_time_frame, cur_time, time_frame):
 
     return cur_time_frame
 
-def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle):
+def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, stat):
 
     if launch['mode'] == 'tester':
         get_tick_from_table(launch, candle, 0)
@@ -305,6 +305,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             for stream in launch['streams']:
                 stream['was_close'] = False
                 stream['was_open'] = False
+            set_equity(launch, prev_candle, stat)            
             update_candle(launch)
             if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
@@ -336,7 +337,7 @@ def get_max_tick():
 
     return 0
 
-def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle):
+def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle, stat):
 
     if launch['mode'] == 'robot':
         launch['renko'].setdefault('ticks', {})
@@ -357,7 +358,7 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
-        set_equity(launch, prev_candle)            
+        set_equity(launch, prev_candle, stat)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
@@ -560,6 +561,8 @@ def get_new_statistics():
     
     stat['max_month_percent'] = 0
     stat['rollback_month_percent'] = 0
+
+    stat['many'] = {}
 
     return stat
 
@@ -1613,6 +1616,8 @@ def close_position(order, block, candle, stat, action, launch, stream):
 
     return False
 
+
+
 def open_position_many(order, block, candle, stat, action, stream):
     
     if action.get('leverage') == None:
@@ -1620,7 +1625,7 @@ def open_position_many(order, block, candle, stat, action, stream):
 
     order['leverage'] = action['leverage']
     order['equity'] = 0.5
-    db_insert_position_many(order, stream, candle)
+    insert_position_many(order, stream, candle, stat)
 
     log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
@@ -1657,7 +1662,7 @@ def update_position_many(order, block, candle, stat, action, stream):
     if order['equity'] > order['max_equity']:
         order['max_equity'] = order['equity']
 
-    db_insert_position_many(order, stream, candle)
+    insert_position_many(order, stream, candle, stat)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
         log_text = log_text + ", id = " + str(candle['id'])
@@ -1682,7 +1687,7 @@ def balance_position_many(launch, block, candle, stat, action):
         stream['order']['equity'] = balancing
         stream['order']['max_equity'] = balancing
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
-        db_insert_position_many(stream['order'], stream, candle)
+        insert_position_many(stream['order'], stream, candle, stat)
 
     log_text = "Ребалансировка many-позициq: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
@@ -1732,7 +1737,7 @@ def get_equity_many(last_equity, price, last_price, last_leverage):
 
     return round(result, 8)
 
-def set_equity(launch, prev_candle):
+def set_equity(launch, prev_candle, stat):
 
     if launch['traiding_mode'] != 'many':
         return
@@ -1750,12 +1755,20 @@ def set_equity(launch, prev_candle):
             total_equity = total_equity + stream['order']['equity']
             prev_candle['total_equity'] = total_equity
         
+        calculate_stat_many(stat, prev_candle['time'], total_equity)
+
         launch.setdefault('balancing', total_equity)
         prev_candle['balancing'] = launch['balancing']
 
-        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s where id=%s".format(price_table_name, set_query))
-        data = (total_equity, launch['balancing'], prev_candle['id'])
+        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s, total_equity_percent=%s, total_equity_month_percent=%s where id=%s".format(price_table_name, set_query))
+        data = (total_equity, launch['balancing'], 
+            stat['many']['total_equity_percent'],
+            stat['many']['total_equity_month_percent'],
+            prev_candle['id'])
+
         cursor.execute(insert_stmt, data)
+
+        
 
 def get_total_equity():
 
@@ -1789,8 +1802,36 @@ def delete_equity(launch):
             razd = ','
         set_query = set_query + razd + "equity_{0} = NULL, max_equity_{0} = NULL".format(stream['id'])
     
-    insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL".format(price_table_name, set_query))
+    insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL, total_equity_month_percent = NULL, total_equity_percent = NULL".format(price_table_name, set_query))
     cursor.execute(insert_stmt, data)
+
+def insert_position_many(order, stream, candle, stat):
+
+    db_insert_position_many(order, stream, candle)
+
+def calculate_stat_many(stat, date_time, total_equity):
+
+    local_stat = stat['many']
+
+    if local_stat.get('start_total_equity') == None:
+        local_stat['start_total_equity'] = total_equity
+        local_stat['total_equity_percent'] = 0
+
+
+        local_stat['start_date_month_total_equity'] = date_time
+        local_stat['start_month_total_equity'] = total_equity
+        local_stat['total_equity_month_percent'] = 0
+        return
+
+    local_stat['total_equity_percent'] = (total_equity - local_stat['start_total_equity'])/local_stat['start_total_equity'] * 100
+    
+    if local_stat['start_date_month_total_equity'].month != date_time.month or local_stat['start_date_month_total_equity'].year != date_time.year:
+        local_stat['start_date_month_total_equity'] = date_time
+        local_stat['total_equity_month_percent'] = 0
+        local_stat['start_month_total_equity'] = total_equity
+        return
+
+    local_stat['total_equity_month_percent'] = (total_equity - local_stat['start_month_total_equity'])/local_stat['start_month_total_equity'] * 100
 
 
 # ---------- telegram ----------------------
@@ -2098,9 +2139,9 @@ while True: #цикл по тикам
 
     try:
         if launch.get('renko') == None:
-            set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle)
+            set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, stat)
         else:
-            set_candle_renko(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, next_candle)
+            set_candle_renko(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, next_candle, stat)
     except Exception as e:
         print(e)
         continue
