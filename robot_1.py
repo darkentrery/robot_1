@@ -1638,6 +1638,7 @@ def open_position_many(order, block, candle, stat, action, stream):
 def update_position_many(order, block, candle, stat, action, stream):
 
     leverage_up = action.get('leverage_up')
+    leverage_max = action.get('leverage_max')
     leverage_down = action.get('leverage_down')
     leverage_min = action.get('leverage_min')
     leverage_source = action.get('leverage_source')
@@ -1648,7 +1649,10 @@ def update_position_many(order, block, candle, stat, action, stream):
     try:
         many_params = get_many_params(stream['id'])
         if leverage_up != None:
-            order['leverage'] = order['leverage'] + leverage_up
+            if leverage_max != None and order['leverage'] + leverage_up > leverage_max:
+                order['leverage'] = leverage_max
+            else:
+                order['leverage'] = order['leverage'] + leverage_up
         elif leverage_down != None:
             if leverage_source == None:
                 return False
