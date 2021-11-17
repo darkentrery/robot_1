@@ -1311,7 +1311,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['last_condition_type'] = 'history'
                 order['close_time_order'] = 0
         elif condition['type'] == 'check_percent':
-            result = check_percent(condition, block, candle, order, prev_candle, launch)
+            result = check_percent(condition, block, candle, order, prev_candle, prev_prev_candle, launch)
             if result == False:
                 return False
             else:
