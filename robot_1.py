@@ -1075,21 +1075,42 @@ def check_reject(condition, block, candle, order, prev_candle, prev_prev_candle,
 
     return result
 
-def check_percent(condition, block, candle, order, prev_candle, launch):
+def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
     if prev_candle == {}:
+        return False
+
+    condition.setdefault('offset_1', -1)
+    condition.setdefault('offset_2', -1)
+
+    if condition['offset_2'] == -2 and prev_prev_candle == None:
         return False
 
     if condition.get('value') == None:
         return False
 
-    param_1 = float(prev_candle.get(condition['param_1']))
+    if condition['offset_1'] == -1:
+        source_candle_1 = prev_candle
+    elif condition['offset_1'] == -2:
+        source_candle_1 = prev_prev_candle
+    else:
+        return False
+
+    if condition['offset_2'] == -1:
+        source_candle_2 = prev_candle
+    elif condition['offset_2'] == -2:
+        source_candle_2 = prev_prev_candle
+    else:
+        return False
+
+    param_1 = float(source_candle_1.get(condition['param_1']))
     if param_1 == None:
         return False
 
-    param_2 = float(prev_candle.get(condition['param_2']))
+    param_2 = float(source_candle_2.get(condition['param_2']))
     if param_2 == None:
         return False
+
     
     operator = condition['value'].split(' ')[0]
     percent = float(condition['value'].split(' ')[1])
