@@ -611,9 +611,11 @@ stat = get_new_statistics()
 
 def check_candle_direction(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
-    if condition.get('offset') == None or condition.get('side') == None:
+    if condition.get('side') == None:
         return False
 
+    condition.setdefault('offset', -1)
+    
     if condition['offset'] == -1:
         cond_candle = prev_candle
     elif condition['offset'] == -2:
@@ -624,10 +626,6 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
     if cond_candle == None or cond_candle.get('open') == None or cond_candle.get('close') == None:
         return False
 
-    # candle_direction = order['candle_direction'].setdefault(str(block['number']), {})
-    # if candle_direction != {} and candle_direction['cur_time_frame'] == cur_time_frame['start']:
-    #     return False
-
     result = False
 
     if cond_candle['close'] >= cond_candle['open'] and condition['side'] == 'buy':
@@ -636,17 +634,17 @@ def check_candle_direction(condition, block, candle, order, prev_candle, prev_pr
         result = candle['price']
 
     if result != False:
-        # if launch.get('renko') == None:
-        #     candle_direction['cur_time_frame'] = cur_time_frame['start']
         log_condition(candle['time'], "candle_direction(" + "candle = " + str(condition['offset']) +  ", side = " + condition['side'] + ", price=" + str(candle['price']) + ")")        
 
     return result
 
 def check_abs(condition, block, candle, order, prev_candle, prev_prev_candle, launch):
 
-    if condition.get('offset') == None or condition.get('parameter') == None or condition.get('operation') == None:
+    if condition.get('parameter') == None or condition.get('operation') == None:
         return False
 
+    condition.setdefault('offset', -1)
+    
     abs = order['abs'].setdefault(str(block['number']), {})
     if abs == {}:
         if condition['offset'] == -1:
