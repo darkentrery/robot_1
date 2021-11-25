@@ -1777,6 +1777,8 @@ def set_equity(launch, prev_candle, stat):
             set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
             total_equity = total_equity + stream['order']['equity']
             prev_candle['total_equity'] = total_equity
+            prev_candle['equity_{0}'.format(stream['id'])] = stream['order']['equity']
+            prev_candle['max_equity_{0}'.format(stream['id'])] = stream['order']['max_equity']
         
         calculate_stat_many(stat, prev_candle['time'], total_equity)
 
