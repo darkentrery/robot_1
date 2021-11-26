@@ -1101,15 +1101,16 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
     else:
         return False
 
-    param_1 = float(source_candle_1.get(condition['param_1']))
+    param_1 = source_candle_1.get(condition['param_1'])
     if param_1 == None:
         return False
+    param_1 = float(param_1)
 
-    param_2 = float(source_candle_2.get(condition['param_2']))
+    param_2 = source_candle_2.get(condition['param_2'])
     if param_2 == None:
         return False
+    param_2 = float(param_2)
 
-    
     operator = condition['value'].split(' ')[0]
     percent = float(condition['value'].split(' ')[1])
 
