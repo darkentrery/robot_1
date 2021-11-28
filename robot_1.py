@@ -1679,7 +1679,7 @@ def update_position_many(order, block, candle, stat, action, stream):
             many_params_source = get_many_params(leverage_source)
             order['leverage'] = get_leverage_down(leverage_down, many_params_source['leverage'], leverage_min)
     except Exception as e:
-        log_condition(None, e)
+        print(e)
         return False
     
     order['equity'] = get_equity_many(many_params['equity'], candle['price'], many_params['price_order'], many_params['leverage'])
@@ -1740,6 +1740,7 @@ def get_many_params(leverage_source):
 
     many_params['leverage'] = float(1)
     many_params['eqiuty'] = float(1)
+    many_params['price_order'] = float(1)
     many_params['last'] = False
 
     return many_params
