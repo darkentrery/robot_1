@@ -150,7 +150,7 @@ def get_new_order(order):
     order['cache_conditions'] = {}
 
     order['equity'] = 0.5
-    order['max_equity'] = 0.5
+    order['max_equity'] = order['equity']
 
     return order
 
@@ -191,6 +191,7 @@ def init_launch():
             stream_element['cur_conditions_group'] = {}
             stream_element['id'] = ord_many['id']
             stream_element['url'] = ord_many.setdefault('url', '')
+            stream_element['balancing_symbol'] = ord_many.setdefault('balancing_symbol', '')
             stream_element['symbol'] = ord_many.setdefault('symbol', '')
             launch['streams'].append(stream_element)
     else:
@@ -342,10 +343,16 @@ def get_max_tick():
 def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle, stat):
 
     if launch['mode'] == 'robot':
-        launch['renko'].setdefault('ticks', {})
-        if launch['renko']['ticks'].get("last_tick_id") == None:
-            launch['renko']['ticks']['last_tick_id'] = get_max_tick() - 1
-        get_renko_tick(launch, candle)
+        # launch['renko'].setdefault('ticks', {})
+        # if launch['renko']['ticks'].get("last_tick_id") == None:
+        #     launch['renko']['ticks']['last_tick_id'] = get_max_tick() - 1
+        # get_renko_tick(launch, candle)
+        candle.clear()
+        cur_time = get_cur_time()
+        price = get_deribit_price(launch)
+        if price != None:
+            candle['price'] = price
+            candle['time'] = cur_time
     else:
         id_tick = 0
         get_tick_from_table(launch, candle, id_tick)
@@ -1644,7 +1651,6 @@ def open_position_many(order, block, candle, stat, action, stream):
         return False
 
     order['leverage'] = action['leverage']
-    order['equity'] = 0.5
     insert_position_many(order, stream, candle, stat)
 
     log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
@@ -1652,6 +1658,8 @@ def open_position_many(order, block, candle, stat, action, stream):
         log_text = log_text + ", id = " + str(candle['id'])
 
     print(log_text)
+
+    send_leverage_many_robot(launch,stream)
 
     return True
 
@@ -1690,6 +1698,8 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
 
     print('---------------------------------------------')
 
+    send_leverage_many_robot(launch,stream)
+
     return True
 
 def balance_position_many(launch, block, candle, stat, action):
@@ -1708,13 +1718,15 @@ def balance_position_many(launch, block, candle, stat, action):
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
         insert_position_many(stream['order'], stream, candle, stat)
 
-    log_text = "Ребалансировка many-позициq: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
+    log_text = "Ребалансировка many-позици: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
         log_text = log_text + ", id = " + str(candle['id'])
 
     print(log_text)
 
     print('---------------------------------------------')
+
+    send_balancing_robot(launch, stream)
 
     return True
 
@@ -1777,6 +1789,7 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat):
     total_equity = 0.0
     for stream in launch['streams']:
         
+        order = stream['order']
         many_params = get_many_params(stream['id'])
         equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, many_params['leverage'])
         if equity != None:
@@ -1811,7 +1824,10 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat):
 def get_equity_many_robot(stream):
 
     try:
-        r = requests.post(stream['url'], data='{"equity": "{0}}"}'.format(stream['symbol']), timeout=7)
+        
+        http_data='{"equity": "BTC"}'
+        # http_data={"equity": stream['balancing_symbol']}
+        r = requests.post(stream['url'], data=http_data)
         if r.status_code != 200:
             raise Exception("Status code = " + str(r.status_code))
         equity = r.text
@@ -1822,6 +1838,45 @@ def get_equity_many_robot(stream):
         print(e)
         print("equity exception" + ", time = " + str(datetime.datetime.utcnow()))
         return None
+
+def send_leverage_many_robot(launch, stream):
+
+    if launch['mode'] != 'robot':
+        return
+
+    try:
+
+        order = stream['order']
+
+        http_data={
+            "symbol": stream['symbol'],
+            "side": order['direction'],
+            "leverage": str(order['leverage']),
+            "order_type": order['order_type']}
+
+        r = requests.post(stream['url'], data=http_data, timeout=7)
+        if r.status_code != 200:
+            raise Exception("Leverage Status code = " + str(r.status_code))
+    except Exception as e:
+        time.sleep(2)
+        print(e)
+        print("leverage send exception" + ", time = " + str(datetime.datetime.utcnow()))
+
+def send_balancing_robot(launch, stream):
+
+    if launch['mode'] != 'robot':
+       return
+
+    try:
+        http_data={"equity_balancing": stream['balancing_symbol']}
+        r = requests.post(stream['url'], data=http_data, timeout=7)
+        if r.status_code != 200:
+            raise Exception("Leverage Status code = " + str(r.status_code))
+
+    except Exception as e:
+        time.sleep(2)
+        print(e)
+        print("leverage send exception" + ", time = " + str(datetime.datetime.utcnow()))
 
 
 def get_total_equity():
