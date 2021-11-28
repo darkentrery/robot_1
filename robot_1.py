@@ -1755,9 +1755,9 @@ def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_leverage
 
     if launch['mode'] == 'tester':
         last_equity = stream['order']['equity']
-        if stream['order']['direction'] == 'short':
+        if stream['order']['direction'] == 'long':
             result =  last_equity + last_equity * ((float(prev_candle['close']) - float(prev_prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
-        elif stream['order']['direction'] == 'long':
+        elif stream['order']['direction'] == 'short':
             result =  last_equity + last_equity * ((float(prev_prev_candle['close']) - float(prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
         else: 
             return None
