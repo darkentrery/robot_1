@@ -367,11 +367,22 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
+
+        if launch['renko'].get('last_candle_id') != None and launch['renko']['last_candle_id'] == prev_candle['id']:
+            return
+        
+        print("prev_candle: " + str(prev_candle))
+        print("---")
+        print("prev_prev_candle: " + str(prev_prev_candle))
+        print("---")
+
         set_equity(launch, prev_candle, prev_prev_candle, stat)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
         cur_time_frame['start'] = cur_candle['time']
+        if prev_candle != {}:
+            launch['renko']['last_candle_id'] = prev_candle['id']
 
 def get_indicators(candle_time, table_name):
 
@@ -1848,11 +1859,7 @@ def send_leverage_many_robot(launch, stream):
 
         order = stream['order']
 
-        http_data={
-            "symbol": stream['symbol'],
-            "side": order['direction'],
-            "leverage": str(order['leverage']),
-            "order_type": order['order_type']}
+        http_data='{"symbol":"' + stream['symbol'] + '","side":"' +  order['direction'] + '","leverage":"' + str(order['leverage']) + '","order_type":"' +  order['order_type'] + '"}'
 
         r = requests.post(stream['url'], data=http_data, timeout=7)
         if r.status_code != 200:
