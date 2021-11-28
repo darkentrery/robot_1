@@ -1875,7 +1875,7 @@ def send_balancing_robot(launch, stream):
        return
 
     try:
-        http_data={"equity_balancing": stream['balancing_symbol']}
+        http_data='{"equity_balancing":"' + stream['balancing_symbol'] + '"}'
         r = requests.post(stream['url'], data=http_data, timeout=7)
         if r.status_code != 200:
             raise Exception("Leverage Status code = " + str(r.status_code))
