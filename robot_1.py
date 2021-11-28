@@ -7,10 +7,10 @@ import time
 import http.client
 import pika 
 import uuid
-import keyboard
 import ssl
 import requests
 from datetime import timedelta
+from urllib.parse import urlparse
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -190,6 +190,8 @@ def init_launch():
             stream_element['order'] = get_new_order(None)
             stream_element['cur_conditions_group'] = {}
             stream_element['id'] = ord_many['id']
+            stream_element['url'] = ord_many.setdefault('url', '')
+            stream_element['symbol'] = ord_many.setdefault('symbol', '')
             launch['streams'].append(stream_element)
     else:
         stream_element = {}
@@ -305,7 +307,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             for stream in launch['streams']:
                 stream['was_close'] = False
                 stream['was_open'] = False
-            set_equity(launch, prev_candle, stat)            
+            set_equity(launch, prev_candle, prev_prev_candle, stat)            
             update_candle(launch)
             if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
@@ -358,7 +360,7 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
-        set_equity(launch, prev_candle, stat)            
+        set_equity(launch, prev_candle, prev_prev_candle, stat)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
@@ -1481,7 +1483,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
-            result = update_position_many(order, block, candle, stat, action, stream)
+            result = update_position_many(order, block, candle, stat, action, stream, launch)
             if result == False:
                 return False
             if order['last_condition_type'] == 'realtime':
@@ -1636,8 +1638,6 @@ def close_position(order, block, candle, stat, action, launch, stream):
 
     return False
 
-
-
 def open_position_many(order, block, candle, stat, action, stream):
     
     if action.get('leverage') == None:
@@ -1655,7 +1655,7 @@ def open_position_many(order, block, candle, stat, action, stream):
 
     return True
 
-def update_position_many(order, block, candle, stat, action, stream):
+def update_position_many(order, block, candle, stat, action, stream, launch):
 
     leverage_up = action.get('leverage_up')
     leverage_max = action.get('leverage_max')
@@ -1667,7 +1667,6 @@ def update_position_many(order, block, candle, stat, action, stream):
         return False
 
     try:
-        many_params = get_many_params(stream['id'])
         if leverage_up != None:
             if leverage_max != None and order['leverage'] + leverage_up > leverage_max:
                 order['leverage'] = leverage_max
@@ -1681,10 +1680,6 @@ def update_position_many(order, block, candle, stat, action, stream):
     except Exception as e:
         print(e)
         return False
-    
-    order['equity'] = get_equity_many(many_params['equity'], candle['price'], many_params['price_order'], many_params['leverage'])
-    if order['equity'] > order['max_equity']:
-        order['max_equity'] = order['equity']
 
     insert_position_many(order, stream, candle, stat)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
@@ -1733,13 +1728,13 @@ def get_many_params(leverage_source):
     cursor.execute(query)
     for (many_params['leverage'], many_params['equity'], many_params['price_order']) in cursor:
         many_params['leverage'] = float(many_params['leverage'])
-        many_params['equity'] = float(many_params['equity'])
+        #many_params['equity'] = float(many_params['equity'])
         many_params['price_order'] = float(many_params['price_order'])
         many_params['last'] = True
         return many_params
 
     many_params['leverage'] = float(1)
-    many_params['eqiuty'] = float(1)
+    #many_params['eqiuty'] = float(1)
     many_params['price_order'] = float(1)
     many_params['last'] = False
 
@@ -1756,46 +1751,80 @@ def get_leverage_down(leverage_down, leverage_source, leverage_min):
             else:
                 return result    
 
-def get_equity_many(last_equity, price, last_price, last_leverage):
+def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_leverage):
 
-    result = last_equity + last_equity * ((price - last_price) / last_price * last_leverage)
+    if launch['mode'] == 'tester':
+        last_equity = stream['order']['equity']
+        if stream['order']['direction'] == 'short':
+            result =  last_equity + last_equity * ((float(prev_candle['close']) - float(prev_prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
+        elif stream['order']['direction'] == 'long':
+            result =  last_equity + last_equity * ((float(prev_prev_candle['close']) - float(prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
+        else: 
+            return None
+        return round(result, 8)
+    elif launch['mode'] == 'robot':
+        return get_equity_many_robot(stream)
 
-    return round(result, 8)
 
-def set_equity(launch, prev_candle, stat):
+def set_equity(launch, prev_candle, prev_prev_candle, stat):
 
     if launch['traiding_mode'] != 'many':
         return
 
-    if launch['mode'] == 'tester' and prev_candle != {}:
-        global cursor
-        set_query = ""
-        total_equity = 0.0
-        for stream in launch['streams']:
-            if set_query == '':
-                razd = ''
-            else:
-                razd = ','
-            set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
-            total_equity = total_equity + stream['order']['equity']
-            prev_candle['total_equity'] = total_equity
-            prev_candle['equity_{0}'.format(stream['id'])] = stream['order']['equity']
-            prev_candle['max_equity_{0}'.format(stream['id'])] = stream['order']['max_equity']
+    if prev_candle == {} or prev_prev_candle == {}:
+        return
+
+    global cursor
+    set_query = ""
+    total_equity = 0.0
+    for stream in launch['streams']:
         
-        calculate_stat_many(stat, prev_candle['time'], total_equity)
+        many_params = get_many_params(stream['id'])
+        equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, many_params['leverage'])
+        if equity != None:
+            order['equity'] = equity
+            if order['equity'] > order['max_equity']:
+                order['max_equity'] = order['equity']
 
-        launch.setdefault('balancing', total_equity)
-        prev_candle['balancing'] = launch['balancing']
+        if set_query == '':
+            razd = ''
+        else:
+            razd = ','
+        set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
+        total_equity = total_equity + stream['order']['equity']
+        prev_candle['total_equity'] = total_equity
+        prev_candle['equity_{0}'.format(stream['id'])] = stream['order']['equity']
+        prev_candle['max_equity_{0}'.format(stream['id'])] = stream['order']['max_equity']
+    
+    calculate_stat_many(stat, prev_candle['time'], total_equity)
 
-        insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s, total_equity_percent=%s, total_equity_month_percent=%s where id=%s".format(price_table_name, set_query))
-        data = (total_equity, launch['balancing'], 
-            stat['many']['total_equity_percent'],
-            stat['many']['total_equity_month_percent'],
-            prev_candle['id'])
+    launch.setdefault('balancing', total_equity)
+    prev_candle['balancing'] = launch['balancing']
 
-        cursor.execute(insert_stmt, data)
+    insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s, total_equity_percent=%s, total_equity_month_percent=%s where id=%s".format(price_table_name, set_query))
+    data = (total_equity, launch['balancing'], 
+        stat['many']['total_equity_percent'],
+        stat['many']['total_equity_month_percent'],
+        prev_candle['id'])
 
-        
+    cursor.execute(insert_stmt, data)
+
+
+def get_equity_many_robot(stream):
+
+    try:
+        r = requests.post(stream['url'], data='{"equity": "{0}}"}'.format(stream['symbol']), timeout=7)
+        if r.status_code != 200:
+            raise Exception("Status code = " + str(r.status_code))
+        equity = r.text
+        print("equity = " + equity + ", time = " + str(datetime.datetime.utcnow()))
+        return float(equity)
+    except Exception as e:
+        time.sleep(2)
+        print(e)
+        print("equity exception" + ", time = " + str(datetime.datetime.utcnow()))
+        return None
+
 
 def get_total_equity():
 
@@ -2092,11 +2121,11 @@ def db_insert_position_many(order, stream, candle):
 
     try:
         insert_stmt = (
-            "INSERT INTO positions_{0} (side, equity, leverage, time_order, price_order, type_order, blocks_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s)".format(stream['id'])
+            "INSERT INTO positions_{0} (side, leverage, time_order, price_order, type_order, blocks_id) "
+            "VALUES (%s, %s, %s, %s, %s, %s)".format(stream['id'])
         )
         data = (
-            order['direction'], order['equity'], order['leverage'], candle['time'], candle['price'], order['order_type'], order['path']
+            order['direction'], order['leverage'], candle['time'], candle['price'], order['order_type'], order['path']
         )
             
         cursor_local.execute(insert_stmt, data)
