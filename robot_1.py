@@ -1724,17 +1724,15 @@ def get_many_params(leverage_source):
     
     many_params = {}
 
-    query = ("SELECT leverage, equity, price_order FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
+    query = ("SELECT leverage, price_order FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
     cursor.execute(query)
-    for (many_params['leverage'], many_params['equity'], many_params['price_order']) in cursor:
+    for (many_params['leverage'], many_params['price_order']) in cursor:
         many_params['leverage'] = float(many_params['leverage'])
-        #many_params['equity'] = float(many_params['equity'])
         many_params['price_order'] = float(many_params['price_order'])
         many_params['last'] = True
         return many_params
 
     many_params['leverage'] = float(1)
-    #many_params['eqiuty'] = float(1)
     many_params['price_order'] = float(1)
     many_params['last'] = False
 
