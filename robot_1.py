@@ -1156,6 +1156,8 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
     else:
         return True
 
+    log_condition(candle['time'], "check_percent: " + str(condition))
+
     return True
 
 # ---------- engine -----------------
