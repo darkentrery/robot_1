@@ -371,10 +371,10 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
         if launch['renko'].get('last_candle_id') != None and launch['renko']['last_candle_id'] == prev_candle['id']:
             return
         
-        print("prev_candle: " + str(prev_candle))
-        print("---")
-        print("prev_prev_candle: " + str(prev_prev_candle))
-        print("---")
+        # print("prev_candle: " + str(prev_candle))
+        # print("---")
+        # print("prev_prev_candle: " + str(prev_prev_candle))
+        # print("---")
 
         set_equity(launch, prev_candle, prev_prev_candle, stat)            
         for stream in launch['streams']:
@@ -1154,11 +1154,11 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
     elif operator == '':
         return True
     else:
-        return True
+        return False
 
     log_condition(candle['time'], "check_percent: " + str(condition))
 
-    return True
+    return False
 
 # ---------- engine -----------------
 
