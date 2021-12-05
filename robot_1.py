@@ -1516,10 +1516,20 @@ def execute_block_actions(candle, order, stat, launch, stream):
                 return False
             if order['last_condition_type'] == 'realtime':
                 was_close = True
+            if result == None:
+                stream['was_close'] = was_close and order['open_time_position'] == 0
+                return None
 
     stream['was_close'] = was_close and order['open_time_position'] == 0
 
     return True
+
+def change_activation_block(action_block, stream):
+
+    # stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['algorithm_data'])
+    stream['activation_blocks'] = get_activation_blocks(action_block, stream['algorithm_data'])
+    stream['strategy_state'] = 'check_blocks_conditions'
+    db_save_state(launch, stat)
 
 def open_position(order, block, candle, stat, action, prev_candle, launch, stream):
 
@@ -1730,6 +1740,7 @@ def balance_position_many(launch, block, candle, stat, action):
         stream['order']['max_equity'] = balancing
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
         insert_position_many(stream['order'], stream, candle, stat)
+        change_activation_block('0', stream)
 
     log_text = "Ребалансировка many-позици: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
@@ -1741,7 +1752,7 @@ def balance_position_many(launch, block, candle, stat, action):
 
     send_balancing_robot(launch, stream)
 
-    return True
+    return None #лайфхак
 
 def get_many_params(leverage_source):
 
@@ -2314,9 +2325,7 @@ while True: #цикл по тикам
             if stream['strategy_state'] == 'execute_block_actions':
                 result = execute_block_actions(candle, order, stat, launch, stream)
                 if result == True:
-                    stream['activation_blocks'] = get_activation_blocks(stream['action_block'], stream['algorithm_data'])
-                    stream['strategy_state'] = 'check_blocks_conditions'
-                    db_save_state(launch, stat)
+                    change_activation_block(stream['action_block'], stream)
                 else:
                     break
 
