@@ -1111,6 +1111,15 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
         source_candle_1 = prev_candle
     elif condition['offset_1'] == -2:
         source_candle_1 = prev_prev_candle
+    elif condition['offset_1'] == -3:
+        if prev_prev_candle == {}:
+            return False
+        else:
+            res = db_get_candle(prev_prev_candle['id'] - 1, prev_prev_candle)
+            if res == False:
+                return False
+            else:
+                source_candle_1 = res
     else:
         return False
 
@@ -1118,6 +1127,15 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
         source_candle_2 = prev_candle
     elif condition['offset_2'] == -2:
         source_candle_2 = prev_prev_candle
+    elif condition['offset_2'] == -3:
+        if prev_prev_candle == {}:
+            return False
+        else:
+            res = db_get_candle(prev_prev_candle['id'] - 1, prev_prev_candle)
+            if res == False:
+                return False
+            else:
+                source_candle_1 = res
     else:
         return False
 
@@ -1844,7 +1862,6 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat):
 
     cursor.execute(insert_stmt, data)
 
-
 def get_equity_many_robot(stream):
 
     try:
@@ -2209,6 +2226,26 @@ def db_insert_position_many(order, stream, candle):
         print(e)
         cn_pos = get_db_connection(user, password, host, database)
         db_insert_position_many(order, stream, candle)
+
+def db_get_candle(id_candle, source_candle):
+
+    f_candle = source_candle.copy()
+
+    global cnx2
+    cursor = cnx2.cursor(dictionary=True)
+
+    try:
+        query = ("SELECT * FROM {0} where id={1}".format(price_table_name, str(id_candle)))
+        cursor.execute(query)
+        for row in cursor:
+            f_candle.update(row)
+            return f_candle
+
+        return False
+
+    except Exception as e:
+        print(e)
+        return False
 
 # ---------- main programm -----------------
 
