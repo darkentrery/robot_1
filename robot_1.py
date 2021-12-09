@@ -1135,7 +1135,7 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
             if res == False:
                 return False
             else:
-                source_candle_1 = res
+                source_candle_2 = res
     else:
         return False
 
