@@ -1716,16 +1716,23 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
         return False
 
     try:
-        if leverage_up != None:
-            if leverage_max != None and order['leverage'] + leverage_up > leverage_max:
-                order['leverage'] = leverage_max
-            else:
-                order['leverage'] = order['leverage'] + leverage_up
-        elif leverage_down != None:
-            if leverage_source == None:
-                return False
+        
+        if stream['id'] != leverage_source:
             many_params_source = get_many_params(leverage_source)
-            order['leverage'] = get_leverage_down(leverage_down, many_params_source['leverage'], leverage_min)
+        else:
+            many_params_source = {}
+            many_params_source['leverage'] = order['leverage']
+
+        if leverage_up != None:
+            leverage_condition = leverage_up
+            act = 'up'
+        elif leverage_down != None:
+            leverage_condition = leverage_down
+            act = 'down'
+        else:
+            return False    
+            
+        order['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act)
     except Exception as e:
         print(e)
         return False
@@ -1774,6 +1781,9 @@ def balance_position_many(launch, block, candle, stat, action):
 
 def get_many_params(leverage_source):
 
+    if leverage_source == None:
+        return None
+
     global cursor
     
     many_params = {}
@@ -1792,16 +1802,32 @@ def get_many_params(leverage_source):
 
     return many_params
 
-def get_leverage_down(leverage_down, leverage_source, leverage_min):
+def get_leverage_action(leverage_condition, leverage_source, leverage_min, leverage_max, act):
 
-    if leverage_down.find("%") != -1:
-        leverage_down = float(leverage_down.replace('%', ''))
-        result = leverage_down * leverage_source / 100
-        if leverage_min != None:
-            if leverage_min > result:
-                return leverage_min
-            else:
-                return result    
+    if leverage_condition.find("%") != -1:
+        leverage_condition = float(leverage_condition.replace('%', ''))
+        result = leverage_condition * leverage_source / 100
+    else:
+        if act == 'up':
+            result = leverage_source = leverage_source + leverage_condition
+        elif act == 'down':
+            result = leverage_source = leverage_source - leverage_condition
+        else:
+            return None
+
+    if leverage_min != None:
+        if leverage_min > result:
+            return leverage_min
+        else:
+            return result    
+
+    if leverage_max != None:
+        if leverage_max > result:
+            return result
+        else:
+            return leverage_max
+
+    return result
 
 def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_leverage):
 
