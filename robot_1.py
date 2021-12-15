@@ -517,9 +517,13 @@ def get_tick_from_table(launch, candle, last_id):
        row = launch['ticks']['cursor'].fetchone()
     except Exception as e:
         print(e)
+        print('error - last id - 1')
         id = launch['ticks']['last_id']
+        print('error - last id - 2')
         launch['ticks'] = None
+        print('error - last id - 3')
         get_tick_from_table(launch, candle, id)
+        print('error - last id - 4')
         return
 
     if row == None:
