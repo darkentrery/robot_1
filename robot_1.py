@@ -1721,7 +1721,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
 
     try:
         
-        if stream['id'] != leverage_source:
+        if stream['id'] != leverage_source and leverage_source != None:
             many_params_source = get_many_params(leverage_source)
         else:
             many_params_source = {}
@@ -1808,7 +1808,7 @@ def get_many_params(leverage_source):
 
 def get_leverage_action(leverage_condition, leverage_source, leverage_min, leverage_max, act):
 
-    if leverage_condition.find("%") != -1:
+    if str(leverage_condition).find("%") != -1:
         leverage_condition = float(leverage_condition.replace('%', ''))
         result = leverage_condition * leverage_source / 100
     else:
