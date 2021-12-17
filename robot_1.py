@@ -1158,29 +1158,32 @@ def check_percent(condition, block, candle, order, prev_candle, prev_prev_candle
 
     percent_fact = ((param_1 - param_2) / param_1) * 100
 
+    result = False
+
     if operator == '>=':
         if percent_fact >= percent:
-            return True
+            result = True
     elif operator == '<=':
         if percent_fact <= percent:
-            return True
+            result = True
     elif operator == '<':
         if percent_fact < percent:
-            return True
+            result = True
     elif operator == '>':
         if percent_fact > percent:
-            return True
+            result = True
     elif operator == '=':
         if percent_fact == percent:
-            return True
+            result = True
     elif operator == '':
-        return True
+        result = True
     else:
-        return False
+        result = False
 
-    log_condition(candle['time'], "check_percent: " + str(condition))
+    if result == True:
+        log_condition(candle['time'], "check_percent: " + str(condition))
 
-    return False
+    return result
 
 # ---------- engine -----------------
 
