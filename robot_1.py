@@ -1715,13 +1715,26 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
     leverage_down = action.get('leverage_down')
     leverage_min = action.get('leverage_min')
     leverage_source = action.get('leverage_source')
+    stream_target = action.get('stream_target')
 
     if leverage_down == None and leverage_up == None:
         return False
 
     try:
-        
-        if stream['id'] != leverage_source and leverage_source != None:
+
+        stream_local = None
+        if stream_target != None and stream['id'] != stream_target:
+            for stream_loop in launch['streams']:
+                if stream_loop['id'] == stream_target:
+                    stream_local = stream_loop
+                    break
+        else:
+            stream_local = stream
+
+        if stream_local == None:
+            return False
+
+        if stream_local['id'] != leverage_source and leverage_source != None:
             many_params_source = get_many_params(leverage_source)
         else:
             many_params_source = {}
@@ -1741,7 +1754,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
         print(e)
         return False
 
-    insert_position_many(order, stream, candle, stat)
+    insert_position_many(order, stream_local, candle, stat)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
         log_text = log_text + ", id = " + str(candle['id'])
