@@ -1526,7 +1526,8 @@ def execute_block_actions(candle, order, stat, launch, stream):
                 return False
         elif action['order'] == "update_many" and launch['traiding_mode'] == 'many':
             order['order_type'] = action['order_type']
-            order['direction'] = action['direction']
+            if action.get('stream_target') == None or action['stream_target'] == stream['id']:
+                order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
             result = update_position_many(order, block, candle, stat, action, stream, launch)
             if result == False:
