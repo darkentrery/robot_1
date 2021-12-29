@@ -1719,6 +1719,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
     leverage_down = action.get('leverage_down')
     leverage_min = action.get('leverage_min')
     leverage_source = action.get('leverage_source')
+    leverage_fix = action.get('leverage_fix')
     stream_target = action.get('stream_target')
 
     if leverage_down == None and leverage_up == None:
@@ -1750,6 +1751,9 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
         elif leverage_down != None:
             leverage_condition = leverage_down
             act = 'down'
+        elif leverage_fix != None:
+            leverage_condition = leverage_fix
+            act = 'fix'
         else:
             return False    
             
@@ -1830,9 +1834,11 @@ def get_leverage_action(leverage_condition, leverage_source, leverage_min, lever
         result = leverage_condition * leverage_source / 100
     else:
         if act == 'up':
-            result = leverage_source = leverage_source + leverage_condition
+            result = leverage_source + leverage_condition
         elif act == 'down':
-            result = leverage_source = leverage_source - leverage_condition
+            result = leverage_source - leverage_condition
+        elif act == 'fix':
+            result = leverage_condition
         else:
             return None
 
