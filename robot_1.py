@@ -1700,7 +1700,7 @@ def open_position_many(order, block, candle, stat, action, stream):
         return False
 
     order['leverage'] = action['leverage']
-    insert_position_many(order, stream, candle, stat)
+    insert_position_many(stream, candle, stat)
 
     log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
@@ -1752,17 +1752,22 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
             leverage_condition = leverage_down
             act = 'down'
         elif leverage_fix != None:
-            leverage_condition = leverage_fix
+            position = candle['price'] * order['equity'] * order['leverage']
+            order_fix = get_order_many(launch['streams'], leverage_fix)
+            if order_fix == None:
+                return False
+            balance_fix = candle['price'] * order_fix['equity']
+            leverage_condition = position/balance_fix
             act = 'fix'
         else:
             return False    
-            
-        order['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act)
+                        
+        stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
     except Exception as e:
         print(e)
         return False
 
-    insert_position_many(order, stream_local, candle, stat)
+    insert_position_many(stream_local, candle, stat)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
         log_text = log_text + ", id = " + str(candle['id'])
@@ -1827,7 +1832,7 @@ def get_many_params(leverage_source):
 
     return many_params
 
-def get_leverage_action(leverage_condition, leverage_source, leverage_min, leverage_max, act):
+def get_leverage_action(leverage_condition, leverage_source, leverage_min, leverage_max, act, order_leverage):
 
     if str(leverage_condition).find("%") != -1:
         leverage_condition = float(leverage_condition.replace('%', ''))
@@ -1838,7 +1843,11 @@ def get_leverage_action(leverage_condition, leverage_source, leverage_min, lever
         elif act == 'down':
             result = leverage_source - leverage_condition
         elif act == 'fix':
-            result = leverage_condition
+            if leverage_condition < order_leverage:
+                result = order_leverage
+            else:
+                result = leverage_condition
+            return result
         else:
             return None
 
@@ -1869,6 +1878,14 @@ def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_leverage
         return round(result, 8)
     elif launch['mode'] == 'robot':
         return get_equity_many_robot(stream)
+
+def get_order_many(streams, id):
+
+    for stream in streams:
+        if stream['id'] == id:
+            return stream['order']
+
+    return None
 
 
 def set_equity(launch, prev_candle, prev_prev_candle, stat):
@@ -2004,9 +2021,9 @@ def delete_equity(launch):
     insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL, total_equity_month_percent = NULL, total_equity_percent = NULL".format(price_table_name, set_query))
     cursor.execute(insert_stmt, data)
 
-def insert_position_many(order, stream, candle, stat):
+def insert_position_many(stream, candle, stat):
 
-    db_insert_position_many(order, stream, candle)
+    db_insert_position_many(stream, candle)
 
 def calculate_stat_many(stat, date_time, total_equity):
 
@@ -2257,7 +2274,7 @@ def db_clear_state():
     except Exception as e:
         print(e)
 
-def db_insert_position_many(order, stream, candle):
+def db_insert_position_many(stream, candle):
 
     global cn_pos
     cursor_local = cn_pos.cursor()
@@ -2268,7 +2285,7 @@ def db_insert_position_many(order, stream, candle):
             "VALUES (%s, %s, %s, %s, %s, %s)".format(stream['id'])
         )
         data = (
-            order['direction'], order['leverage'], candle['time'], candle['price'], order['order_type'], order['path']
+            stream['order']['direction'], stream['order']['leverage'], candle['time'], candle['price'], stream['order']['order_type'], stream['order']['path']
         )
             
         cursor_local.execute(insert_stmt, data)
@@ -2278,7 +2295,7 @@ def db_insert_position_many(order, stream, candle):
     except Exception as e:
         print(e)
         cn_pos = get_db_connection(user, password, host, database)
-        db_insert_position_many(order, stream, candle)
+        db_insert_position_many(stream, candle)
 
 def db_get_candle(id_candle, source_candle):
 
