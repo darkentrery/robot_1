@@ -1722,8 +1722,8 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
     leverage_fix = action.get('leverage_fix')
     stream_target = action.get('stream_target')
 
-    if leverage_down == None and leverage_up == None:
-        return False
+    # if leverage_down == None and leverage_up == None:
+    #     return False
 
     try:
 
@@ -1738,7 +1738,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
 
         if stream_local == None:
             return False
-
+ 
         if stream_local['id'] != leverage_source and leverage_source != None:
             many_params_source = get_many_params(leverage_source)
         else:
@@ -1751,14 +1751,18 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
         elif leverage_down != None:
             leverage_condition = leverage_down
             act = 'down'
-        elif leverage_fix != None:
+        elif leverage_fix == True:
             position = candle['price'] * order['equity'] * order['leverage']
-            order_fix = get_order_many(launch['streams'], leverage_fix)
+            order_fix = stream_local['order']
             if order_fix == None:
                 return False
             balance_fix = candle['price'] * order_fix['equity']
             leverage_condition = position/balance_fix
             act = 'fix'
+
+            if stream_local['order']['direction'] == "":
+                return False
+
         else:
             return False    
                         
