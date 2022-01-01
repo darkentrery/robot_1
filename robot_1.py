@@ -1851,7 +1851,7 @@ def get_leverage_action(leverage_condition, leverage_source, leverage_min, lever
                 result = order_leverage
             else:
                 result = leverage_condition
-            return result
+            # return result
         else:
             return None
 
