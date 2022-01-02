@@ -1798,7 +1798,7 @@ def balance_position_many(launch, block, candle, stat, action):
         stream['order']['equity'] = balancing
         stream['order']['max_equity'] = balancing
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
-        insert_position_many(stream['order'], stream, candle, stat)
+        insert_position_many(stream, candle, stat)
         change_activation_block('0', stream)
 
     log_text = "Ребалансировка many-позици: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
