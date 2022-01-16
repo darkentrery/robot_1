@@ -1003,7 +1003,10 @@ def check_price(condition, block, candle, order, launch):
     if condition.get("type_change") == "one_candle":
         start = launch['cur_candle']['open']
     else:
-        start = order['open_price_position']
+        if launch['traiding_mode'] == 'many':
+            start = order['update_position_price']
+        else:
+            start = order['open_price_position']
 
     ind_oper = condition['change_percent'].split(' ')[0]
     ind_value = float(condition['change_percent'].split(' ')[1])
@@ -1722,9 +1725,6 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
     leverage_fix = action.get('leverage_fix')
     stream_target = action.get('stream_target')
 
-    # if leverage_down == None and leverage_up == None:
-    #     return False
-
     try:
 
         stream_local = None
@@ -1767,6 +1767,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
             return False    
                         
         stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
+        stream_local['order']['update_position_price'] = float(candle['price'])
     except Exception as e:
         print(e)
         return False
