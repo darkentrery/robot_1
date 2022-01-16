@@ -998,6 +998,8 @@ def check_trailing(condition, block, candle, order, launch):
 
 def check_price(condition, block, candle, order, launch):
     
+    # {"type":"price","change_percent":"> 11","number":"1"},
+
     direction = order['direction']
 
     if condition.get("type_change") == "one_candle":
