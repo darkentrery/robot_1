@@ -1872,16 +1872,19 @@ def get_leverage_action(leverage_condition, leverage_source, leverage_min, lever
 
     return result
 
-def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_leverage):
+def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order):
 
     if launch['mode'] == 'tester':
         last_equity = stream['order']['equity']
+        size_order = last_equity * last_order['leverage']
+        price_position = last_order['leverage'] * size_order
         if stream['order']['direction'] == 'long':
-            result =  last_equity + last_equity * ((float(prev_candle['close']) - float(prev_prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
+            result = last_equity * (100 + (float(prev_candle['close'] - price_position) * size_order) / 100)     
         elif stream['order']['direction'] == 'short':
-            result =  last_equity + last_equity * ((float(prev_prev_candle['close']) - float(prev_candle['close'])) / float(prev_candle['close']) * last_leverage)
+            result = last_equity * (100 + (price_position - float(prev_candle['close']) * size_order) / 100)     
         else: 
             return None
+
         return round(result, 8)
     elif launch['mode'] == 'robot':
         return get_equity_many_robot(stream)
@@ -1909,8 +1912,8 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat):
     for stream in launch['streams']:
         
         order = stream['order']
-        many_params = get_many_params(stream['id'])
-        equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, many_params['leverage'])
+        last_order = get_many_params(stream['id'])
+        equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order)
         if equity != None:
             order['equity'] = equity
             if order['equity'] > order['max_equity']:
