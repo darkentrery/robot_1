@@ -1741,8 +1741,20 @@ def update_position_many(order, block, candle, stat, action, stream, launch):
         if stream_local == None:
             return False
  
+        stream_source = None
+        if leverage_source != None and stream['id'] != leverage_source:
+            for stream_loop in launch['streams']:
+                if stream_loop['id'] == leverage_source:
+                    stream_source = stream_loop
+                    break
+        else:
+            stream_source = stream
+
+        if stream_source == None:
+            return False
+
         if stream_local['id'] != leverage_source and leverage_source != None:
-            many_params_source = get_many_params(leverage_source)
+            many_params_source = get_many_params(stream_source)
         else:
             many_params_source = {}
             many_params_source['leverage'] = order['leverage']
@@ -1816,25 +1828,35 @@ def balance_position_many(launch, block, candle, stat, action):
 
     return None #лайфхак
 
-def get_many_params(leverage_source):
+def get_many_params(stream):
 
-    if leverage_source == None:
-        return None
+    order_local = stream['order']
 
     global cursor
     
     many_params = {}
 
-    query = ("SELECT leverage, price_order FROM positions_" + str(leverage_source) + " order by id desc LIMIT 1")
+    query = ("SELECT leverage, price_order, open_equity, size_order, price_position, size_position FROM positions_" + str(stream['id']) + " order by id desc LIMIT 1")
     cursor.execute(query)
-    for (many_params['leverage'], many_params['price_order']) in cursor:
+    for (many_params['leverage'], many_params['price_order'], many_params['price_order'], many_params['price_order'], many_params['price_order'], many_params['price_order']) in cursor:
+        
         many_params['leverage'] = float(many_params['leverage'])
         many_params['price_order'] = float(many_params['price_order'])
+        many_params['open_equity'] = float(many_params['open_equity'])
+        many_params['size_order'] = float(many_params['size_order'])
+        many_params['price_position'] = float(many_params['price_position'])
+        many_params['size_position'] = float(many_params['size_position'])
         many_params['last'] = True
+        
         return many_params
 
     many_params['leverage'] = float(1)
     many_params['price_order'] = float(1)
+    many_params['open_equity'] = float(order_local['equity'])
+    many_params['size_order'] = many_params['open_equity'] * many_params['leverage']
+    many_params['price_position'] = many_params['price_order'] * many_params['size_order']
+    many_params['size_position'] = many_params['size_order']
+
     many_params['last'] = False
 
     return many_params
@@ -1912,7 +1934,7 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat):
     for stream in launch['streams']:
         
         order = stream['order']
-        last_order = get_many_params(stream['id'])
+        last_order = get_many_params(stream)
         equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order)
         if equity != None:
             order['equity'] = equity
