@@ -9,8 +9,10 @@ import pika
 import uuid
 import ssl
 import requests
+import many as many
 from datetime import timedelta
 from urllib.parse import urlparse
+
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -20,13 +22,17 @@ skip_min = 2
 
 print('=============================================================================')
 
+launch = {}
+
 directory = os.path.dirname(os.path.abspath(__file__))
 with open(directory + '/dbconfig.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
-user = data['user']
-password = data['password']
-host = data['host']
-database = data['database']
+
+launch['db'] = {}
+launch['db']['user'] = data['user']
+launch['db']['password'] = data['password']
+launch['db']['host'] = data['host']
+launch['db']['database'] = data['database']
 
 def get_db_connection(user, password, host, database):
 
@@ -44,7 +50,7 @@ def get_db_connection(user, password, host, database):
 
     return cnx
 
-cn_db = get_db_connection(user, password, host, database)
+cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 cursor_db = cn_db.cursor()
 
 keys_candle_table = []
@@ -106,16 +112,16 @@ def get_trading_status():
         return 'on'
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database)
+        cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         return get_trading_status()
 
-cnx = get_db_connection(user, password, host, database)
+cnx = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 cursor_candles = cnx.cursor()
 
-cnx2 = get_db_connection(user, password, host, database)
+cnx2 = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 cursor = cnx2.cursor()
 
-cn_pos = get_db_connection(user, password, host, database)
+cn_pos = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 
 def get_new_order(order):
 
@@ -154,10 +160,8 @@ def get_new_order(order):
 
     return order
 
-def init_launch():
+def init_launch(launch):
     
-    launch = {}
-
     algorithm_prefix = 'algorithm_'
 
     query = ("SELECT algorithm, start_time, end_time, frame, symbol, mode, trading_status, rmq_metadata, exchange_metadata, telegram_metadata, many_metadata, traiding_mode FROM launch")
@@ -201,9 +205,7 @@ def init_launch():
         stream_element['cur_conditions_group'] = {}
         launch['streams'].append(stream_element)
 
-    return launch
-
-launch = init_launch()
+init_launch(launch)
 
 def db_get_algorithm(stream):
     
@@ -224,9 +226,9 @@ def db_get_algorithm(stream):
         stream['algorithm_data']['block_order'][str(gg[0])] = iter
         iter = iter + 1
 
-cn_tick = get_db_connection(user, password, host, database)
+cn_tick = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 
-price_table_name = 'price_' + launch['frame']
+launch['price_table_name'] = 'price_' + launch['frame']
 
 cur_time_utc = datetime.datetime.utcnow()
 cur_time_frame = {}
@@ -276,7 +278,7 @@ def get_cur_timeframe(cur_time_frame, cur_time, time_frame):
 
     return cur_time_frame
 
-def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, stat):
+def set_candle(launch, keys, cursor,candle, prev_candle, prev_prev_candle, stat):
 
     if launch['mode'] == 'tester':
         get_tick_from_table(launch, candle, 0)
@@ -302,13 +304,13 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
             return
 
     prev_candle_time = cur_time_frame['start'] - launch['time_frame'] * datetime.timedelta(seconds=60)
-    prev_candle_prom = get_indicators(prev_candle_time, price_table_name)
+    prev_candle_prom = get_indicators(prev_candle_time, launch['price_table_name'])
     if prev_candle_prom != None and prev_candle_prom != {}:
         if ((prev_candle == {}) or (prev_candle != {} and prev_candle['time'] != prev_candle_prom['time'])):
             for stream in launch['streams']:
                 stream['was_close'] = False
                 stream['was_open'] = False
-            set_equity(launch, prev_candle, prev_prev_candle, stat)            
+            many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor)            
             update_candle(launch)
             if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
@@ -317,7 +319,7 @@ def set_candle(launch, keys, cursor, price_table_name, candle, prev_candle, prev
         prev_candle.clear()
     
     prev_prev_candle_time = cur_time_frame['start'] - 2 * launch['time_frame'] * datetime.timedelta(seconds=60)
-    prev_prev_candle_prom = get_indicators(prev_prev_candle_time, price_table_name)
+    prev_prev_candle_prom = get_indicators(prev_prev_candle_time, launch['price_table_name'])
     if prev_prev_candle_prom != None and prev_prev_candle_prom != {}:
         if ((prev_prev_candle == {}) or (prev_prev_candle != {} and prev_prev_candle['time'] != prev_prev_candle_prom['time'])):
             if launch['mode'] == 'robot':
@@ -340,7 +342,7 @@ def get_max_tick():
 
     return 0
 
-def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle, prev_prev_candle, next_candle, stat):
+def set_candle_renko(launch, keys, cursor, candle, prev_candle, prev_prev_candle, next_candle, stat):
 
     if launch['mode'] == 'robot':
         # launch['renko'].setdefault('ticks', {})
@@ -364,19 +366,14 @@ def set_candle_renko(launch, keys, cursor, price_table_name, candle, prev_candle
     cur_time = candle['time']
 
     if next_candle == {} or cur_time >= next_candle['time']:
-        cur_candle = select_renko_candles(cur_time, price_table_name, prev_candle, prev_prev_candle, next_candle)
+        cur_candle = select_renko_candles(cur_time, launch['price_table_name'], prev_candle, prev_prev_candle, next_candle)
         launch['cur_candle'] = {}
         launch['cur_candle']['open'] = candle['price']
 
         if launch['renko'].get('last_candle_id') != None and launch['renko']['last_candle_id'] == prev_candle['id']:
             return
         
-        # print("prev_candle: " + str(prev_candle))
-        # print("---")
-        # print("prev_prev_candle: " + str(prev_prev_candle))
-        # print("---")
-
-        set_equity(launch, prev_candle, prev_prev_candle, stat)            
+        many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
@@ -421,7 +418,7 @@ def select_candle(date_time, table_name):
 
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database)
+        cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         cursor_db = cn_db.cursor()
         return select_candle(date_time, table_name)
 
@@ -469,7 +466,7 @@ def select_renko_candles(date_time, table_name, prev_candle, prev_prev_candle, n
 
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database)
+        cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         cursor_db = cn_db.cursor()
         return select_renko_candles(date_time, table_name, next_candle)
 
@@ -539,7 +536,7 @@ def get_renko_tick(launch, candle):
     
     renko = launch['renko']
 
-    cn_tick = get_db_connection(user, password, host, database)
+    cn_tick = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
     cursor_tick = cn_tick.cursor()
     tick_table_name = 'price_tick' + "_" + launch['frame']
     query = ("select * from {0} where id > {1}".format(tick_table_name, renko['ticks']['last_tick_id']))
@@ -1526,7 +1523,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
-            result = open_position_many(order, block, candle, stat, action, stream)
+            result = many.open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor)
             if result == False:
                 return False
         elif action['order'] == "update_many" and launch['traiding_mode'] == 'many':
@@ -1534,7 +1531,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
             if action.get('stream_target') == None or action['stream_target'] == stream['id']:
                 order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
-            result = update_position_many(order, block, candle, stat, action, stream, launch)
+            result = many.update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos)
             if result == False:
                 return False
             if order['last_condition_type'] == 'realtime':
@@ -1542,7 +1539,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
         elif action['order'] == "balance_many" and launch['traiding_mode'] == 'many':
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
-            result = balance_position_many(launch, block, candle, stat, action)
+            result = many.balance_position_many(launch, block, candle, stat, action, cn_pos, cursor)
             if result == False:
                 return False
             if order['last_condition_type'] == 'realtime':
@@ -1699,389 +1696,6 @@ def close_position(order, block, candle, stat, action, launch, stream):
 
     return False
 
-def open_position_many(order, block, candle, stat, action, stream):
-    
-    if action.get('leverage') == None:
-        return False
-
-    order['leverage'] = action['leverage']
-    insert_position_many(stream, candle, stat)
-
-    log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
-    if launch['mode'] == 'tester':
-        log_text = log_text + ", id = " + str(candle['id'])
-
-    print(log_text)
-
-    send_leverage_many_robot(launch,stream)
-
-    return True
-
-def update_position_many(order, block, candle, stat, action, stream, launch):
-
-    leverage_up = action.get('leverage_up')
-    leverage_max = action.get('leverage_max')
-    leverage_down = action.get('leverage_down')
-    leverage_min = action.get('leverage_min')
-    leverage_source = action.get('leverage_source')
-    leverage_fix = action.get('leverage_fix')
-    stream_target = action.get('stream_target')
-
-    try:
-
-        stream_local = None
-        if stream_target != None and stream['id'] != stream_target:
-            for stream_loop in launch['streams']:
-                if stream_loop['id'] == stream_target:
-                    stream_local = stream_loop
-                    break
-        else:
-            stream_local = stream
-
-        if stream_local == None:
-            return False
- 
-        stream_source = None
-        if leverage_source != None and stream['id'] != leverage_source:
-            for stream_loop in launch['streams']:
-                if stream_loop['id'] == leverage_source:
-                    stream_source = stream_loop
-                    break
-        else:
-            stream_source = stream
-
-        if stream_source == None:
-            return False
-
-        if stream_local['id'] != leverage_source and leverage_source != None:
-            many_params_source = get_many_params(stream_source)
-        else:
-            many_params_source = {}
-            many_params_source['leverage'] = order['leverage']
-
-        if leverage_up != None:
-            leverage_condition = leverage_up
-            act = 'up'
-        elif leverage_down != None:
-            leverage_condition = leverage_down
-            act = 'down'
-        elif leverage_fix == True:
-            position = candle['price'] * order['equity'] * order['leverage']
-            order_fix = stream_local['order']
-            if order_fix == None:
-                return False
-            balance_fix = candle['price'] * order_fix['equity']
-            leverage_condition = position/balance_fix
-            act = 'fix'
-
-            if stream_local['order']['direction'] == "":
-                return False
-
-        else:
-            return False    
-                        
-        stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
-        stream_local['order']['update_position_price'] = float(candle['price'])
-    except Exception as e:
-        print(e)
-        return False
-
-    insert_position_many(stream_local, candle, stat)
-    log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
-    if launch['mode'] == 'tester':
-        log_text = log_text + ", id = " + str(candle['id'])
-
-    print(log_text)
-
-    print('---------------------------------------------')
-
-    send_leverage_many_robot(launch,stream)
-
-    return True
-
-def balance_position_many(launch, block, candle, stat, action):
-
-    total_equity = get_total_equity()
-    if total_equity == None:
-        return False
-
-    balancing = float(total_equity) / float(len(launch['streams']))
-
-    launch['balancing'] = total_equity
-
-    for stream in launch['streams']:
-        stream['order']['equity'] = balancing
-        stream['order']['max_equity'] = balancing
-        stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
-        insert_position_many(stream, candle, stat)
-        change_activation_block('0', stream)
-
-    log_text = "Ребалансировка many-позици: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
-    if launch['mode'] == 'tester':
-        log_text = log_text + ", id = " + str(candle['id'])
-
-    print(log_text)
-
-    print('---------------------------------------------')
-
-    send_balancing_robot(launch, stream)
-
-    return None #лайфхак
-
-def get_many_params(stream):
-
-    order_local = stream['order']
-
-    global cursor
-    
-    many_params = {}
-
-    query = ("SELECT leverage, price_order, open_equity, size_order, price_position, size_position FROM positions_" + str(stream['id']) + " order by id desc LIMIT 1")
-    cursor.execute(query)
-    for (many_params['leverage'], many_params['price_order'], many_params['price_order'], many_params['price_order'], many_params['price_order'], many_params['price_order']) in cursor:
-        
-        many_params['leverage'] = float(many_params['leverage'])
-        many_params['price_order'] = float(many_params['price_order'])
-        many_params['open_equity'] = float(many_params['open_equity'])
-        many_params['size_order'] = float(many_params['size_order'])
-        many_params['price_position'] = float(many_params['price_position'])
-        many_params['size_position'] = float(many_params['size_position'])
-        many_params['last'] = True
-        
-        return many_params
-
-    many_params['leverage'] = float(1)
-    many_params['price_order'] = float(1)
-    many_params['open_equity'] = float(order_local['equity'])
-    many_params['size_order'] = many_params['open_equity'] * many_params['leverage']
-    many_params['price_position'] = many_params['price_order'] * many_params['size_order']
-    many_params['size_position'] = many_params['size_order']
-
-    many_params['last'] = False
-
-    return many_params
-
-def get_leverage_action(leverage_condition, leverage_source, leverage_min, leverage_max, act, order_leverage):
-
-    if str(leverage_condition).find("%") != -1:
-        leverage_condition = float(leverage_condition.replace('%', ''))
-        result = leverage_condition * leverage_source / 100
-    else:
-        if act == 'up':
-            result = leverage_source + leverage_condition
-        elif act == 'down':
-            result = leverage_source - leverage_condition
-        elif act == 'fix':
-            if leverage_condition < order_leverage:
-                result = order_leverage
-            else:
-                result = leverage_condition
-            # return result
-        else:
-            return None
-
-    if leverage_min != None:
-        if leverage_min > result:
-            return leverage_min
-        else:
-            return result    
-
-    if leverage_max != None:
-        if leverage_max > result:
-            return result
-        else:
-            return leverage_max
-
-    return result
-
-def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order):
-
-    if launch['mode'] == 'tester':
-        last_equity = stream['order']['equity']
-        size_order = last_equity * last_order['leverage']
-        price_position = last_order['leverage'] * size_order
-        if stream['order']['direction'] == 'long':
-            result = last_equity * (100 + (float(prev_candle['close'] - price_position) * size_order) / 100)     
-        elif stream['order']['direction'] == 'short':
-            result = last_equity * (100 + (price_position - float(prev_candle['close']) * size_order) / 100)     
-        else: 
-            return None
-
-        return round(result, 8)
-    elif launch['mode'] == 'robot':
-        return get_equity_many_robot(stream)
-
-def get_order_many(streams, id):
-
-    for stream in streams:
-        if stream['id'] == id:
-            return stream['order']
-
-    return None
-
-
-def set_equity(launch, prev_candle, prev_prev_candle, stat):
-
-    if launch['traiding_mode'] != 'many':
-        return
-
-    if prev_candle == {} or prev_prev_candle == {}:
-        return
-
-    global cursor
-    set_query = ""
-    total_equity = 0.0
-    for stream in launch['streams']:
-        
-        order = stream['order']
-        last_order = get_many_params(stream)
-        equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order)
-        if equity != None:
-            order['equity'] = equity
-            if order['equity'] > order['max_equity']:
-                order['max_equity'] = order['equity']
-
-        if set_query == '':
-            razd = ''
-        else:
-            razd = ','
-        set_query = set_query + razd + "equity_{0}={1}, max_equity_{0}={2}".format(stream['id'], str(stream['order']['equity']), str(stream['order']['max_equity']))
-        total_equity = total_equity + stream['order']['equity']
-        prev_candle['total_equity'] = total_equity
-        prev_candle['equity_{0}'.format(stream['id'])] = stream['order']['equity']
-        prev_candle['max_equity_{0}'.format(stream['id'])] = stream['order']['max_equity']
-    
-    calculate_stat_many(stat, prev_candle['time'], total_equity)
-
-    launch.setdefault('balancing', total_equity)
-    prev_candle['balancing'] = launch['balancing']
-
-    insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s, total_equity_percent=%s, total_equity_month_percent=%s where id=%s".format(price_table_name, set_query))
-    data = (total_equity, launch['balancing'], 
-        stat['many']['total_equity_percent'],
-        stat['many']['total_equity_month_percent'],
-        prev_candle['id'])
-
-    cursor.execute(insert_stmt, data)
-
-def get_equity_many_robot(stream):
-
-    try:
-        
-        http_data='{"equity": "BTC"}'
-        # http_data={"equity": stream['balancing_symbol']}
-        r = requests.post(stream['url'], data=http_data)
-        if r.status_code != 200:
-            raise Exception("Status code = " + str(r.status_code))
-        equity = r.text
-        print("equity = " + equity + ", time = " + str(datetime.datetime.utcnow()))
-        return float(equity)
-    except Exception as e:
-        time.sleep(2)
-        print(e)
-        print("equity exception" + ", time = " + str(datetime.datetime.utcnow()))
-        return None
-
-def send_leverage_many_robot(launch, stream):
-
-    if launch['mode'] != 'robot':
-        return
-
-    try:
-
-        order = stream['order']
-
-        http_data='{"symbol":"' + stream['symbol'] + '","side":"' +  order['direction'] + '","leverage":"' + str(order['leverage']) + '","order_type":"' +  order['order_type'] + '"}'
-
-        r = requests.post(stream['url'], data=http_data, timeout=7)
-        if r.status_code != 200:
-            raise Exception("Leverage Status code = " + str(r.status_code))
-    except Exception as e:
-        time.sleep(2)
-        print(e)
-        print("leverage send exception" + ", time = " + str(datetime.datetime.utcnow()))
-
-def send_balancing_robot(launch, stream):
-
-    if launch['mode'] != 'robot':
-       return
-
-    try:
-        http_data='{"equity_balancing":"' + stream['balancing_symbol'] + '"}'
-        r = requests.post(stream['url'], data=http_data, timeout=7)
-        if r.status_code != 200:
-            raise Exception("Leverage Status code = " + str(r.status_code))
-
-    except Exception as e:
-        time.sleep(2)
-        print(e)
-        print("leverage send exception" + ", time = " + str(datetime.datetime.utcnow()))
-
-
-def get_total_equity():
-
-    if launch['traiding_mode'] != 'many':
-        return None
-
-    if launch['mode'] == 'tester' and prev_candle != {}:
-        global cursor
-
-        query = "select id, total_equity from {0} where id={1}".format(price_table_name, prev_candle['id'])
-        cursor.execute(query)
-        for (id, total_equity) in cursor:
-            return total_equity
-
-    return None
-
-def delete_equity(launch):
-
-    if launch['mode'] != 'tester':
-        return
-
-    if launch['traiding_mode'] != 'many':
-        return
-
-    global cursor
-    set_query = ""
-    for stream in launch['streams']:
-        if set_query == '':
-            razd = ''
-        else:
-            razd = ','
-        set_query = set_query + razd + "equity_{0} = NULL, max_equity_{0} = NULL".format(stream['id'])
-    
-    insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL, total_equity_month_percent = NULL, total_equity_percent = NULL".format(price_table_name, set_query))
-    cursor.execute(insert_stmt, data)
-
-def insert_position_many(stream, candle, stat):
-
-    db_insert_position_many(stream, candle)
-
-def calculate_stat_many(stat, date_time, total_equity):
-
-    local_stat = stat['many']
-
-    if local_stat.get('start_total_equity') == None:
-        local_stat['start_total_equity'] = total_equity
-        local_stat['total_equity_percent'] = 0
-
-
-        local_stat['start_date_month_total_equity'] = date_time
-        local_stat['start_month_total_equity'] = total_equity
-        local_stat['total_equity_month_percent'] = 0
-        return
-
-    local_stat['total_equity_percent'] = (total_equity - local_stat['start_total_equity'])/local_stat['start_total_equity'] * 100
-    
-    if local_stat['start_date_month_total_equity'].month != date_time.month or local_stat['start_date_month_total_equity'].year != date_time.year:
-        local_stat['start_date_month_total_equity'] = date_time
-        local_stat['total_equity_month_percent'] = 0
-        local_stat['start_month_total_equity'] = total_equity
-        return
-
-    local_stat['total_equity_month_percent'] = (total_equity - local_stat['start_month_total_equity'])/local_stat['start_month_total_equity'] * 100
-
-
 # ---------- telegram ----------------------
 
 def send_open_position_telegram(launch, order):
@@ -2166,7 +1780,7 @@ def db_open_position(order):
         send_open_position_telegram(launch, order)
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database)
+        cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         cursor_db = cn_db.cursor()
         db_open_position(order)
 
@@ -2189,7 +1803,7 @@ def db_close_position(order, result_position, points_position, rpl, price_perece
         send_close_position_telegram(launch, order)
     except Exception as e:
         print(e)
-        cn_db = get_db_connection(user, password, host, database)
+        cn_db = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         cursor_db = cn_db.cursor()
         db_close_position(order, result_position, points_position, rpl, price_perecent)
 
@@ -2219,7 +1833,7 @@ def db_insert_position(order, result_position, points_position, rpl, price_perec
 
     except Exception as e:
         print(e)
-        cn_pos = get_db_connection(user, password, host, database)
+        cn_pos = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
         db_insert_position(order, result_position, points_position, rpl, price_perecent, cn_pos)
 
 def json_serial(obj):
@@ -2306,29 +1920,6 @@ def db_clear_state():
     except Exception as e:
         print(e)
 
-def db_insert_position_many(stream, candle):
-
-    global cn_pos
-    cursor_local = cn_pos.cursor()
-
-    try:
-        insert_stmt = (
-            "INSERT INTO positions_{0} (side, leverage, time_order, price_order, type_order, blocks_id) "
-            "VALUES (%s, %s, %s, %s, %s, %s)".format(stream['id'])
-        )
-        data = (
-            stream['order']['direction'], stream['order']['leverage'], candle['time'], candle['price'], stream['order']['order_type'], stream['order']['path']
-        )
-            
-        cursor_local.execute(insert_stmt, data)
-        cn_pos.commit()
-        cursor_local.close()
-
-    except Exception as e:
-        print(e)
-        cn_pos = get_db_connection(user, password, host, database)
-        db_insert_position_many(stream, candle)
-
 def db_get_candle(id_candle, source_candle):
 
     f_candle = source_candle.copy()
@@ -2337,7 +1928,7 @@ def db_get_candle(id_candle, source_candle):
     cursor = cnx2.cursor(dictionary=True)
 
     try:
-        query = ("SELECT * FROM {0} where id={1}".format(price_table_name, str(id_candle)))
+        query = ("SELECT * FROM {0} where id={1}".format(launch['price_table_name'], str(id_candle)))
         cursor.execute(query)
         for row in cursor:
             f_candle.update(row)
@@ -2353,7 +1944,7 @@ def db_get_candle(id_candle, source_candle):
 
 def init_algo(launch):
 
-    delete_equity(launch)
+    many.delete_equity(launch, cursor)
 
     for stream in launch['streams']:
         db_get_algorithm(stream)
@@ -2407,9 +1998,9 @@ while True: #цикл по тикам
 
     try:
         if launch.get('renko') == None:
-            set_candle(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, stat)
+            set_candle(launch, keys, cursor_candles, candle, prev_candle, prev_prev_candle, stat)
         else:
-            set_candle_renko(launch, keys, cursor_candles, price_table_name, candle, prev_candle, prev_prev_candle, next_candle, stat)
+            set_candle_renko(launch, keys, cursor_candles, candle, prev_candle, prev_prev_candle, next_candle, stat)
     except Exception as e:
         print(e)
         continue
