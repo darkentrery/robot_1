@@ -385,7 +385,7 @@ def db_insert_position_many(stream, candle, many_params_source, launch, cn_pos):
         data = (
             stream['order']['direction'], 
             candle['time'], 
-            many_params_source['open_equity'],
+            stream['order']['equity'],
             candle['price'], 
             stream['order']['leverage'], 
             many_params_source['size_order'],
