@@ -310,7 +310,7 @@ def set_candle(launch, keys, cursor,candle, prev_candle, prev_prev_candle, stat)
             for stream in launch['streams']:
                 stream['was_close'] = False
                 stream['was_open'] = False
-            many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor)            
+            many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle)            
             update_candle(launch)
             if launch['mode'] == 'robot':
                 print("prev_candle: " + str(prev_candle_prom))
@@ -373,7 +373,7 @@ def set_candle_renko(launch, keys, cursor, candle, prev_candle, prev_prev_candle
         if launch['renko'].get('last_candle_id') != None and launch['renko']['last_candle_id'] == prev_candle['id']:
             return
         
-        many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor)            
+        many.set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle)            
         for stream in launch['streams']:
             stream['was_close'] = False
             stream['was_open'] = False
