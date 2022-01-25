@@ -262,9 +262,9 @@ def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order):
 
     if launch['mode'] == 'tester':
         if stream['order']['direction'] == 'long':
-            result = last_order['open_equity'] * ((float(100) + (float(prev_candle['close']) - last_order['price_position']) * last_order['size_order']) / float(100))     
+            result = last_order['open_equity'] + ((float(prev_candle['close']) - last_order['price_position']) * last_order['size_position'] / last_order['price_position'])     
         elif stream['order']['direction'] == 'short':
-            result = last_order['open_equity'] * ((float(100) + (last_order['price_position'] - float(prev_candle['close'])) * last_order['size_order']) / float(100))     
+            result = last_order['open_equity'] -  ((float(prev_candle['close']) - last_order['price_position']) * last_order['size_position'] / last_order['price_position'])     
         else: 
             return None
 
