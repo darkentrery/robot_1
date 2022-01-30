@@ -123,7 +123,7 @@ cursor = cnx2.cursor()
 
 cn_pos = get_db_connection(launch['db']['user'], launch['db']['password'], launch['db']['host'], launch['db']['database'])
 
-def get_new_order(order):
+def get_new_order(order, launch):
 
     if order == None:
         order = {}
@@ -155,7 +155,11 @@ def get_new_order(order):
 
     order['cache_conditions'] = {}
 
-    order['equity'] = 0.5
+    if launch['many_metadata']['balance'].upper() == 'CURRENCY':
+        order['equity'] = 100
+    else:
+        order['equity'] = 1
+        
     order['max_equity'] = order['equity']
 
     return order
@@ -191,7 +195,7 @@ def init_launch(launch):
         for ord_many in launch['many_metadata']['streams']:
             stream_element = {}
             stream_element['algorithm'] = algorithm_prefix + str(ord_many['algorithm'])
-            stream_element['order'] = get_new_order(None)
+            stream_element['order'] = get_new_order(None, launch)
             stream_element['cur_conditions_group'] = {}
             stream_element['id'] = ord_many['id']
             stream_element['url'] = ord_many.setdefault('url', '')
@@ -201,7 +205,7 @@ def init_launch(launch):
     else:
         stream_element = {}
         stream_element['algorithm'] = algorithm_prefix + str(postfix_algorithm)
-        stream_element['order'] = get_new_order(None)
+        stream_element['order'] = get_new_order(None, launch)
         stream_element['cur_conditions_group'] = {}
         launch['streams'].append(stream_element)
 
@@ -609,7 +613,7 @@ def manage_order_tester(order, prev_candle, launch, candle):
                 skip_order = True        
 
     if skip_order:
-        order = get_new_order(order)
+        order = get_new_order(order, launch)
         launch['cur_conditions_group'] = {}
         print('skip order')
 
@@ -1481,7 +1485,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
                 print('-------------------------------------------------------')
                 saved_close_time = order['close_time_order']
                 saved_close_price = order['close_price_position']
-                order = get_new_order(order)
+                order = get_new_order(order, launch)
                 if order['last_condition_type'] == 'realtime':
                     was_close = True
                 if launch['trading_status'] == 'on': 
