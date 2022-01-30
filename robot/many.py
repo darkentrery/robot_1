@@ -209,7 +209,7 @@ def get_many_params(stream, cursor, candle, launch):
         many_params['price_order'] = float(many_params['price_order'])
         many_params['open_equity'] = float(many_params['open_equity'])
 
-        if launch['many_metadata']['equity_currency'].upper() == 'USD':
+        if launch['many_metadata']['balance'].upper() == 'CURRENCY':
             many_params['size_order']     = many_params['leverage'] * many_params['open_equity'] / many_params['price_order'] - float(many_params['size_order'])
             many_params['size_position']  = float(many_params['size_position']) + many_params['size_order']
             many_params['price_position'] = float(many_params['price_order'])
@@ -269,11 +269,11 @@ def get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order):
 
     if launch['mode'] == 'tester':
         if stream['order']['direction'] == 'long':
-            if launch['many_metadata']['equity_currency'].upper() == 'USD':
+            if launch['many_metadata']['balance'].upper() == 'CURRENCY':
               result = last_order['open_equity'] + (float(prev_candle['close']) - last_order['price_position']) * last_order['size_position']
             # result = last_order['open_equity'] + ((float(prev_candle['close']) - last_order['price_position']) * last_order['size_position'] / last_order['price_position'])     
         elif stream['order']['direction'] == 'short':
-            if launch['many_metadata']['equity_currency'].upper() == 'USD':
+            if launch['many_metadata']['balance'].upper() == 'CURRENCY':
               result = last_order['open_equity'] - (float(prev_candle['close']) - last_order['price_position']) * last_order['size_position']
             # result = last_order['open_equity'] -  ((float(prev_candle['close']) - last_order['price_position']) * last_order['size_position'] / last_order['price_position'])     
         else: 
