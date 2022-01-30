@@ -1,8 +1,6 @@
 {
-    "user": "serg",
-    "password": "serg",
-    "host": "178.208.94.117",
-    "database": "tester_2_1",
-    "table_result": "positions",
-    "table_result_sum": "positions_sum"
+    "db_user": "serg",
+    "db_pass": "serg",
+    "db_host": "178.208.94.117",
+    "db_name": "tester_2_1"
 }

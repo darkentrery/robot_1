@@ -29,10 +29,10 @@ with open(directory + '/dbconfig.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
 launch['db'] = {}
-launch['db']['user'] = data['user']
-launch['db']['password'] = data['password']
-launch['db']['host'] = data['host']
-launch['db']['database'] = data['database']
+launch['db']['user'] = data['db_user']
+launch['db']['password'] = data['db_pass']
+launch['db']['host'] = data['db_host']
+launch['db']['database'] = data['db_name']
 
 def get_db_connection(user, password, host, database):
 
@@ -235,7 +235,7 @@ cur_time_frame = {}
 
 keys = []
 
-table_result = data['table_result']
+table_result = 'positions'
 
 if launch['mode'] != 'robot':
     try:
