@@ -83,7 +83,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
             return False    
 
         stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
-        stream_local['order']['update_position_price'] = float(candle['price'])
+        # stream_local['order']['update_position_price'] = float(candle['price'])
     except Exception as e:
         print(e)
         return False
