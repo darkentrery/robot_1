@@ -222,7 +222,7 @@ def get_many_params(stream, cursor, candle, launch):
         return many_params
 
     many_params['leverage'] = float(1)
-    many_params['price_order'] = float(candle['price'])
+    many_params['price_order'] = float(0)
     many_params['open_equity'] = float(order_local['equity'])
 
     many_params['size_order'] = float(0)
