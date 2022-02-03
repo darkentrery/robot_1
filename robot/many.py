@@ -193,6 +193,23 @@ def delete_equity(launch, cursor):
     insert_stmt = ("UPDATE {0} SET {1}, total_equity = NULL, total_equity_month_percent = NULL, total_equity_percent = NULL".format(launch['price_table_name'], set_query))
     cursor.execute(insert_stmt)
 
+def set_first_position(stream, candle, launch, cn_pos):
+
+    if launch.get('many_metadata') == None:
+        return
+
+    if stream.get('is_set_first_block') != None:
+        return
+    
+    stream['is_set_first_block'] = True
+
+    many_params_source = {}
+    many_params_source['size_order'] = 0
+    many_params_source['price_position'] = 0
+    many_params_source['size_position'] = 0
+
+    db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
+
 
 
 def get_many_params(stream, cursor, candle, launch):

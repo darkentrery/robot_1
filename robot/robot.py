@@ -144,8 +144,8 @@ def get_new_order(order, launch):
 
     order['leverage'] = 1
     order['price_indent'] = 0
-    order['direction'] = ''
-    order['order_type'] = ''
+    order['direction'] = None
+    order['order_type'] = None
     order['state'] = 'start'
     order['path'] = ''
 
@@ -155,10 +155,12 @@ def get_new_order(order, launch):
 
     order['cache_conditions'] = {}
 
-    if launch['many_metadata']['balance'].upper() == 'CURRENCY':
-        order['equity'] = 100
-    else:
-        order['equity'] = 1
+    if launch.get('many_metadata') != None and launch.get('many_metadata') != {}:
+        order['leverage'] = 0
+        if launch['many_metadata']['balance'].upper() == 'CURRENCY':
+            order['equity'] = 100
+        else:
+            order['equity'] = 1
         
     order['max_equity'] = order['equity']
 
@@ -2018,6 +2020,8 @@ while True: #цикл по тикам
             continue
 
     for stream in launch['streams']:
+
+        many.set_first_position(stream, candle, launch, cn_pos)
 
         order = stream['order']
 
