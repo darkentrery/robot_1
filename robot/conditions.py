@@ -39,7 +39,7 @@ def check_pnl(condition, block, candle, order):
     else:
         return False
 
-def check_price(condition, block, candle, order, launch, stream, cursor):
+def check_price(condition, block, candle, order, launch, stream, cursor, prev_candle):
     
     # {"type":"price","change_percent":"> 11","number":"1"}
 
@@ -57,7 +57,7 @@ def check_price(condition, block, candle, order, launch, stream, cursor):
             if source == None:
                 return False
             
-            last_position = many.get_many_params(stream, cursor, candle, launch)
+            last_position = many.get_many_params(stream, cursor, candle, launch, prev_candle)
 
             start = last_position.get(source)
             if source == None:

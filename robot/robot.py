@@ -1285,7 +1285,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'price':
-            result = conditions.check_price(condition, block, candle, order, launch, stream, cursor)
+            result = conditions.check_price(condition, block, candle, order, launch, stream, cursor, prev_candle)
             if result == False:
                 return False
             else:
@@ -1441,7 +1441,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
-            result = many.open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor)
+            result = many.open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor, prev_candle)
             if result == False:
                 return False
         elif action['order'] == "update_many" and launch['traiding_mode'] == 'many':
@@ -1449,7 +1449,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
             if action.get('stream_target') == None or action['stream_target'] == stream['id']:
                 order['direction'] = action['direction']
             order['path'] = str(block['number']) + '_' + block['alg_number']
-            result = many.update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos)
+            result = many.update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos, prev_candle)
             if result == False:
                 return False
             if order['last_condition_type'] == 'realtime':
@@ -1457,7 +1457,7 @@ def execute_block_actions(candle, order, stat, launch, stream):
         elif action['order'] == "balance_many" and launch['traiding_mode'] == 'many':
             order['order_type'] = action['order_type']
             order['direction'] = action['direction']
-            result = many.balance_position_many(launch, block, candle, stat, action, cn_pos, cursor)
+            result = many.balance_position_many(launch, block, candle, stat, action, cn_pos, cursor, prev_candle)
             if result == False:
                 return False
             if order['last_condition_type'] == 'realtime':

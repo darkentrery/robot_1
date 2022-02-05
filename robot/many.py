@@ -4,13 +4,13 @@ import datetime
 import db
 import block
 
-def open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor):
+def open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor, prev_candle):
     
     if action.get('leverage') == None:
         return False
 
     order['leverage'] = action['leverage']
-    many_params_source = get_many_params(stream, cursor, candle, launch)
+    many_params_source = get_many_params(stream, cursor, candle, launch, prev_candle)
     order['update_position_price'] = many_params_source['price_position']
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
 
@@ -24,7 +24,7 @@ def open_position_many(order, block, candle, stat, action, stream, launch, cn_po
 
     return True
 
-def update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos):
+def update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos, prev_candle):
 
     leverage_up = action.get('leverage_up')
     leverage_max = action.get('leverage_max')
@@ -60,7 +60,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
         if stream_source == None:
             return False
 
-        many_params_source = get_many_params(stream_source, cursor, candle, launch)
+        many_params_source = get_many_params(stream_source, cursor, candle, launch, prev_candle)
 
         if leverage_up != None:
             leverage_condition = leverage_up
@@ -102,7 +102,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
 
     return True
 
-def balance_position_many(launch, block, candle, stat, action, cn_pos, cursor):
+def balance_position_many(launch, block, candle, stat, action, cn_pos, cursor, prev_candle):
 
     total_equity = get_total_equity()
     if total_equity == None:
@@ -116,7 +116,7 @@ def balance_position_many(launch, block, candle, stat, action, cn_pos, cursor):
         stream['order']['equity'] = balancing
         stream['order']['max_equity'] = balancing
         stream['order']['path'] = str(block['number']) + '_' + block['alg_number']
-        many_params_source = get_many_params(stream, cursor, candle, launch)
+        many_params_source = get_many_params(stream, cursor, candle, launch, prev_candle)
         db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
         block.change_activation_block('0', stream)
 
@@ -145,7 +145,7 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle):
     for stream in launch['streams']:
         
         order = stream['order']
-        last_order = get_many_params(stream, cursor, candle, launch)
+        last_order = get_many_params(stream, cursor, candle, launch, prev_candle)
         equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order)
         if equity != None:
             order['equity'] = equity
@@ -208,12 +208,13 @@ def set_first_position(stream, candle, launch, cn_pos):
     many_params_source['size_order'] = 0
     many_params_source['price_position'] = 0
     many_params_source['size_position'] = 0
+    many_params_source['price_order'] = 0
 
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
 
 
 
-def get_many_params(stream, cursor, candle, launch):
+def get_many_params(stream, cursor, candle, launch, prev_candle):
 
     order_local = stream['order']
 
@@ -224,7 +225,7 @@ def get_many_params(stream, cursor, candle, launch):
     for (many_params['leverage'], many_params['price_order'], many_params['open_equity'], many_params['size_order'], many_params['price_position'], many_params['size_position']) in cursor:
         
         many_params['leverage'] = float(many_params['leverage'])
-        many_params['price_order'] = float(many_params['price_order'])
+        many_params['price_order'] = float(prev_candle['close'])
         many_params['open_equity'] = float(many_params['open_equity'])
 
         if launch['many_metadata']['balance'].upper() == 'CURRENCY':
@@ -415,7 +416,7 @@ def db_insert_position_many(stream, candle, many_params_source, launch, cn_pos):
             stream['order']['direction'], 
             candle['time'], 
             stream['order']['equity'],
-            candle['price'], 
+            many_params_source['price_order'], 
             stream['order']['leverage'], 
             many_params_source['size_order'],
             many_params_source['price_position'],
