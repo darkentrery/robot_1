@@ -11,6 +11,7 @@ def open_position_many(order, block, candle, stat, action, stream, launch, cn_po
 
     order['leverage'] = action['leverage']
     many_params_source = get_many_params(stream, cursor, candle, launch)
+    order['update_position_price'] = many_params_source['price_position']
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
 
     log_text = "Открытие many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
@@ -83,7 +84,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
             return False    
 
         stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
-        # stream_local['order']['update_position_price'] = float(candle['price'])
+        stream_local['order']['update_position_price'] = many_params_source['price_position']
     except Exception as e:
         print(e)
         return False

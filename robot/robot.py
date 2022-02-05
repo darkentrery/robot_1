@@ -10,9 +10,9 @@ import uuid
 import ssl
 import requests
 import many as many
+import conditions as conditions
 from datetime import timedelta
 from urllib.parse import urlparse
-
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
@@ -777,45 +777,6 @@ def check_value_change(condition, block, candle, order, prev_candle, prev_prev_c
 
     return False
 
-def check_pnl(condition, block, candle, order):
-    
-    direction = order['direction']
-
-    ind_oper = condition['value'].split(' ')[0]
-    ind_value = float(condition['value'].split(' ')[1])
-    if direction == 'short':
-        pnl = order['open_price_position'] - (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
-    else:
-        pnl = order['open_price_position'] + (((order['open_price_position'] / 100) * ind_value))/float(order['leverage'])
-
-    if candle.get('price') == None:
-        return False
-
-    if direction == 'long':
-        left_value = candle['price']
-        right_value = pnl
-    else:
-        left_value = pnl
-        right_value = candle['price']
-
-    if ind_oper == '>=' and left_value >= right_value:
-        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return pnl
-    elif ind_oper == '<=' and left_value <= right_value:
-        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return pnl
-    elif ind_oper == '=' and left_value == right_value:
-        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return pnl
-    elif ind_oper == '>' and left_value > right_value:
-        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return pnl
-    elif ind_oper == '<' and left_value < right_value:
-        print("pnl(" + direction + ", " + condition['value'] +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-        return pnl
-    else:
-        return False
-
 def check_exit_price_by_step(condition, block, candle, order, prev_candle):
 
     pid = get_proboi_id(block, condition)
@@ -998,55 +959,6 @@ def check_trailing(condition, block, candle, order, launch):
         print("trailing_price(finish)=" + str(result) + ", time = " + str(candle['time']) + ", price=" + str(candle['price']))
 
     return result
-
-def check_price(condition, block, candle, order, launch):
-    
-    # {"type":"price","change_percent":"> 11","number":"1"},
-
-    direction = order['direction']
-
-    if condition.get("type_change") == "one_candle":
-        start = launch['cur_candle']['open']
-    else:
-        if launch['traiding_mode'] == 'many':
-            start = order['update_position_price']
-        else:
-            start = order['open_price_position']
-
-    ind_oper = condition['change_percent'].split(' ')[0]
-    ind_value = float(condition['change_percent'].split(' ')[1])
-    if direction == 'short':
-        pnl = start - start / 100 * ind_value
-    else:
-        pnl = start + start / 100 * ind_value
-
-    if candle.get('price') == None:
-        return False
-
-    if direction == 'long':
-        left_value = candle['price']
-        right_value = pnl
-    else:
-        left_value = pnl
-        right_value = candle['price']
-
-    if ind_oper == '>=' and left_value >= right_value:
-        result = pnl
-    elif ind_oper == '<=' and left_value <= right_value:
-        result = pnl
-    elif ind_oper == '=' and left_value == right_value:
-        result = pnl
-    elif ind_oper == '>' and left_value > right_value:
-        result = pnl
-    elif ind_oper == '<' and left_value < right_value:
-        result = pnl
-    else:
-        result = False
-
-    if result != False:
-        print("price(" + direction + ", " + str(ind_value) +")=" + str(pnl) + ", time=" + str(candle['time']) + ", price=" + str(candle['price']))
-
-    return result 
 
 def check_candle(condition, block, candle, order, launch):
 
@@ -1349,7 +1261,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
             return False
 
         if condition['type'] == 'pnl':
-            result = check_pnl(condition, block, candle, order)
+            result = conditions.check_pnl(condition, block, candle, order)
             if result == False:
                 return False
             else:
@@ -1373,7 +1285,7 @@ def block_conditions_done(block, candle, order, prev_candle, prev_prev_candle, l
                 order['close_time_order'] = candle['time']
                 order['last_condition_type'] = 'realtime'
         elif condition['type'] == 'price':
-            result = check_price(condition, block, candle, order, launch)
+            result = conditions.check_price(condition, block, candle, order, launch, stream, cursor)
             if result == False:
                 return False
             else:
