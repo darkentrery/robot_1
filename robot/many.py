@@ -230,8 +230,12 @@ def get_many_params(stream, cursor, candle, launch, prev_candle):
 
         if launch['many_metadata']['balance'].upper() == 'CURRENCY':
             many_params['size_order']     = many_params['leverage'] * many_params['open_equity'] / many_params['price_order'] - float(many_params['size_order'])
+            many_params['price_*_size']   = many_params['price_order'] * many_params['size_order']
             many_params['size_position']  = float(many_params['size_position']) + many_params['size_order']
-            many_params['price_position'] = float(many_params['price_order'])
+            if many_params['size_position'] == 0:
+                many_params['price_position'] = 0
+            else:    
+                many_params['price_position'] = many_params['price_*_size'] / many_params['size_position']
 
         # many_params['size_order'] = many_params['open_equity'] * many_params['leverage'] - float(many_params['size_position'])
         # many_params['price_position'] = float(many_params['price_position']) + ((many_params['price_order'] - float(many_params['price_position'])) * (many_params['size_order'] / (many_params['size_order'] + float(many_params['size_position']))))

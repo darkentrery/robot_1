@@ -157,10 +157,11 @@ def get_new_order(order, launch):
 
     if launch.get('many_metadata') != None and launch.get('many_metadata') != {}:
         order['leverage'] = 0
-        if launch['many_metadata']['balance'].upper() == 'CURRENCY':
-            order['equity'] = 100
-        else:
-            order['equity'] = 1
+        order['equity'] = 1
+        # if launch['many_metadata']['balance'].upper() == 'CURRENCY':
+        #     order['equity'] = 100
+        # else:
+        #     order['equity'] = 1
         
     order['max_equity'] = order['equity']
 
