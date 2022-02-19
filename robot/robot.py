@@ -1934,7 +1934,9 @@ while True: #цикл по тикам
 
     for stream in launch['streams']:
 
-        many.set_first_position(stream, candle, launch, cn_pos)
+        res = many.set_first_position(stream, candle, launch, cn_pos)
+        if res == True:
+            continue
 
         order = stream['order']
 

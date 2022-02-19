@@ -4,6 +4,16 @@ import datetime
 import db
 import block
 
+def is_many(launch):
+
+    if launch.get('traiding_mode') == None:
+        return False
+
+    if launch['traiding_mode'] == 'many':
+        return True
+    else:
+        return False
+
 def open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor, prev_candle):
     
     if action.get('leverage') == None:
@@ -197,10 +207,10 @@ def delete_equity(launch, cursor):
 def set_first_position(stream, candle, launch, cn_pos):
 
     if launch.get('many_metadata') == None:
-        return
+        return False
 
     if stream.get('is_set_first_block') != None:
-        return
+        return False
     
     stream['is_set_first_block'] = True
 
@@ -212,9 +222,9 @@ def set_first_position(stream, candle, launch, cn_pos):
 
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
 
+    return True
 
-
-def get_many_params(stream, cursor, candle, launch, prev_candle):
+def get_last_order(stream, cursor):
 
     order_local = stream['order']
 
@@ -223,8 +233,19 @@ def get_many_params(stream, cursor, candle, launch, prev_candle):
     query = ("SELECT leverage, price_order, open_equity, size_order, price_position, size_position FROM positions_" + str(stream['id']) + " order by id desc LIMIT 1")
     cursor.execute(query)
     for (many_params['leverage'], many_params['price_order'], many_params['open_equity'], many_params['size_order'], many_params['price_position'], many_params['size_position']) in cursor:
+        return many_params
+
+    return many_params
+
+def get_many_params(stream, cursor, candle, launch, prev_candle):
+
+    order_local = stream['order']
+
+    many_params = get_last_order(stream, cursor)
+
+    if many_params != {}:
         
-        many_params['leverage'] = float(many_params['leverage'])
+        many_params['leverage'] = float(order_local['leverage'])
         many_params['price_order'] = float(prev_candle['close'])
         many_params['open_equity'] = float(many_params['open_equity'])
 
