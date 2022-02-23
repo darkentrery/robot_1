@@ -128,6 +128,8 @@ def get_new_order(order, launch):
     if order == None:
         order = {}
 
+    order['balance'] = 1
+    
     order['open_price_position'] = 0
     order['close_price_position'] = 0
 
