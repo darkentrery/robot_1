@@ -21,31 +21,73 @@ class Equity_1():
         self.equity_1 = self.balance + self.pnl
         self.rpl = 0
         self.start = True
+        self.last_close = self.close
+        self.leverage_0 = self.leverage
+
+    def update_leverage_long(self, leverage, close, leverage_up, percent):
+        #print(f"long {self.price_order * (100 + percent) // 100=}{close=}")
+        self.leverage_0 = self.leverage
+        if self.price_order * (100 + percent) // 100 <= close:
+            self.leverage = leverage + (leverage_up / 100)
+            #print(f"{self.leverage=}{leverage=}{leverage_up=}")
+            self.last_close = close
+        else:
+            if leverage == 0:
+                self.leverage = leverage
+
+    def update_leverage_short(self, leverage, close, leverage_up, percent):
+        #print(f"short {self.price_order * (100 + percent) // 100=}{close=}")
+        self.leverage_0 = self.leverage
+        if self.price_order * (100 + percent) // 100 <= close:
+            self.leverage = leverage + (leverage_up / 100)
+            self.last_close = close
+        else:
+            if leverage == 0:
+                self.leverage = leverage
 
     def update(self, leverage, close):
+        self.leverage_0 = self.leverage
         order_leverage = leverage - self.leverage
         self.leverage = leverage
+
+        #order_leverage = self.leverage - self.leverage_0
+
+
         self.price_order = self.close
         if order_leverage > 0:
             self.size_order = order_leverage * self.equity_1 / self.price_order
             self.price_position += (self.price_order - self.price_position) * (
                         self.size_order / (self.size_position + self.size_order))
+        elif order_leverage <= 0 and self.leverage_0 != 0:
+            self.size_order = order_leverage * self.size_position / self.leverage_0
         else:
-            self.size_order = order_leverage * self.pnl / self.price_order
+            self.size_order = 0
+            #return self.balance, self.leverage, self.size_order, self.price_order, self.size_position, self.price_position, \
+            #       self.close, self.pnl, self.equity_1, self.rpl
         self.balance += self.rpl
-        if self.size_order < 0:
-            self.rpl = self.pnl * (abs(self.size_order) / self.size_position)
+        if self.size_order < 0 and self.size_position != 0:
+            self.rpl = self.pnl * (-self.size_order / self.size_position)
         else:
             self.rpl = 0
         self.size_position += self.size_order
         self.close = close
+
+    def update_long(self):
         self.pnl = (self.close - self.price_position) * self.size_position
         self.equity_1 = self.balance + self.pnl
 
         return self.balance, self.leverage, self.size_order, self.price_order, self.size_position, self.price_position,\
                self.close, self.pnl, self.equity_1, self.rpl
 
-equity_1 = Equity_1()
+    def update_short(self):
+        self.pnl = (self.price_position - self.close) * self.size_position
+        self.equity_1 = self.balance + self.pnl
+
+        return self.balance, self.leverage, self.size_order, self.price_order, self.size_position, self.price_position,\
+               self.close, self.pnl, self.equity_1, self.rpl
+
+equity_1_long = Equity_1()
+equity_1_short = Equity_1()
 
 def is_many(launch):
 
@@ -58,11 +100,12 @@ def is_many(launch):
         return False
 
 def open_position_many(order, block, candle, stat, action, stream, launch, cn_pos, cursor, prev_candle):
-    
+    print("open_position_many")
     if action.get('leverage') == None:
         return False
 
     order['leverage'] = action['leverage']
+    #stream['order']['leverage'] = action['leverage']
     many_params_source = get_many_params(stream, cursor, candle, launch, prev_candle)
     order['update_position_price'] = many_params_source['price_position']
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
@@ -73,12 +116,12 @@ def open_position_many(order, block, candle, stat, action, stream, launch, cn_po
 
     print(log_text)
 
-    send_leverage_many_robot(launch,stream)
+    send_leverage_many_robot(launch, stream)
 
     return True
 
 def update_position_many(order, block, candle, stat, action, stream, launch, cursor, cn_pos, prev_candle):
-
+    print("update_position_many")
     leverage_up = action.get('leverage_up')
     leverage_max = action.get('leverage_max')
     leverage_down = action.get('leverage_down')
@@ -113,7 +156,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
         if stream_source == None:
             return False
 
-        many_params_source = get_many_params(stream_source, cursor, candle, launch, prev_candle)
+        many_params_source = get_many_params(stream_local, cursor, candle, launch, prev_candle)
 
         if leverage_up != None:
             leverage_condition = leverage_up
@@ -135,13 +178,15 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
 
         else:
             return False    
-
+        #print(f"{stream_local['order']['direction']=}")
+        #stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
+        #stream_local['order']['update_position_price'] = many_params_source['price_position']
         stream_local['order']['leverage'] = get_leverage_action(leverage_condition, many_params_source['leverage'], leverage_min, leverage_max, act, stream_local['order']['leverage'])
+        many_params_source = get_many_params(stream_local, cursor, candle, launch, prev_candle)
         stream_local['order']['update_position_price'] = many_params_source['price_position']
     except Exception as e:
         print(e)
         return False
-
     db_insert_position_many(stream_local, candle, many_params_source, launch, cn_pos)
     log_text = "Обновление many-позиции: time = " + str(candle['time']) + ', price = ' + str(candle['price'])
     if launch['mode'] == 'tester':
@@ -156,7 +201,7 @@ def update_position_many(order, block, candle, stat, action, stream, launch, cur
     return True
 
 def balance_position_many(launch, block, candle, stat, action, cn_pos, cursor, prev_candle):
-
+    print("balance_position_many")
     total_equity = get_total_equity()
     if total_equity == None:
         return False
@@ -186,7 +231,7 @@ def balance_position_many(launch, block, candle, stat, action, cn_pos, cursor, p
     return None #лайфхак
 
 def set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle):
-
+    #print("set_equity")
     if launch['traiding_mode'] != 'many':
         return
 
@@ -196,7 +241,7 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle):
     set_query = ""
     total_equity = 0.0
     for stream in launch['streams']:
-        
+
         order = stream['order']
         last_order = get_many_params(stream, cursor, candle, launch, prev_candle)
         equity = get_equity_many(launch, stream, prev_candle, prev_prev_candle, last_order)
@@ -221,6 +266,7 @@ def set_equity(launch, prev_candle, prev_prev_candle, stat, cursor, candle):
     prev_candle['balancing'] = launch['balancing']
 
     insert_stmt = ("UPDATE {0} SET {1}, total_equity=%s, balancing=%s, total_equity_percent=%s, total_equity_month_percent=%s where id=%s".format(launch['price_table_name'], set_query))
+    #print(f"{set_query=}")
     data = (total_equity, launch['balancing'], 
         stat['many']['total_equity_percent'],
         stat['many']['total_equity_month_percent'],
@@ -248,7 +294,7 @@ def delete_equity(launch, cursor):
     cursor.execute(insert_stmt)
 
 def set_first_position(stream, candle, launch, cn_pos):
-
+    print("set_first_position")
     if launch.get('many_metadata') == None:
         return False
 
@@ -262,8 +308,36 @@ def set_first_position(stream, candle, launch, cn_pos):
     many_params_source['price_position'] = 0
     many_params_source['size_position'] = 0
     many_params_source['price_order'] = 0
+    many_params_source['balance'] = 1
+    many_params_source['leverage'] = 0
 
     db_insert_position_many(stream, candle, many_params_source, launch, cn_pos)
+
+    """order_local = stream['order']
+    many_params = {}
+
+    many_params['balance'] = float(1)
+    many_params['leverage'] = float(0)
+    many_params['price_order'] = float(0)
+    many_params['size_order'] = float(0)
+    many_params['price_position'] = float(0)
+    many_params['size_position'] = float(0)
+    many_params['last'] = False
+    if not equity_1.start:
+        equity_1.first_start(many_params['balance'], many_params['leverage'], many_params['size_order'],
+                             many_params['price_order'], many_params['size_position'], many_params['price_position'],
+                             candle['price'])
+    params = equity_1.update(float(1), float(candle['price']))
+    print(f"{params=}")
+    params_name = (
+    'balance', 'leverage', 'size_order', 'price_order', 'size_position', 'price_position', 'close', 'pnl', 'equity_1',
+    'rpl')
+    params_dict = dict(zip(params_name, params))
+    for k in params_dict:
+        many_params[k] = params_dict[k]
+    many_params['last'] = True
+    stream['order']['leverage'] = 1
+    db_insert_position_many(stream, candle, many_params, launch, cn_pos)"""
 
     return True
 
@@ -274,10 +348,10 @@ def get_last_order(stream, cursor):
     many_params = {}
 
     #query = ("SELECT leverage, price_order, open_equity, size_order, price_position, size_position FROM positions_" + str(stream['id']) + " order by id desc LIMIT 1")
-    query = (f"SELECT leverage, price_order, size_order, price_position, size_position FROM positions_{stream['id']} order by id desc LIMIT 1")
+    query = (f"SELECT balance, leverage, price_order, size_order, price_position, size_position FROM positions_{stream['id']} order by id desc LIMIT 1")
     cursor.execute(query)
     #for (many_params['leverage'], many_params['price_order'], many_params['open_equity'], many_params['size_order'], many_params['price_position'], many_params['size_position']) in cursor:
-    for (many_params['leverage'], many_params['price_order'], many_params['size_order'], many_params['price_position'],
+    for (many_params['balance'], many_params['leverage'], many_params['price_order'], many_params['size_order'], many_params['price_position'],
          many_params['size_position']) in cursor:
         return many_params
 
@@ -285,28 +359,48 @@ def get_last_order(stream, cursor):
 
 
 def get_many_params(stream, cursor, candle, launch, prev_candle):
+    #print(f"prev_candle{prev_candle}")
+
 
     order_local = stream['order']
+    #print(f"{stream=}")
+    print(f"{candle=}{order_local['leverage']=}")
 
     many_params = get_last_order(stream, cursor)
+    direction = stream['activation_blocks'][0]['actions'][0]['direction']
+    leverage_up = float(eval(stream['algorithm_data']['blocks_data'][2][4])['actions'][0]['leverage_up'])
+    #print(f"{direction=}{leverage_up=}")
 
     if many_params == {}:
+        many_params['balance'] = float(1)
         many_params['leverage'] = float(0)
         many_params['price_order'] = float(0)
         many_params['size_order'] = float(0)
         many_params['price_position'] = float(0)
         many_params['size_position'] = float(0)
         many_params['last'] = False
-    if not equity_1.start:
-        equity_1.first_start(order_local['balance'], order_local['leverage'], many_params['size_order'],
+    if not equity_1_long.start:
+        equity_1_long.first_start(many_params['balance'], many_params['leverage'], many_params['size_order'],
                                         many_params['price_order'], many_params['size_position'], many_params['price_position'], prev_candle['close'])
-    params = equity_1.update(float(order_local['leverage']), float(prev_candle['close']))
+    if not equity_1_short.start:
+        equity_1_short.first_start(many_params['balance'], many_params['leverage'], many_params['size_order'],
+                                        many_params['price_order'], many_params['size_position'], many_params['price_position'], prev_candle['close'])
+
+    if direction == 'long':
+
+        equity_1_long.update(float(order_local['leverage']), float(prev_candle['close']))
+        params = equity_1_long.update_long()
+    elif direction == 'short':
+
+        equity_1_short.update(float(order_local['leverage']), float(prev_candle['close']))
+        params = equity_1_short.update_short()
+
     params_name = ('balance', 'leverage', 'size_order', 'price_order', 'size_position', 'price_position', 'close', 'pnl', 'equity_1', 'rpl')
     params_dict = dict(zip(params_name, params))
     for k in params_dict:
         many_params[k] = params_dict[k]
     many_params['last'] = True
-    print(f"many_params = {many_params}")
+    #print(f"many_params {many_params}")
 
     return many_params
 
@@ -473,15 +567,16 @@ def db_insert_position_many(stream, candle, many_params_source, launch, cn_pos):
 
     try:
         insert_stmt = (
-            "INSERT INTO positions_{0} (side, time_order, open_equity, price_order, leverage, size_order, price_position, size_position, type_order, blocks_id) "
+            "INSERT INTO positions_{0} (side, balance, time_order, price_order, leverage, size_order, price_position, size_position, type_order, blocks_id) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)".format(stream['id'])
         )
         data = (
-            stream['order']['direction'], 
-            candle['time'], 
-            stream['order']['equity'],
+            stream['order']['direction'],
+            many_params_source['balance'],
+            candle['time'],
             many_params_source['price_order'], 
-            stream['order']['leverage'], 
+            #stream['order']['leverage'],
+            many_params_source['leverage'],
             many_params_source['size_order'],
             many_params_source['price_position'],
             many_params_source['size_position'],
@@ -492,6 +587,7 @@ def db_insert_position_many(stream, candle, many_params_source, launch, cn_pos):
         cursor_local.execute(insert_stmt, data)
         cn_pos.commit()
         cursor_local.close()
+        print(f" {many_params_source=}{stream['order']['leverage']=}")
 
     except Exception as e:
         print(e)
